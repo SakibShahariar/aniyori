@@ -56,6 +56,7 @@ class LibraryStorage:
     def _to_entry(row: sqlite3.Row) -> AnimeEntry:
         return AnimeEntry(
             title=row["title"],
+            storage_id=row["id"],
             episodes_total=row["episodes_total"],
             episodes_watched=row["episodes_watched"],
             status=WatchStatus(row["status"]),
@@ -66,8 +67,8 @@ class LibraryStorage:
     def list_entries(self) -> list[AnimeEntry]:
         with self._connect() as connection:
             rows = connection.execute(
-                "SELECT title, episodes_total, episodes_watched, status, provider, provider_id "
-                "FROM anime ORDER BY title COLLATE NOCASE"
+                "SELECT id, title, episodes_total, episodes_watched, status, provider, provider_id "
+                "FROM anime ORDER BY title COLLATE NOCASE, id"
             ).fetchall()
         return [self._to_entry(row) for row in rows]
 
@@ -94,15 +95,21 @@ class LibraryStorage:
                 raise ValueError("This catalogue entry is already in your library.") from error
             raise
 
-    def update_progress(self, title: str, episodes_watched: int) -> bool:
-        """Update progress for a title; return False if no matching title exists."""
+    def update_progress(self, entry_id: int | str, episodes_watched: int) -> bool:
+        """Update one entry by database ID; title strings remain supported for compatibility."""
         if episodes_watched < 0:
             raise ValueError("Watched episode count cannot be negative")
         with self._connect() as connection:
-            row = connection.execute(
-                "SELECT episodes_total FROM anime WHERE title = ? COLLATE NOCASE LIMIT 1",
-                (title,),
-            ).fetchone()
+            if isinstance(entry_id, int):
+                row = connection.execute(
+                    "SELECT id, episodes_total FROM anime WHERE id = ?", (entry_id,)
+                ).fetchone()
+            else:
+                row = connection.execute(
+                    "SELECT id, episodes_total FROM anime "
+                    "WHERE title = ? COLLATE NOCASE ORDER BY id LIMIT 1",
+                    (entry_id,),
+                ).fetchone()
             if row is None:
                 return False
             total = row["episodes_total"]
@@ -113,20 +120,23 @@ class LibraryStorage:
                 """
                 UPDATE anime
                 SET episodes_watched = ?, status = ?, updated_at = CURRENT_TIMESTAMP
-                WHERE id = (
-                    SELECT id FROM anime WHERE title = ? COLLATE NOCASE ORDER BY id LIMIT 1
-                )
+                WHERE id = ?
                 """,
-                (episodes_watched, status, title),
+                (episodes_watched, status, row["id"]),
             )
             return True
 
-    def remove(self, title: str) -> bool:
+    def remove(self, entry_id: int | str) -> bool:
+        """Remove one entry by database ID; title strings remain supported."""
         with self._connect() as connection:
-            cursor = connection.execute(
-                "DELETE FROM anime WHERE id = (SELECT id FROM anime WHERE title = ? COLLATE NOCASE ORDER BY id LIMIT 1)",
-                (title,),
-            )
+            if isinstance(entry_id, int):
+                cursor = connection.execute("DELETE FROM anime WHERE id = ?", (entry_id,))
+            else:
+                cursor = connection.execute(
+                    "DELETE FROM anime WHERE id = (SELECT id FROM anime "
+                    "WHERE title = ? COLLATE NOCASE ORDER BY id LIMIT 1)",
+                    (entry_id,),
+                )
             return cursor.rowcount > 0
 
     def replace_all(self, entries: Iterable[AnimeEntry]) -> None:
