@@ -43,6 +43,18 @@ class LibraryStorageTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.storage.update_progress("Example Anime", 5)
 
+    def test_duplicate_provider_entry_is_rejected(self):
+        entry = AnimeEntry(title="Example Anime", provider="anilist", provider_id="21")
+        self.storage.add(entry)
+        with self.assertRaisesRegex(ValueError, "already in your library"):
+            self.storage.add(entry)
+
+    def test_manual_duplicate_titles_are_allowed(self):
+        entry = AnimeEntry(title="Example Anime")
+        self.storage.add(entry)
+        self.storage.add(entry)
+        self.assertEqual(len(self.storage.list_entries()), 2)
+
     def test_remove(self):
         self.storage.add(AnimeEntry(title="Example Anime"))
         self.assertTrue(self.storage.remove("Example Anime"))
