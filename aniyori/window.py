@@ -1,12 +1,15 @@
 """Main library window for Aniyori."""
 
+import threading
+
 import gi
 
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
-from gi.repository import Adw, Gio, Gtk
+from gi.repository import Adw, Gio, GLib, Gtk
 
 from .models import AnimeEntry, WatchStatus
+from .services.anilist import AniListClient, AniListError
 from .storage import LibraryStorage
 
 
@@ -276,17 +279,84 @@ class AniyoriWindow(Adw.ApplicationWindow):
     def _show_add_dialog(self, _button):
         dialog = Adw.AlertDialog(
             heading="Add anime",
-            body="Add an entry to your local library. Online search will be added with AniList support.",
+            body="Search AniList to fill in catalogue details, or enter a title manually.",
         )
         content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
         title_entry = Gtk.Entry()
         title_entry.set_placeholder_text("Anime title")
         content.append(title_entry)
 
+        catalogue_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        catalogue_search = Gtk.Entry()
+        catalogue_search.set_placeholder_text("Search AniList catalogue")
+        catalogue_search.set_hexpand(True)
+        catalogue_row.append(catalogue_search)
+        catalogue_button = Gtk.Button(label="Search")
+        catalogue_row.append(catalogue_button)
+        content.append(catalogue_row)
+
+        catalogue_model = Gtk.StringList.new(["Search results will appear here"])
+        catalogue_dropdown = Gtk.DropDown(model=catalogue_model)
+        catalogue_dropdown.set_sensitive(False)
+        content.append(catalogue_dropdown)
+        catalogue_state = {"results": [], "selected": None}
+
         total_entry = Gtk.Entry()
         total_entry.set_placeholder_text("Total episodes (optional)")
         total_entry.set_input_purpose(Gtk.InputPurpose.DIGITS)
         content.append(total_entry)
+
+        def select_catalogue_result(dropdown, _property):
+            index = dropdown.get_selected()
+            results = catalogue_state["results"]
+            if index >= len(results):
+                return
+            item = results[index]
+            catalogue_state["selected"] = item
+            title_entry.set_text(item["title"])
+            total_entry.set_text(str(item["episodes"]) if item["episodes"] is not None else "")
+
+        def apply_catalogue_results(results):
+            catalogue_state["results"] = results
+            catalogue_state["selected"] = None
+            labels = [
+                "{} · {} eps".format(item["title"], item["episodes"] if item["episodes"] else "unknown")
+                for item in results
+            ] or ["No results found"]
+            catalogue_dropdown.set_model(Gtk.StringList.new(labels))
+            catalogue_dropdown.set_sensitive(bool(results))
+            catalogue_button.set_sensitive(True)
+            catalogue_button.set_label("Search")
+            if results:
+                catalogue_dropdown.set_selected(0)
+                select_catalogue_result(catalogue_dropdown, None)
+            else:
+                self.toast_overlay.add_toast(Adw.Toast.new("No AniList results found."))
+
+        def show_catalogue_error(message):
+            catalogue_button.set_sensitive(True)
+            catalogue_button.set_label("Search")
+            self.toast_overlay.add_toast(Adw.Toast.new("AniList search failed: " + message))
+
+        def start_catalogue_search(_button):
+            query = catalogue_search.get_text().strip()
+            if not query:
+                self.toast_overlay.add_toast(Adw.Toast.new("Enter a title to search AniList."))
+                return
+            catalogue_button.set_sensitive(False)
+            catalogue_button.set_label("Searching…")
+
+            def worker():
+                try:
+                    results = AniListClient().search_anime(query)
+                    GLib.idle_add(apply_catalogue_results, results)
+                except AniListError as error:
+                    GLib.idle_add(show_catalogue_error, str(error))
+
+            threading.Thread(target=worker, daemon=True).start()
+
+        catalogue_button.connect("clicked", start_catalogue_search)
+        catalogue_dropdown.connect("notify::selected", select_catalogue_result)
 
         status_model = Gtk.StringList.new(["Planning", "Watching", "Completed", "Paused", "Dropped"])
         status_dropdown = Gtk.DropDown(model=status_model)
@@ -332,6 +402,11 @@ class AniyoriWindow(Adw.ApplicationWindow):
                 episodes_total=total,
                 episodes_watched=watched,
                 status=status,
+                provider="anilist" if catalogue_state["selected"] else None,
+                provider_id=(
+                    str(catalogue_state["selected"]["id"])
+                    if catalogue_state["selected"] else None
+                ),
             )
         except (ValueError, IndexError):
             self.toast_overlay.add_toast(Adw.Toast.new("Check the episode count and try again."))
