@@ -109,10 +109,17 @@ class AnimeCard(Gtk.Box):
         next_button.connect("clicked", lambda _button: on_progress(entry))
         self.append(next_button)
 
+        actions = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        actions.set_halign(Gtk.Align.CENTER)
+        edit_button = Gtk.Button.new_from_icon_name("document-edit-symbolic")
+        edit_button.set_tooltip_text("Edit anime details")
+        edit_button.connect("clicked", lambda _button: on_edit(entry))
+        actions.append(edit_button)
         remove_button = Gtk.Button.new_from_icon_name("user-trash-symbolic")
         remove_button.set_tooltip_text("Remove anime from library")
         remove_button.connect("clicked", lambda _button: on_remove(entry))
-        self.append(remove_button)
+        actions.append(remove_button)
+        self.append(actions)
 
 
 class AniyoriWindow(Adw.ApplicationWindow):
