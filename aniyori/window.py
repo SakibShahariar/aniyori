@@ -135,8 +135,6 @@ class AniyoriWindow(Adw.ApplicationWindow):
             button.connect("toggled", self._on_filter_toggled, key)
             toolbar.append(button)
             self.filter_buttons[key] = button
-        self.filter_buttons["all"].set_active(True)
-
         spacer = Gtk.Box()
         spacer.set_hexpand(True)
         toolbar.append(spacer)
@@ -205,6 +203,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
         self.empty_state.append(empty_add)
 
         self._render_library()
+        self.filter_buttons["all"].set_active(True)
 
     def _on_filter_toggled(self, button, key):
         if not button.get_active():
