@@ -7,13 +7,14 @@ gi.require_version("Adw", "1")
 from gi.repository import Adw, Gio, Gtk
 
 from .models import AnimeEntry, WatchStatus
+from .storage import LibraryStorage
 
 
 APP_ID = "io.github.sakibshahariar.Aniyori"
 
 
 class AnimeRow(Gtk.Box):
-    def __init__(self, entry: AnimeEntry):
+    def __init__(self, entry: AnimeEntry, on_progress):
         super().__init__(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
         self.set_margin_top(10)
         self.set_margin_bottom(10)
@@ -49,9 +50,15 @@ class AnimeRow(Gtk.Box):
             progress.set_size_request(100, -1)
             self.append(progress)
 
+        next_button = Gtk.Button(label="+1")
+        next_button.set_tooltip_text("Mark one more episode watched")
+        next_button.set_valign(Gtk.Align.CENTER)
+        next_button.connect("clicked", lambda _button: on_progress(entry))
+        self.append(next_button)
+
 
 class AnimeCard(Gtk.Box):
-    def __init__(self, entry: AnimeEntry):
+    def __init__(self, entry: AnimeEntry, on_progress):
         super().__init__(orientation=Gtk.Orientation.VERTICAL, spacing=10)
         self.set_size_request(180, 180)
         self.set_margin_top(12)
@@ -84,6 +91,11 @@ class AnimeCard(Gtk.Box):
             progress.set_margin_end(12)
             self.append(progress)
 
+        next_button = Gtk.Button(label="+1 episode")
+        next_button.set_halign(Gtk.Align.CENTER)
+        next_button.connect("clicked", lambda _button: on_progress(entry))
+        self.append(next_button)
+
 
 class AniyoriWindow(Adw.ApplicationWindow):
     def __init__(self, **kwargs):
@@ -91,7 +103,8 @@ class AniyoriWindow(Adw.ApplicationWindow):
         self.set_title("Aniyori")
         self.set_default_size(1050, 720)
         self.set_size_request(600, 440)
-        self.entries: list[AnimeEntry] = []
+        self.storage = LibraryStorage()
+        self.entries: list[AnimeEntry] = self.storage.list_entries()
         self.current_filter = "all"
 
         root = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
@@ -236,8 +249,8 @@ class AniyoriWindow(Adw.ApplicationWindow):
         ]
 
         for entry in visible:
-            self.list_box.append(AnimeRow(entry))
-            self.grid_flow.insert(AnimeCard(entry), -1)
+            self.list_box.append(AnimeRow(entry, self._increment_progress))
+            self.grid_flow.insert(AnimeCard(entry, self._increment_progress), -1)
 
         if not visible:
             if self.empty_state.get_parent() is None:
@@ -245,6 +258,20 @@ class AniyoriWindow(Adw.ApplicationWindow):
             self.stack.set_visible_child_name("empty")
         else:
             self.stack.set_visible_child_name("grid" if self.view_switch.get_active() else "list")
+
+    def _increment_progress(self, entry: AnimeEntry):
+        if entry.episodes_total is not None and entry.episodes_watched >= entry.episodes_total:
+            self.toast_overlay.add_toast(Adw.Toast.new("All known episodes are already marked watched."))
+            return
+        try:
+            updated = self.storage.update_progress(entry.title, entry.episodes_watched + 1)
+        except ValueError as error:
+            self.toast_overlay.add_toast(Adw.Toast.new(str(error)))
+            return
+        if updated:
+            self.entries = self.storage.list_entries()
+            self._render_library()
+            self.toast_overlay.add_toast(Adw.Toast.new(f"Progress updated: {entry.title}"))
 
     def _show_add_dialog(self, _button):
         dialog = Adw.AlertDialog(
@@ -310,7 +337,12 @@ class AniyoriWindow(Adw.ApplicationWindow):
             self.toast_overlay.add_toast(Adw.Toast.new("Check the episode count and try again."))
             return
 
-        self.entries.append(entry)
+        try:
+            self.storage.add(entry)
+        except Exception as error:
+            self.toast_overlay.add_toast(Adw.Toast.new(f"Could not save anime: {error}"))
+            return
+        self.entries = self.storage.list_entries()
         self.current_filter = "all"
         self.filter_buttons["all"].set_active(True)
         self.search.set_text("")
