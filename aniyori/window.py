@@ -17,7 +17,7 @@ APP_ID = "io.github.sakibshahariar.Aniyori"
 
 
 class AnimeRow(Gtk.Box):
-    def __init__(self, entry: AnimeEntry, on_progress, on_remove):
+    def __init__(self, entry: AnimeEntry, on_progress, on_remove, on_edit):
         super().__init__(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
         self.set_margin_top(10)
         self.set_margin_bottom(10)
@@ -58,6 +58,11 @@ class AnimeRow(Gtk.Box):
         next_button.set_valign(Gtk.Align.CENTER)
         next_button.connect("clicked", lambda _button: on_progress(entry))
         self.append(next_button)
+
+        edit_button = Gtk.Button.new_from_icon_name("document-edit-symbolic")
+        edit_button.set_tooltip_text("Edit anime details")
+        edit_button.connect("clicked", lambda _button: on_edit(entry))
+        self.append(edit_button)
 
         remove_button = Gtk.Button.new_from_icon_name("user-trash-symbolic")
         remove_button.set_tooltip_text("Remove anime from library")
@@ -263,10 +268,10 @@ class AniyoriWindow(Adw.ApplicationWindow):
 
         for entry in visible:
             self.list_box.append(
-                AnimeRow(entry, self._increment_progress, self._confirm_remove_entry)
+                AnimeRow(entry, self._increment_progress, self._confirm_remove_entry, self._show_edit_dialog)
             )
             self.grid_flow.insert(
-                AnimeCard(entry, self._increment_progress, self._confirm_remove_entry), -1
+                AnimeCard(entry, self._increment_progress, self._confirm_remove_entry, self._show_edit_dialog), -1
             )
 
         if not visible:
@@ -289,6 +294,74 @@ class AniyoriWindow(Adw.ApplicationWindow):
             self.entries = self.storage.list_entries()
             self._render_library()
             self.toast_overlay.add_toast(Adw.Toast.new(f"Progress updated: {entry.title}"))
+
+    def _show_edit_dialog(self, entry: AnimeEntry):
+        dialog = Adw.AlertDialog(
+            heading="Edit anime",
+            body="Update the title, episode counts, and library status.",
+        )
+        content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
+        title_entry = Gtk.Entry(text=entry.title)
+        title_entry.set_placeholder_text("Anime title")
+        content.append(title_entry)
+        total_entry = Gtk.Entry(text="" if entry.episodes_total is None else str(entry.episodes_total))
+        total_entry.set_placeholder_text("Total episodes (optional)")
+        total_entry.set_input_purpose(Gtk.InputPurpose.DIGITS)
+        content.append(total_entry)
+        watched_entry = Gtk.Entry(text=str(entry.episodes_watched))
+        watched_entry.set_placeholder_text("Episodes watched")
+        watched_entry.set_input_purpose(Gtk.InputPurpose.DIGITS)
+        content.append(watched_entry)
+        statuses = [WatchStatus.PLANNING, WatchStatus.WATCHING, WatchStatus.COMPLETED,
+                    WatchStatus.PAUSED, WatchStatus.DROPPED]
+        status_dropdown = Gtk.DropDown(model=Gtk.StringList.new(
+            [status.value.title() for status in statuses]
+        ))
+        status_dropdown.set_selected(statuses.index(entry.status))
+        content.append(status_dropdown)
+        dialog.set_extra_child(content)
+        dialog.add_response("cancel", "Cancel")
+        dialog.add_response("save", "Save changes")
+        dialog.set_response_appearance("save", Adw.ResponseAppearance.SUGGESTED)
+        dialog.set_default_response("save")
+        dialog.set_close_response("cancel")
+        dialog.choose(self, None, self._on_edit_response,
+                      (entry, title_entry, total_entry, watched_entry, status_dropdown, statuses))
+
+    def _on_edit_response(self, dialog, result, widgets):
+        try:
+            response = dialog.choose_finish(result)
+        except Exception:
+            return
+        if response != "save":
+            return
+        original, title_entry, total_entry, watched_entry, status_dropdown, statuses = widgets
+        try:
+            title = title_entry.get_text().strip()
+            total_text = total_entry.get_text().strip()
+            total = int(total_text) if total_text else None
+            watched = int(watched_entry.get_text().strip())
+            status = statuses[status_dropdown.get_selected()]
+            if not title:
+                raise ValueError("Anime title must not be empty.")
+            if total is not None and total < 0:
+                raise ValueError("Total episode count cannot be negative.")
+            if watched < 0 or (total is not None and watched > total):
+                raise ValueError("Watched episodes must be between zero and the total.")
+            if status == WatchStatus.COMPLETED and total is not None:
+                watched = total
+            edited = AnimeEntry(title=title, episodes_total=total, episodes_watched=watched,
+                                status=status, provider=original.provider,
+                                provider_id=original.provider_id, storage_id=original.storage_id)
+            if not self.storage.update_entry(edited):
+                self.toast_overlay.add_toast(Adw.Toast.new("That anime no longer exists."))
+                return
+        except (ValueError, IndexError) as error:
+            self.toast_overlay.add_toast(Adw.Toast.new(str(error) or "Check the entered values."))
+            return
+        self.entries = self.storage.list_entries()
+        self._render_library()
+        self.toast_overlay.add_toast(Adw.Toast.new(f"Updated {edited.title}."))
 
     def _confirm_remove_entry(self, entry: AnimeEntry):
         dialog = Adw.AlertDialog(
