@@ -1,5 +1,6 @@
 """Tests for editing stored anime entries."""
 
+import sqlite3
 import tempfile
 import unittest
 from pathlib import Path
@@ -53,6 +54,47 @@ class UpdateEntryTests(unittest.TestCase):
         unchanged = {entry.storage_id: entry for entry in self.storage.list_entries()}
         self.assertEqual(unchanged[first.storage_id].title, "First")
         self.assertEqual(unchanged[second.storage_id].title, "Second")
+
+
+    def test_edit_does_not_mask_unrelated_integrity_errors(self):
+        self.storage.add(AnimeEntry(title="Existing", provider="anilist", provider_id="303"))
+        entry = self.storage.list_entries()[0]
+        edited = AnimeEntry(
+            title="Edited",
+            provider="anilist",
+            provider_id="303",
+            storage_id=entry.storage_id,
+        )
+        with sqlite3.connect(self.storage.path) as connection:
+            connection.execute(
+                """
+                CREATE TRIGGER reject_anime_update
+                BEFORE UPDATE ON anime
+                BEGIN
+                    SELECT RAISE(ABORT, 'forced integrity failure');
+                END
+                """
+            )
+
+        with self.assertRaisesRegex(sqlite3.IntegrityError, "forced integrity failure"):
+            self.storage.update_entry(edited)
+
+    def test_add_does_not_mask_unrelated_integrity_errors(self):
+        with sqlite3.connect(self.storage.path) as connection:
+            connection.execute(
+                """
+                CREATE TRIGGER reject_anime_insert
+                BEFORE INSERT ON anime
+                BEGIN
+                    SELECT RAISE(ABORT, 'forced integrity failure');
+                END
+                """
+            )
+
+        with self.assertRaisesRegex(sqlite3.IntegrityError, "forced integrity failure"):
+            self.storage.add(
+                AnimeEntry(title="New", provider="anilist", provider_id="404")
+            )
 
     def test_edit_requires_stored_id(self):
         with self.assertRaisesRegex(ValueError, "storage ID"):

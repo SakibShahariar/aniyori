@@ -20,6 +20,11 @@ def default_database_path() -> Path:
 class LibraryStorage:
     """Store the local library in a small SQLite database."""
 
+    @staticmethod
+    def _is_duplicate_catalogue_error(error: sqlite3.IntegrityError) -> bool:
+        """Identify only the catalogue identity constraint, not all DB integrity errors."""
+        return "UNIQUE constraint failed: anime.provider, anime.provider_id" in str(error)
+
     def __init__(self, database_path: str | Path | None = None):
         self.path = Path(database_path) if database_path else default_database_path()
         self.path.parent.mkdir(parents=True, exist_ok=True)
@@ -91,7 +96,7 @@ class LibraryStorage:
                     ),
                 )
         except sqlite3.IntegrityError as error:
-            if entry.provider and entry.provider_id:
+            if self._is_duplicate_catalogue_error(error):
                 raise ValueError("This catalogue entry is already in your library.") from error
             raise
 
