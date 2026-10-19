@@ -220,10 +220,14 @@ class AniyoriWindow(Adw.ApplicationWindow):
         button.set_label("List" if button.get_active() else "Grid")
 
     def _render_library(self, *_args):
-        for child in list(self.list_box):
+        child = self.list_box.get_first_child()
+        while child is not None:
             self.list_box.remove(child)
-        for child in list(self.grid_flow):
+            child = self.list_box.get_first_child()
+        child = self.grid_flow.get_first_child()
+        while child is not None:
             self.grid_flow.remove(child)
+            child = self.grid_flow.get_first_child()
 
         query = self.search.get_text().strip().casefold() if hasattr(self, "search") else ""
         visible = [
@@ -237,7 +241,6 @@ class AniyoriWindow(Adw.ApplicationWindow):
             self.grid_flow.insert(AnimeCard(entry), -1)
 
         if not visible:
-            self.stack.set_visible_child(self.empty_state)
             if self.empty_state.get_parent() is None:
                 self.stack.add_named(self.empty_state, "empty")
             self.stack.set_visible_child_name("empty")
