@@ -223,22 +223,22 @@ class AniyoriWindow(Adw.ApplicationWindow):
         empty_icon.set_pixel_size(48)
         empty_icon.add_css_class("dim-label")
         self.empty_state.append(empty_icon)
-        empty_title = Gtk.Label(label="Your library is empty")
-        empty_title.add_css_class("title-2")
-        self.empty_state.append(empty_title)
-        empty_description = Gtk.Label(
-            label="Add an anime manually for now. AniList sync will arrive in a later milestone.",
+        self.empty_title = Gtk.Label(label="Your library is empty")
+        self.empty_title.add_css_class("title-2")
+        self.empty_state.append(self.empty_title)
+        self.empty_description = Gtk.Label(
+            label="Add an anime manually for now, or search the AniList catalogue.",
             wrap=True,
             justify=Gtk.Justification.CENTER,
         )
-        empty_description.set_max_width_chars(52)
-        empty_description.add_css_class("dim-label")
-        self.empty_state.append(empty_description)
-        empty_add = Gtk.Button(label="Add anime")
-        empty_add.add_css_class("suggested-action")
-        empty_add.set_halign(Gtk.Align.CENTER)
-        empty_add.connect("clicked", self._show_add_dialog)
-        self.empty_state.append(empty_add)
+        self.empty_description.set_max_width_chars(52)
+        self.empty_description.add_css_class("dim-label")
+        self.empty_state.append(self.empty_description)
+        self.empty_add = Gtk.Button(label="Add anime")
+        self.empty_add.add_css_class("suggested-action")
+        self.empty_add.set_halign(Gtk.Align.CENTER)
+        self.empty_add.connect("clicked", self._show_add_dialog)
+        self.empty_state.append(self.empty_add)
 
         self._render_library()
         self.filter_buttons["all"].set_active(True)
@@ -282,6 +282,18 @@ class AniyoriWindow(Adw.ApplicationWindow):
             )
 
         if not visible:
+            if not self.entries:
+                self.empty_title.set_label("Your library is empty")
+                self.empty_description.set_label(
+                    "Add an anime manually, or search the AniList catalogue to get started."
+                )
+                self.empty_add.set_visible(True)
+            else:
+                self.empty_title.set_label("No matching anime")
+                self.empty_description.set_label(
+                    "Try a different search or choose another status filter."
+                )
+                self.empty_add.set_visible(False)
             if self.empty_state.get_parent() is None:
                 self.stack.add_named(self.empty_state, "empty")
             self.stack.set_visible_child_name("empty")
