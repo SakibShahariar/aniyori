@@ -13,7 +13,7 @@ A native Linux anime tracker built with Python, GTK 4, PyGObject, and libadwaita
 
 ## Development status
 
-**Early development.** The GTK/libadwaita application shell, initial library list/grid UI, SQLite storage layer, and basic unit tests are in place. AniList integration is still planned and has not been implemented yet.
+**Early development.** The GTK/libadwaita library UI, SQLite storage, offline unit tests, and a public AniList catalogue client are in place. The Add Anime dialog can search AniList and prefill the title and episode count. Authenticated account access and library sync are not implemented yet.
 
 ## Current library features
 
@@ -23,7 +23,7 @@ A native Linux anime tracker built with Python, GTK 4, PyGObject, and libadwaita
 - Mark one additional episode watched using the `+1` controls.
 - Store local entries in SQLite under `$XDG_DATA_HOME/aniyori/library.sqlite3`, falling back to `~/.local/share/aniyori/library.sqlite3`.
 
-The current library is local-only. It does not yet sync with AniList, and the interface has not yet been verified on a Linux desktop.
+Library entries are stored locally. Public catalogue search is available, but user-list import/sync is not implemented. The interface still needs a launch and interaction test on a Linux desktop.
 
 ## Requirements
 
@@ -55,7 +55,8 @@ python3 main.py
 
 - [ ] Milestone 1: GTK/libadwaita application shell
 - [ ] Milestone 2: Navigation and library empty state
-- [ ] Milestone 3: AniList authentication and API client
-- [ ] Milestone 4: Search, library sync, and progress updates
+- [x] Milestone 3a: Public AniList catalogue client and Add Anime search
+- [ ] Milestone 3b: AniList authentication and account access
+- [ ] Milestone 4: Library import/sync and progress updates
 - [ ] Milestone 5: Settings, preferences, and background tracking
 - [ ] Milestone 6: Packaging and release workflow
