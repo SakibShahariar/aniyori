@@ -17,7 +17,7 @@ APP_ID = "io.github.sakibshahariar.Aniyori"
 
 
 class AnimeRow(Gtk.Box):
-    def __init__(self, entry: AnimeEntry, on_progress):
+    def __init__(self, entry: AnimeEntry, on_progress, on_remove):
         super().__init__(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
         self.set_margin_top(10)
         self.set_margin_bottom(10)
@@ -59,9 +59,14 @@ class AnimeRow(Gtk.Box):
         next_button.connect("clicked", lambda _button: on_progress(entry))
         self.append(next_button)
 
+        remove_button = Gtk.Button.new_from_icon_name("user-trash-symbolic")
+        remove_button.set_tooltip_text("Remove anime from library")
+        remove_button.connect("clicked", lambda _button: on_remove(entry))
+        self.append(remove_button)
+
 
 class AnimeCard(Gtk.Box):
-    def __init__(self, entry: AnimeEntry, on_progress):
+    def __init__(self, entry: AnimeEntry, on_progress, on_remove):
         super().__init__(orientation=Gtk.Orientation.VERTICAL, spacing=10)
         self.set_size_request(180, 180)
         self.set_margin_top(12)
@@ -98,6 +103,11 @@ class AnimeCard(Gtk.Box):
         next_button.set_halign(Gtk.Align.CENTER)
         next_button.connect("clicked", lambda _button: on_progress(entry))
         self.append(next_button)
+
+        remove_button = Gtk.Button.new_from_icon_name("user-trash-symbolic")
+        remove_button.set_tooltip_text("Remove anime from library")
+        remove_button.connect("clicked", lambda _button: on_remove(entry))
+        self.append(remove_button)
 
 
 class AniyoriWindow(Adw.ApplicationWindow):
@@ -252,8 +262,12 @@ class AniyoriWindow(Adw.ApplicationWindow):
         ]
 
         for entry in visible:
-            self.list_box.append(AnimeRow(entry, self._increment_progress))
-            self.grid_flow.insert(AnimeCard(entry, self._increment_progress), -1)
+            self.list_box.append(
+                AnimeRow(entry, self._increment_progress, self._confirm_remove_entry)
+            )
+            self.grid_flow.insert(
+                AnimeCard(entry, self._increment_progress, self._confirm_remove_entry), -1
+            )
 
         if not visible:
             if self.empty_state.get_parent() is None:
@@ -275,6 +289,33 @@ class AniyoriWindow(Adw.ApplicationWindow):
             self.entries = self.storage.list_entries()
             self._render_library()
             self.toast_overlay.add_toast(Adw.Toast.new(f"Progress updated: {entry.title}"))
+
+    def _confirm_remove_entry(self, entry: AnimeEntry):
+        dialog = Adw.AlertDialog(
+            heading="Remove anime?",
+            body=f"Remove ‘{entry.title}’ from your local library? This cannot be undone.",
+        )
+        dialog.add_response("cancel", "Cancel")
+        dialog.add_response("remove", "Remove")
+        dialog.set_response_appearance("remove", Adw.ResponseAppearance.DESTRUCTIVE)
+        dialog.set_default_response("cancel")
+        dialog.set_close_response("cancel")
+        dialog.choose(self, None, self._on_remove_response, entry)
+
+    def _on_remove_response(self, dialog, result, entry: AnimeEntry):
+        try:
+            response = dialog.choose_finish(result)
+        except Exception:
+            return
+        if response != "remove":
+            return
+        entry_id = entry.storage_id if entry.storage_id is not None else entry.title
+        if not self.storage.remove(entry_id):
+            self.toast_overlay.add_toast(Adw.Toast.new("That anime was already removed."))
+            return
+        self.entries = self.storage.list_entries()
+        self._render_library()
+        self.toast_overlay.add_toast(Adw.Toast.new(f"Removed {entry.title}."))
 
     def _show_add_dialog(self, _button):
         dialog = Adw.AlertDialog(
