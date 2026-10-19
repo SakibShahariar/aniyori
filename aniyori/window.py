@@ -368,7 +368,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
         dialog.set_response_appearance("add", Adw.ResponseAppearance.SUGGESTED)
         dialog.set_default_response("add")
         dialog.set_close_response("cancel")
-        dialog.choose(self, None, self._on_add_response, (title_entry, total_entry, status_dropdown))
+        dialog.choose(self, None, self._on_add_response, (title_entry, total_entry, status_dropdown, catalogue_state))
 
     def _on_add_response(self, dialog, result, widgets):
         try:
@@ -378,7 +378,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
         if response != "add":
             return
 
-        title_entry, total_entry, status_dropdown = widgets
+        title_entry, total_entry, status_dropdown, catalogue_state = widgets
         title = title_entry.get_text().strip()
         if not title:
             self.toast_overlay.add_toast(Adw.Toast.new("Enter an anime title first."))
