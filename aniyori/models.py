@@ -1,6 +1,6 @@
 """Small, UI-independent data models used by Aniyori."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
 
 
@@ -26,6 +26,7 @@ class AnimeEntry:
     status: WatchStatus = WatchStatus.PLANNING
     provider: str | None = None
     provider_id: str | None = None
+    storage_id: int | None = field(default=None, compare=False, repr=False)
 
     def __post_init__(self) -> None:
         if not self.title.strip():
