@@ -422,6 +422,13 @@ class AniyoriWindow(Adw.ApplicationWindow):
         content.append(catalogue_dropdown)
         catalogue_state = {"results": [], "selected": None}
 
+        def clear_catalogue_selection_if_title_changed(entry_widget):
+            selected = catalogue_state["selected"]
+            if selected and entry_widget.get_text() != selected["title"]:
+                catalogue_state["selected"] = None
+
+        title_entry.connect("changed", clear_catalogue_selection_if_title_changed)
+
         total_entry = Gtk.Entry()
         total_entry.set_placeholder_text("Total episodes (optional)")
         total_entry.set_input_purpose(Gtk.InputPurpose.DIGITS)
