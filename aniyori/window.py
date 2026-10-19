@@ -267,7 +267,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
             self.toast_overlay.add_toast(Adw.Toast.new("All known episodes are already marked watched."))
             return
         try:
-            updated = self.storage.update_progress(entry.title, entry.episodes_watched + 1)
+            updated = self.storage.update_progress(entry.storage_id if entry.storage_id is not None else entry.title, entry.episodes_watched + 1)
         except ValueError as error:
             self.toast_overlay.add_toast(Adw.Toast.new(str(error)))
             return
