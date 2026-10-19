@@ -129,7 +129,7 @@ class LibraryStorage:
     def update_entry(self, entry: AnimeEntry) -> bool:
         """Update editable fields for an existing entry identified by storage_id."""
         if entry.storage_id is None:
-            raise ValueError("A stored entry ID is required to edit an anime.")
+            raise ValueError("A storage ID is required to edit an anime.")
         try:
             with self._connect() as connection:
                 cursor = connection.execute(
