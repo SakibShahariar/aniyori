@@ -72,22 +72,27 @@ class LibraryStorage:
         return [self._to_entry(row) for row in rows]
 
     def add(self, entry: AnimeEntry) -> None:
-        with self._connect() as connection:
-            connection.execute(
-                """
-                INSERT INTO anime
-                    (title, episodes_total, episodes_watched, status, provider, provider_id)
-                VALUES (?, ?, ?, ?, ?, ?)
-                """,
-                (
-                    entry.title.strip(),
-                    entry.episodes_total,
-                    entry.episodes_watched,
-                    entry.status.value,
-                    entry.provider,
-                    entry.provider_id,
-                ),
-            )
+        try:
+            with self._connect() as connection:
+                connection.execute(
+                    """
+                    INSERT INTO anime
+                        (title, episodes_total, episodes_watched, status, provider, provider_id)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        entry.title.strip(),
+                        entry.episodes_total,
+                        entry.episodes_watched,
+                        entry.status.value,
+                        entry.provider,
+                        entry.provider_id,
+                    ),
+                )
+        except sqlite3.IntegrityError as error:
+            if entry.provider and entry.provider_id:
+                raise ValueError("This catalogue entry is already in your library.") from error
+            raise
 
     def update_progress(self, title: str, episodes_watched: int) -> bool:
         """Update progress for a title; return False if no matching title exists."""
