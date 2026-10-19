@@ -352,6 +352,11 @@ class AniyoriWindow(Adw.ApplicationWindow):
                     GLib.idle_add(apply_catalogue_results, results)
                 except AniListError as error:
                     GLib.idle_add(show_catalogue_error, str(error))
+                except Exception:
+                    GLib.idle_add(
+                        show_catalogue_error,
+                        "An unexpected error occurred. Please try again.",
+                    )
 
             threading.Thread(target=worker, daemon=True).start()
 
