@@ -130,18 +130,23 @@ class LibraryStorage:
         """Update editable fields for an existing entry identified by storage_id."""
         if entry.storage_id is None:
             raise ValueError("A stored entry ID is required to edit an anime.")
-        with self._connect() as connection:
-            cursor = connection.execute(
-                """
-                UPDATE anime
-                SET title = ?, episodes_total = ?, episodes_watched = ?, status = ?,
-                    provider = ?, provider_id = ?, updated_at = CURRENT_TIMESTAMP
-                WHERE id = ?
-                """,
-                (entry.title.strip(), entry.episodes_total, entry.episodes_watched,
-                 entry.status.value, entry.provider, entry.provider_id, entry.storage_id),
-            )
-            return cursor.rowcount > 0
+        try:
+            with self._connect() as connection:
+                cursor = connection.execute(
+                    """
+                    UPDATE anime
+                    SET title = ?, episodes_total = ?, episodes_watched = ?, status = ?,
+                        provider = ?, provider_id = ?, updated_at = CURRENT_TIMESTAMP
+                    WHERE id = ?
+                    """,
+                    (entry.title.strip(), entry.episodes_total, entry.episodes_watched,
+                     entry.status.value, entry.provider, entry.provider_id, entry.storage_id),
+                )
+                return cursor.rowcount > 0
+        except sqlite3.IntegrityError as error:
+            if entry.provider and entry.provider_id:
+                raise ValueError("This catalogue entry is already in your library.") from error
+            raise
 
     def remove(self, entry_id: int | str) -> bool:
         """Remove one entry by database ID; title strings remain supported."""
