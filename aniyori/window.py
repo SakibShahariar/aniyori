@@ -71,7 +71,7 @@ class AnimeRow(Gtk.Box):
 
 
 class AnimeCard(Gtk.Box):
-    def __init__(self, entry: AnimeEntry, on_progress, on_remove):
+    def __init__(self, entry: AnimeEntry, on_progress, on_remove, on_edit):
         super().__init__(orientation=Gtk.Orientation.VERTICAL, spacing=10)
         self.set_size_request(180, 180)
         self.set_margin_top(12)
