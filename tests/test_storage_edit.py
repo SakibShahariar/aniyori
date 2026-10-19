@@ -36,6 +36,24 @@ class UpdateEntryTests(unittest.TestCase):
         self.assertEqual(renamed.title, "Renamed")
         self.assertEqual(renamed.episodes_watched, 5)
 
+    def test_edit_rejects_duplicate_catalogue_identity(self):
+        self.storage.add(AnimeEntry(title="First", provider="anilist", provider_id="101"))
+        self.storage.add(AnimeEntry(title="Second", provider="anilist", provider_id="202"))
+        first, second = self.storage.list_entries()
+        edited = AnimeEntry(
+            title="Second",
+            provider="anilist",
+            provider_id="202",
+            storage_id=first.storage_id,
+        )
+
+        with self.assertRaisesRegex(ValueError, "already in your library"):
+            self.storage.update_entry(edited)
+
+        unchanged = {entry.storage_id: entry for entry in self.storage.list_entries()}
+        self.assertEqual(unchanged[first.storage_id].title, "First")
+        self.assertEqual(unchanged[second.storage_id].title, "Second")
+
     def test_edit_requires_stored_id(self):
         with self.assertRaisesRegex(ValueError, "storage ID"):
             self.storage.update_entry(AnimeEntry(title="Not stored"))
