@@ -8,15 +8,13 @@ import gi
 
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
-from gi.repository import Adw, Gio, GLib, Gtk
+from gi.repository import Adw, GLib, Gtk
 
 from .models import AnimeEntry, WatchStatus, parse_episode_count
 from .search import SearchGeneration
 from .services.anilist import AniListClient, AniListError
 from .storage import LibraryStorage
 
-
-APP_ID = "io.github.sakibshahariar.Aniyori"
 LOGGER = logging.getLogger(__name__)
 
 
@@ -660,16 +658,3 @@ class AniyoriWindow(Adw.ApplicationWindow):
         self._render_library()
         self.toast_overlay.add_toast(Adw.Toast.new(f"Added {title} to your library."))
 
-
-class AniyoriApplication(Adw.Application):
-    def __init__(self):
-        super().__init__(
-            application_id=APP_ID,
-            flags=Gio.ApplicationFlags.DEFAULT_FLAGS,
-        )
-
-    def do_activate(self):
-        window = self.props.active_window
-        if window is None:
-            window = AniyoriWindow(application=self)
-        window.present()
