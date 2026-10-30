@@ -82,7 +82,7 @@ class LibraryStorageTests(unittest.TestCase):
         self.storage.add(AnimeEntry(title="Fullmetal Alchemist Brotherhood"))
         matches = self.storage.find_manual_title_matches("fullmetal alchemist")
         self.assertEqual(len(matches), 1)
-        self.assertEqual(matches[0].title, "  Fullmetal   Alchemist ")
+        self.assertEqual(matches[0].title, "Fullmetal   Alchemist")
 
     def test_find_manual_title_matches_excludes_catalogue_entries(self):
         self.storage.add(AnimeEntry(
