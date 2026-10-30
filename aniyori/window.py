@@ -569,12 +569,15 @@ class AniyoriWindow(Adw.ApplicationWindow):
     def _show_add_dialog(self, _button):
         dialog = Adw.AlertDialog(
             heading="Add anime",
-            body="Search AniList to fill in catalogue details, or enter a title manually.",
+            body="Search AniList or enter a title manually, then review its details.",
         )
-        content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
+        pages = Gtk.Stack()
+        pages.set_transition_type(Gtk.StackTransitionType.SLIDE_LEFT_RIGHT)
+
+        search_page = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
         title_entry = Gtk.Entry()
-        title_entry.set_placeholder_text("Anime title")
-        content.append(title_entry)
+        title_entry.set_placeholder_text("Anime title (manual entry)")
+        search_page.append(title_entry)
 
         catalogue_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         catalogue_search = Gtk.Entry()
@@ -583,12 +586,49 @@ class AniyoriWindow(Adw.ApplicationWindow):
         catalogue_row.append(catalogue_search)
         catalogue_button = Gtk.Button(label="Search")
         catalogue_row.append(catalogue_button)
-        content.append(catalogue_row)
+        search_page.append(catalogue_row)
 
-        catalogue_model = Gtk.StringList.new(["Search results will appear here"])
-        catalogue_dropdown = Gtk.DropDown(model=catalogue_model)
+        catalogue_dropdown = Gtk.DropDown(
+            model=Gtk.StringList.new(["Search results will appear here"])
+        )
         catalogue_dropdown.set_sensitive(False)
-        content.append(catalogue_dropdown)
+        search_page.append(catalogue_dropdown)
+        next_button = Gtk.Button(label="Review details")
+        next_button.add_css_class("suggested-action")
+        next_button.set_halign(Gtk.Align.END)
+        search_page.append(next_button)
+        pages.add_named(search_page, "search")
+
+        details_page = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
+        detail_title_entry = Gtk.Entry()
+        detail_title_entry.set_placeholder_text("Anime title")
+        details_page.append(detail_title_entry)
+        details_summary = Gtk.Label(xalign=0, wrap=True)
+        details_summary.add_css_class("dim-label")
+        details_page.append(details_summary)
+
+        total_entry = Gtk.Entry()
+        total_entry.set_placeholder_text("Total episodes (optional)")
+        total_entry.set_input_purpose(Gtk.InputPurpose.DIGITS)
+        details_page.append(total_entry)
+
+        statuses = [
+            WatchStatus.PLANNING,
+            WatchStatus.WATCHING,
+            WatchStatus.COMPLETED,
+            WatchStatus.PAUSED,
+            WatchStatus.DROPPED,
+        ]
+        status_dropdown = Gtk.DropDown(
+            model=Gtk.StringList.new([status.value.title() for status in statuses])
+        )
+        details_page.append(status_dropdown)
+        back_button = Gtk.Button(label="Back")
+        back_button.set_halign(Gtk.Align.START)
+        details_page.append(back_button)
+        pages.add_named(details_page, "details")
+        dialog.set_extra_child(pages)
+
         catalogue_state = {"results": [], "selected": None, "pending": False}
         search_generation = SearchGeneration()
 
@@ -615,11 +655,6 @@ class AniyoriWindow(Adw.ApplicationWindow):
         title_entry.connect("changed", clear_catalogue_selection_if_title_changed)
         catalogue_search.connect("changed", lambda _entry: invalidate_pending_search())
 
-        total_entry = Gtk.Entry()
-        total_entry.set_placeholder_text("Total episodes (optional)")
-        total_entry.set_input_purpose(Gtk.InputPurpose.DIGITS)
-        content.append(total_entry)
-
         def select_catalogue_result(dropdown, _property):
             index = dropdown.get_selected()
             results = catalogue_state["results"]
@@ -628,7 +663,9 @@ class AniyoriWindow(Adw.ApplicationWindow):
             item = results[index]
             catalogue_state["selected"] = item
             title_entry.set_text(item["title"])
-            total_entry.set_text(str(item["episodes"]) if item["episodes"] is not None else "")
+            total_entry.set_text(
+                str(item["episodes"]) if item["episodes"] is not None else ""
+            )
 
         def apply_catalogue_results(results, request_id):
             if not search_generation.is_current(request_id):
@@ -637,7 +674,9 @@ class AniyoriWindow(Adw.ApplicationWindow):
             catalogue_state["results"] = results
             catalogue_state["selected"] = None
             labels = [
-                "{} · {} eps".format(item["title"], item["episodes"] if item["episodes"] else "unknown")
+                "{} · {} eps".format(
+                    item["title"], item["episodes"] if item["episodes"] else "unknown"
+                )
                 for item in results
             ] or ["No results found"]
             catalogue_dropdown.set_model(Gtk.StringList.new(labels))
@@ -656,7 +695,9 @@ class AniyoriWindow(Adw.ApplicationWindow):
             catalogue_state["pending"] = False
             catalogue_state["results"] = []
             catalogue_state["selected"] = None
-            catalogue_dropdown.set_model(Gtk.StringList.new(["Search failed. Try again."]))
+            catalogue_dropdown.set_model(
+                Gtk.StringList.new(["Search failed. Try again."])
+            )
             catalogue_dropdown.set_sensitive(False)
             catalogue_button.set_sensitive(True)
             catalogue_button.set_label("Retry")
@@ -665,7 +706,9 @@ class AniyoriWindow(Adw.ApplicationWindow):
         def start_catalogue_search(_button):
             query = catalogue_search.get_text().strip()
             if not query:
-                self.toast_overlay.add_toast(Adw.Toast.new("Enter a title to search AniList."))
+                self.toast_overlay.add_toast(
+                    Adw.Toast.new("Enter a title to search AniList.")
+                )
                 return
             request_id = search_generation.begin()
             catalogue_state["pending"] = True
@@ -683,7 +726,9 @@ class AniyoriWindow(Adw.ApplicationWindow):
                 except AniListError as error:
                     GLib.idle_add(show_catalogue_error, str(error), request_id)
                 except Exception:
-                    LOGGER.exception("Unexpected error while searching AniList for %r", query)
+                    LOGGER.exception(
+                        "Unexpected error while searching AniList for %r", query
+                    )
                     GLib.idle_add(
                         show_catalogue_error,
                         "An unexpected error occurred. Please try again.",
@@ -692,20 +737,51 @@ class AniyoriWindow(Adw.ApplicationWindow):
 
             threading.Thread(target=worker, daemon=True).start()
 
+        def show_details(_button):
+            title = title_entry.get_text().strip()
+            if not title:
+                self.toast_overlay.add_toast(
+                    Adw.Toast.new("Enter a title or select an AniList result first.")
+                )
+                return
+            detail_title_entry.set_text(title)
+            selected = catalogue_state["selected"]
+            if selected:
+                metadata = [
+                    value for value in (selected.get("format"), selected.get("season_year"))
+                    if value
+                ]
+                details_summary.set_label(
+                    "AniList catalogue entry"
+                    + (f" · {' · '.join(str(value) for value in metadata)}" if metadata else "")
+                )
+            else:
+                details_summary.set_label("Manual library entry")
+            pages.set_visible_child_name("details")
+            dialog.set_response_enabled("add", True)
+
+        def show_search(_button):
+            title_entry.set_text(detail_title_entry.get_text())
+            pages.set_visible_child_name("search")
+            dialog.set_response_enabled("add", False)
+
         catalogue_button.connect("clicked", start_catalogue_search)
         catalogue_dropdown.connect("notify::selected", select_catalogue_result)
+        next_button.connect("clicked", show_details)
+        back_button.connect("clicked", show_search)
 
-        status_model = Gtk.StringList.new(["Planning", "Watching", "Completed", "Paused", "Dropped"])
-        status_dropdown = Gtk.DropDown(model=status_model)
-        content.append(status_dropdown)
-
-        dialog.set_extra_child(content)
         dialog.add_response("cancel", "Cancel")
         dialog.add_response("add", "Add to library")
         dialog.set_response_appearance("add", Adw.ResponseAppearance.SUGGESTED)
+        dialog.set_response_enabled("add", False)
         dialog.set_default_response("add")
         dialog.set_close_response("cancel")
-        dialog.choose(self, None, self._on_add_response, (title_entry, total_entry, status_dropdown, catalogue_state))
+        dialog.choose(
+            self,
+            None,
+            self._on_add_response,
+            (detail_title_entry, total_entry, status_dropdown, catalogue_state),
+        )
 
     def _on_add_response(self, dialog, result, widgets):
         try:
