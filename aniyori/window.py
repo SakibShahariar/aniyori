@@ -9,6 +9,7 @@ gi.require_version("Adw", "1")
 from gi.repository import Adw, Gio, GLib, Gtk
 
 from .models import AnimeEntry, WatchStatus
+from .search import SearchGeneration
 from .services.anilist import AniListClient, AniListError
 from .storage import LibraryStorage
 
@@ -454,14 +455,31 @@ class AniyoriWindow(Adw.ApplicationWindow):
         catalogue_dropdown = Gtk.DropDown(model=catalogue_model)
         catalogue_dropdown.set_sensitive(False)
         content.append(catalogue_dropdown)
-        catalogue_state = {"results": [], "selected": None}
+        catalogue_state = {"results": [], "selected": None, "pending": False}
+        search_generation = SearchGeneration()
+
+        def invalidate_pending_search():
+            if not catalogue_state["pending"]:
+                return
+            search_generation.invalidate()
+            catalogue_state["pending"] = False
+            catalogue_state["results"] = []
+            catalogue_state["selected"] = None
+            catalogue_dropdown.set_model(
+                Gtk.StringList.new(["Search results will appear here"])
+            )
+            catalogue_dropdown.set_sensitive(False)
+            catalogue_button.set_sensitive(True)
+            catalogue_button.set_label("Search")
 
         def clear_catalogue_selection_if_title_changed(entry_widget):
             selected = catalogue_state["selected"]
             if selected and entry_widget.get_text() != selected["title"]:
                 catalogue_state["selected"] = None
+            invalidate_pending_search()
 
         title_entry.connect("changed", clear_catalogue_selection_if_title_changed)
+        catalogue_search.connect("changed", lambda _entry: invalidate_pending_search())
 
         total_entry = Gtk.Entry()
         total_entry.set_placeholder_text("Total episodes (optional)")
@@ -478,7 +496,10 @@ class AniyoriWindow(Adw.ApplicationWindow):
             title_entry.set_text(item["title"])
             total_entry.set_text(str(item["episodes"]) if item["episodes"] is not None else "")
 
-        def apply_catalogue_results(results):
+        def apply_catalogue_results(results, request_id):
+            if not search_generation.is_current(request_id):
+                return
+            catalogue_state["pending"] = False
             catalogue_state["results"] = results
             catalogue_state["selected"] = None
             labels = [
@@ -495,7 +516,14 @@ class AniyoriWindow(Adw.ApplicationWindow):
             else:
                 self.toast_overlay.add_toast(Adw.Toast.new("No AniList results found."))
 
-        def show_catalogue_error(message):
+        def show_catalogue_error(message, request_id):
+            if not search_generation.is_current(request_id):
+                return
+            catalogue_state["pending"] = False
+            catalogue_state["results"] = []
+            catalogue_state["selected"] = None
+            catalogue_dropdown.set_model(Gtk.StringList.new(["Search failed. Try again."]))
+            catalogue_dropdown.set_sensitive(False)
             catalogue_button.set_sensitive(True)
             catalogue_button.set_label("Search")
             self.toast_overlay.add_toast(Adw.Toast.new("AniList search failed: " + message))
@@ -505,19 +533,26 @@ class AniyoriWindow(Adw.ApplicationWindow):
             if not query:
                 self.toast_overlay.add_toast(Adw.Toast.new("Enter a title to search AniList."))
                 return
+            request_id = search_generation.begin()
+            catalogue_state["pending"] = True
+            catalogue_state["results"] = []
+            catalogue_state["selected"] = None
+            catalogue_dropdown.set_model(Gtk.StringList.new(["Searching AniList…"]))
+            catalogue_dropdown.set_sensitive(False)
             catalogue_button.set_sensitive(False)
             catalogue_button.set_label("Searching…")
 
             def worker():
                 try:
                     results = AniListClient().search_anime(query)
-                    GLib.idle_add(apply_catalogue_results, results)
+                    GLib.idle_add(apply_catalogue_results, results, request_id)
                 except AniListError as error:
-                    GLib.idle_add(show_catalogue_error, str(error))
+                    GLib.idle_add(show_catalogue_error, str(error), request_id)
                 except Exception:
                     GLib.idle_add(
                         show_catalogue_error,
                         "An unexpected error occurred. Please try again.",
+                        request_id,
                     )
 
             threading.Thread(target=worker, daemon=True).start()
