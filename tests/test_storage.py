@@ -61,6 +61,30 @@ class LibraryStorageTests(unittest.TestCase):
         self.storage.add(entry)
         self.assertEqual(len(self.storage.list_entries()), 2)
 
+    def test_find_manual_title_matches_ignores_case_and_extra_whitespace(self):
+        self.storage.add(AnimeEntry(title="  Fullmetal   Alchemist "))
+        self.storage.add(AnimeEntry(title="Fullmetal Alchemist Brotherhood"))
+        matches = self.storage.find_manual_title_matches("fullmetal alchemist")
+        self.assertEqual(len(matches), 1)
+        self.assertEqual(matches[0].title, "  Fullmetal   Alchemist ")
+
+    def test_find_manual_title_matches_excludes_catalogue_entries(self):
+        self.storage.add(AnimeEntry(
+            title="Example Anime", provider="anilist", provider_id="123"
+        ))
+        self.assertEqual(self.storage.find_manual_title_matches("Example Anime"), [])
+
+    def test_find_manual_title_matches_returns_all_intentional_editions(self):
+        self.storage.add(AnimeEntry(title="Fate/stay night", episodes_total=24))
+        self.storage.add(AnimeEntry(title="Fate/stay night", episodes_total=12))
+        matches = self.storage.find_manual_title_matches("Fate/stay night")
+        self.assertEqual(len(matches), 2)
+        self.assertEqual({item.episodes_total for item in matches}, {12, 24})
+
+    def test_find_manual_title_matches_handles_empty_query(self):
+        self.storage.add(AnimeEntry(title="Example Anime"))
+        self.assertEqual(self.storage.find_manual_title_matches("   "), [])
+
     def test_remove(self):
         self.storage.add(AnimeEntry(title="Example Anime"))
         entry = self.storage.list_entries()[0]
