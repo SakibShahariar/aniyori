@@ -12,6 +12,8 @@ from urllib.request import Request, urlopen
 
 
 MAX_COVER_BYTES = 8 * 1024 * 1024
+MAX_COVER_CACHE_BYTES = 256 * 1024 * 1024
+MAX_COVER_CACHE_ENTRIES = 250
 DEFAULT_TIMEOUT = 12
 
 
@@ -45,7 +47,9 @@ def get_cached_cover(
 
     destination = _cache_path(url, cache_dir)
     if destination.is_file() and destination.stat().st_size > 0:
-        return destination
+        os.utime(destination, None)
+        _prune_cache(destination.parent)
+    return destination
 
     destination.parent.mkdir(parents=True, exist_ok=True)
     request = Request(
@@ -78,3 +82,27 @@ def get_cached_cover(
         if temporary_path is not None and temporary_path.exists():
             temporary_path.unlink()
     return destination
+
+
+def _prune_cache(directory: Path) -> None:
+    """Keep the cover cache within both its byte and entry limits."""
+    try:
+        entries = sorted(
+            directory.glob("*.img"),
+            key=lambda path: path.stat().st_mtime,
+        )
+        total_bytes = sum(path.stat().st_size for path in entries)
+    except OSError:
+        return
+
+    while entries and (
+        total_bytes > MAX_COVER_CACHE_BYTES
+        or len(entries) > MAX_COVER_CACHE_ENTRIES
+    ):
+        oldest = entries.pop(0)
+        try:
+            size = oldest.stat().st_size
+            oldest.unlink(missing_ok=True)
+            total_bytes -= size
+        except OSError:
+            continue
