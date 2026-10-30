@@ -170,6 +170,15 @@ class AniyoriWindow(Adw.ApplicationWindow):
         undo_action = Gio.SimpleAction.new("undo-delete", None)
         undo_action.connect("activate", self._undo_last_removal)
         self.add_action(undo_action)
+        for name, callback in [
+            ("add-anime", lambda: self._show_add_dialog(None)),
+            ("focus-search", lambda: self.search.grab_focus()),
+            ("quit", lambda: self.get_application().quit()),
+            ("about", self._show_about_dialog),
+        ]:
+            action = Gio.SimpleAction.new(name, None)
+            action.connect("activate", lambda _action, _parameter, callback=callback: callback())
+            self.add_action(action)
 
         root = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
         self.set_content(root)
@@ -189,6 +198,32 @@ class AniyoriWindow(Adw.ApplicationWindow):
         add_button.add_css_class("suggested-action")
         add_button.connect("clicked", self._show_add_dialog)
         header.pack_end(add_button)
+
+        primary_menu = Gio.Menu()
+        primary_menu.append("Add Anime", "win.add-anime")
+        primary_menu.append("Search Library", "win.focus-search")
+        primary_menu.append("About Aniyori", "win.about")
+        primary_menu.append("Quit", "win.quit")
+        menu_button = Gtk.MenuButton()
+        menu_button.set_icon_name("open-menu-symbolic")
+        menu_button.set_tooltip_text("Main menu")
+        menu_button.set_menu_model(primary_menu)
+        header.pack_end(menu_button)
+
+        shortcuts = Gtk.ShortcutController()
+        shortcuts.set_scope(Gtk.ShortcutScope.GLOBAL)
+        for trigger, action_name in [
+            ("<Control>n", "win.add-anime"),
+            ("<Control>f", "win.focus-search"),
+            ("<Control>q", "win.quit"),
+        ]:
+            shortcuts.add_shortcut(
+                Gtk.Shortcut.new(
+                    Gtk.ShortcutTrigger.parse_string(trigger),
+                    Gtk.NamedAction.new(action_name),
+                )
+            )
+        self.add_controller(shortcuts)
 
         body = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
         body.set_margin_start(20)
@@ -291,6 +326,16 @@ class AniyoriWindow(Adw.ApplicationWindow):
         self.view_switches["list"].set_active(True)
         self._render_library()
         self.filter_buttons["all"].set_active(True)
+
+    def _show_about_dialog(self):
+        about = Adw.AboutDialog(
+            application_name="Aniyori",
+            application_icon="io.github.sakibshahariar.Aniyori",
+            version="0.1.0",
+            developer_name="Sakib Shahariar",
+            comments="A native Linux anime library and progress tracker.",
+        )
+        about.present(self)
 
     def _on_filter_toggled(self, button, key):
         if not button.get_active():
