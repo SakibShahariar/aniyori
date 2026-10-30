@@ -36,6 +36,8 @@ class LibraryIOTests(unittest.TestCase):
             import_json('{"format":"other","version":1,"entries":[]}')
         with self.assertRaisesRegex(ValueError, "unsupported"):
             import_json('{"format":"aniyori-library","version":2,"entries":[]}')
+        with self.assertRaisesRegex(ValueError, "unsupported"):
+            import_json('{"format":"aniyori-library","version":true,"entries":[]}')
 
     def test_json_rejects_invalid_entries_without_partial_results(self):
         payload = export_json(self.entries).replace('"episodes_watched": 32', '"episodes_watched": -1')
