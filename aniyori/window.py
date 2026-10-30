@@ -8,7 +8,7 @@ import gi
 
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
-from gi.repository import Adw, GLib, Gtk
+from gi.repository import Adw, Gio, GLib, Gtk
 
 from .models import AnimeEntry, WatchStatus, parse_episode_count
 from .search import SearchGeneration
@@ -165,6 +165,11 @@ class AniyoriWindow(Adw.ApplicationWindow):
         self.storage = LibraryStorage()
         self.entries: list[AnimeEntry] = self.storage.list_entries()
         self.current_filter = "all"
+        self._undo_entry: AnimeEntry | None = None
+        self._undo_toast = None
+        undo_action = Gio.SimpleAction.new("undo-delete", None)
+        undo_action.connect("activate", self._undo_last_removal)
+        self.add_action(undo_action)
 
         root = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
         self.set_content(root)
@@ -470,7 +475,41 @@ class AniyoriWindow(Adw.ApplicationWindow):
             return
         self.entries = self.storage.list_entries()
         self._render_library()
-        self.toast_overlay.add_toast(Adw.Toast.new(f"Removed {entry.title}."))
+        if self._undo_toast is not None:
+            previous_entry = self._undo_entry
+            self._undo_entry = None
+            self._undo_toast.dismiss()
+            self._undo_toast = None
+        self._undo_entry = entry
+        toast = Adw.Toast.new(f"Removed {entry.title}.")
+        toast.set_button_label("Undo")
+        toast.set_action_name("win.undo-delete")
+        toast.set_timeout(10)
+        toast.connect("dismissed", self._on_undo_toast_dismissed, entry)
+        self._undo_toast = self.toast_overlay.add_toast(toast)
+
+    def _on_undo_toast_dismissed(self, _toast, entry: AnimeEntry):
+        if self._undo_entry is entry:
+            self._undo_entry = None
+            self._undo_toast = None
+
+    def _undo_last_removal(self, _action, _parameter):
+        entry = self._undo_entry
+        if entry is None:
+            return
+        self._undo_entry = None
+        self._undo_toast = None
+        try:
+            self.storage.restore(entry)
+        except (ValueError, sqlite3.Error, OSError):
+            LOGGER.exception("Could not restore deleted anime entry %r", entry.title)
+            self.toast_overlay.add_toast(
+                Adw.Toast.new("Could not undo removal. The library may have changed.")
+            )
+            return
+        self.entries = self.storage.list_entries()
+        self._render_library()
+        self.toast_overlay.add_toast(Adw.Toast.new(f"Restored {entry.title}."))
 
     def _show_add_dialog(self, _button):
         dialog = Adw.AlertDialog(
