@@ -2,7 +2,12 @@
 
 import unittest
 
-from aniyori.models import AnimeEntry, WatchStatus
+from aniyori.models import (
+    MAX_EPISODE_COUNT,
+    AnimeEntry,
+    WatchStatus,
+    parse_episode_count,
+)
 
 
 class AnimeEntryTests(unittest.TestCase):
@@ -32,6 +37,26 @@ class AnimeEntryTests(unittest.TestCase):
     def test_negative_episode_count_is_rejected(self):
         with self.assertRaises(ValueError):
             AnimeEntry(title="Example", episodes_watched=-1)
+
+    def test_episode_count_parser_handles_optional_and_malformed_values(self):
+        self.assertIsNone(parse_episode_count("  ", optional=True))
+        self.assertEqual(parse_episode_count(" 12 "), 12)
+        with self.assertRaisesRegex(ValueError, "whole number"):
+            parse_episode_count("12.5")
+        with self.assertRaisesRegex(ValueError, "required"):
+            parse_episode_count("")
+
+    def test_episode_count_parser_rejects_negative_and_implausible_values(self):
+        with self.assertRaisesRegex(ValueError, "negative"):
+            parse_episode_count("-1")
+        with self.assertRaisesRegex(ValueError, "10,000"):
+            parse_episode_count(str(MAX_EPISODE_COUNT + 1))
+
+    def test_model_rejects_implausibly_large_episode_counts(self):
+        with self.assertRaisesRegex(ValueError, "10,000"):
+            AnimeEntry(title="Too many", episodes_total=MAX_EPISODE_COUNT + 1)
+        with self.assertRaisesRegex(ValueError, "10,000"):
+            AnimeEntry(title="Too many watched", episodes_watched=MAX_EPISODE_COUNT + 1)
 
 
 if __name__ == "__main__":
