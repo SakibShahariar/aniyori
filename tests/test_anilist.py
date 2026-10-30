@@ -130,6 +130,11 @@ class AniListClientTests(unittest.TestCase):
         request.assert_called_once()
         self.assertEqual(results[0]["title"], "New title")
 
+    def test_clear_cache_invalidates_cached_metadata(self):
+        self.client.cache.set("details", "21", {"id": 21})
+        self.client.clear_cache()
+        self.assertIsNone(self.client.cache.get("details", "21"))
+
     def test_detail_uses_cache_and_refreshes_when_requested(self):
         cached = {"id": 21, "title": "Cached title"}
         self.client.cache.set("details", "21", cached)
