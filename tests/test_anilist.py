@@ -2,10 +2,12 @@
 
 import io
 import json
+import tempfile
 import unittest
 from unittest.mock import patch
 
 from aniyori.services.anilist import AniListClient, AniListError, _normalise_media
+from aniyori.services.metadata_cache import MetadataCache
 
 
 def response_for(payload):
@@ -13,6 +15,13 @@ def response_for(payload):
 
 
 class AniListClientTests(unittest.TestCase):
+    def setUp(self):
+        self.temp_dir = tempfile.TemporaryDirectory()
+        self.client = AniListClient(cache=MetadataCache(self.temp_dir.name))
+
+    def tearDown(self):
+        self.temp_dir.cleanup()
+
     def test_search_normalises_results(self):
         payload = {
             "data": {
@@ -29,7 +38,7 @@ class AniListClientTests(unittest.TestCase):
             }
         }
         with patch("aniyori.services.anilist.urlopen", return_value=response_for(payload)):
-            results = AniListClient().search_anime("Example")
+            results = self.client.search_anime("Example")
         self.assertEqual(len(results), 1)
         self.assertEqual(results[0]["title"], "Example Anime")
         self.assertEqual(results[0]["id"], 21)
