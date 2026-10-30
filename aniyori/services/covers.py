@@ -27,6 +27,30 @@ def _cache_path(url: str, cache_dir: Path | None = None) -> Path:
     return (cache_dir or _cache_directory()) / f"{digest}.img"
 
 
+def _prune_cache(directory: Path) -> None:
+    """Keep the cover cache within both its byte and entry limits."""
+    try:
+        entries = sorted(
+            directory.glob("*.img"),
+            key=lambda path: path.stat().st_mtime,
+        )
+        total_bytes = sum(path.stat().st_size for path in entries)
+    except OSError:
+        return
+
+    while entries and (
+        total_bytes > MAX_COVER_CACHE_BYTES
+        or len(entries) > MAX_COVER_CACHE_ENTRIES
+    ):
+        oldest = entries.pop(0)
+        try:
+            size = oldest.stat().st_size
+            oldest.unlink(missing_ok=True)
+            total_bytes -= size
+        except OSError:
+            continue
+
+
 def get_cached_cover(
     url: str,
     *,
@@ -49,7 +73,7 @@ def get_cached_cover(
     if destination.is_file() and destination.stat().st_size > 0:
         os.utime(destination, None)
         _prune_cache(destination.parent)
-    return destination
+        return destination
 
     destination.parent.mkdir(parents=True, exist_ok=True)
     request = Request(
@@ -81,28 +105,5 @@ def get_cached_cover(
     finally:
         if temporary_path is not None and temporary_path.exists():
             temporary_path.unlink()
+    _prune_cache(destination.parent)
     return destination
-
-
-def _prune_cache(directory: Path) -> None:
-    """Keep the cover cache within both its byte and entry limits."""
-    try:
-        entries = sorted(
-            directory.glob("*.img"),
-            key=lambda path: path.stat().st_mtime,
-        )
-        total_bytes = sum(path.stat().st_size for path in entries)
-    except OSError:
-        return
-
-    while entries and (
-        total_bytes > MAX_COVER_CACHE_BYTES
-        or len(entries) > MAX_COVER_CACHE_ENTRIES
-    ):
-        oldest = entries.pop(0)
-        try:
-            size = oldest.stat().st_size
-            oldest.unlink(missing_ok=True)
-            total_bytes -= size
-        except OSError:
-            continue
