@@ -15,6 +15,7 @@ from .search import SearchGeneration
 from .services.anilist import AniListClient, AniListError
 from .services.covers import get_cached_cover
 from .storage import LibraryStorage
+from .statistics import calculate_library_statistics
 
 LOGGER = logging.getLogger(__name__)
 
@@ -214,6 +215,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
             ("add-anime", lambda: self._show_add_dialog(None)),
             ("focus-search", lambda: self.search.grab_focus()),
             ("quit", lambda: self.get_application().quit()),
+            ("statistics", self._show_statistics_dialog),
             ("about", self._show_about_dialog),
         ]:
             action = Gio.SimpleAction.new(name, None)
@@ -242,6 +244,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
         primary_menu = Gio.Menu()
         primary_menu.append("Add Anime", "win.add-anime")
         primary_menu.append("Search Library", "win.focus-search")
+        primary_menu.append("Library Statistics", "win.statistics")
         primary_menu.append("About Aniyori", "win.about")
         primary_menu.append("Quit", "win.quit")
         menu_button = Gtk.MenuButton()
@@ -366,6 +369,31 @@ class AniyoriWindow(Adw.ApplicationWindow):
         self.view_switches["list"].set_active(True)
         self._render_library()
         self.filter_buttons["all"].set_active(True)
+
+    def _show_statistics_dialog(self):
+        stats = calculate_library_statistics(self.entries)
+        statuses = stats["status_counts"]
+        status_lines = [
+            f"{status.value.title()}: {statuses[status.value]}"
+            for status in WatchStatus
+        ]
+        estimated_hours = stats["estimated_minutes"] / 60
+        body = (
+            f"Anime in library: {stats['anime_count']}\\n"
+            f"Episodes watched: {stats['episodes_watched']}\\n"
+            f"Known episode total: {stats['known_episodes_total']}\\n"
+            f"Completed anime: {stats['completion_rate']}%\\n"
+            f"Estimated watch time: {estimated_hours:.1f} hours "
+            "(24 minutes per episode)\\n\\n"
+            + "\\n".join(status_lines)
+        )
+        dialog = Adw.AlertDialog(
+            heading="Library Statistics",
+            body=body,
+        )
+        dialog.add_response("close", "Close")
+        dialog.set_default_response("close")
+        dialog.present(self)
 
     def _show_about_dialog(self):
         about = Adw.AboutDialog(
