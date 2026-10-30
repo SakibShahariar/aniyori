@@ -186,6 +186,8 @@ class AniyoriWindow(Adw.ApplicationWindow):
             ("watching", "Watching"),
             ("planning", "Planning"),
             ("completed", "Completed"),
+            ("paused", "Paused"),
+            ("dropped", "Dropped"),
         ]:
             button = Gtk.ToggleButton(label=label)
             button.connect("toggled", self._on_filter_toggled, key)
@@ -195,10 +197,17 @@ class AniyoriWindow(Adw.ApplicationWindow):
         spacer.set_hexpand(True)
         toolbar.append(spacer)
 
-        self.view_switch = Gtk.ToggleButton(label="Grid")
-        self.view_switch.set_tooltip_text("Switch between list and grid")
-        self.view_switch.connect("toggled", self._on_view_toggled)
-        toolbar.append(self.view_switch)
+        self.view_switches = {}
+        first_view_button = None
+        for key, label in [("list", "List"), ("grid", "Grid")]:
+            button = Gtk.ToggleButton(label=label)
+            if first_view_button is None:
+                first_view_button = button
+            else:
+                button.set_group(first_view_button)
+            button.connect("toggled", self._on_view_toggled, key)
+            toolbar.append(button)
+            self.view_switches[key] = button
 
         self.toast_overlay = Adw.ToastOverlay()
         self.toast_overlay.set_vexpand(True)
@@ -258,11 +267,14 @@ class AniyoriWindow(Adw.ApplicationWindow):
         self.empty_add.connect("clicked", self._show_add_dialog)
         self.empty_state.append(self.empty_add)
 
+        self.view_switches["list"].set_active(True)
         self._render_library()
         self.filter_buttons["all"].set_active(True)
 
     def _on_filter_toggled(self, button, key):
         if not button.get_active():
+            if self.current_filter == key:
+                button.set_active(True)
             return
         self.current_filter = key
         for other_key, other_button in self.filter_buttons.items():
@@ -270,9 +282,10 @@ class AniyoriWindow(Adw.ApplicationWindow):
                 other_button.set_active(False)
         self._render_library()
 
-    def _on_view_toggled(self, button):
-        self.stack.set_visible_child_name("grid" if button.get_active() else "list")
-        button.set_label("List" if button.get_active() else "Grid")
+    def _on_view_toggled(self, button, key):
+        if not button.get_active():
+            return
+        self.stack.set_visible_child_name(key)
 
     def _render_library(self, *_args):
         child = self.list_box.get_first_child()
@@ -316,7 +329,9 @@ class AniyoriWindow(Adw.ApplicationWindow):
                 self.stack.add_named(self.empty_state, "empty")
             self.stack.set_visible_child_name("empty")
         else:
-            self.stack.set_visible_child_name("grid" if self.view_switch.get_active() else "list")
+            self.stack.set_visible_child_name(
+                "grid" if self.view_switches["grid"].get_active() else "list"
+            )
 
     def _increment_progress(self, entry: AnimeEntry):
         if entry.episodes_total is not None and entry.episodes_watched >= entry.episodes_total:
