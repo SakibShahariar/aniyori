@@ -47,6 +47,7 @@ class AnimeEntry:
     status: WatchStatus = WatchStatus.PLANNING
     provider: str | None = None
     provider_id: str | None = None
+    cover_image: str | None = None
     storage_id: int | None = field(default=None, compare=False, repr=False)
 
     def __post_init__(self) -> None:
