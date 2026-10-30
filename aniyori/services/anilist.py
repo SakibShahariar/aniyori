@@ -8,6 +8,8 @@ from __future__ import annotations
 
 import json
 from typing import Any
+
+from .metadata_cache import MetadataCache
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
@@ -83,10 +85,16 @@ def _normalise_media(media: dict[str, Any]) -> dict[str, Any]:
 class AniListClient:
     """Synchronous public-catalogue client with bounded request timeouts."""
 
-    def __init__(self, timeout: int = DEFAULT_TIMEOUT):
+    def __init__(
+        self,
+        timeout: int = DEFAULT_TIMEOUT,
+        *,
+        cache: MetadataCache | None = None,
+    ):
         if timeout <= 0:
             raise ValueError("Timeout must be greater than zero")
         self.timeout = timeout
+        self.cache = cache if cache is not None else MetadataCache()
 
     def _request(self, query: str, variables: dict[str, Any]) -> dict[str, Any]:
         body = json.dumps({"query": query, "variables": variables}).encode("utf-8")
@@ -120,24 +128,54 @@ class AniListClient:
             raise AniListError("AniList response did not contain data")
         return payload["data"]
 
-    def search_anime(self, search: str, per_page: int = 10) -> list[dict[str, Any]]:
-        """Search the public catalogue; return 10 results by default (up to 25)."""
+    def search_anime(
+        self, search: str, per_page: int = 10, *, refresh: bool = False
+    ) -> list[dict[str, Any]]:
+        """Search the public catalogue, using cached results when available.
+
+        Expired results are retained as an offline fallback. Set refresh=True
+        to bypass a fresh cache entry and attempt a network refresh.
+        """
         search = search.strip()
         if not search:
             return []
         if not 1 <= per_page <= 25:
             raise ValueError("per_page must be between 1 and 25")
-        data = self._request(SEARCH_QUERY, {"search": search, "perPage": per_page})
-        page = data.get("Page") or {}
-        media = page.get("media") or []
-        return [_normalise_media(item) for item in media]
+        cache_key = json.dumps(
+            {"search": search.casefold(), "per_page": per_page}, sort_keys=True
+        )
+        cached = self.cache.get("search", cache_key)
+        if cached is not None and cached[1] and not refresh:
+            return cached[0]
+        try:
+            data = self._request(SEARCH_QUERY, {"search": search, "perPage": per_page})
+            page = data.get("Page") or {}
+            media = page.get("media") or []
+            results = [_normalise_media(item) for item in media]
+        except AniListError:
+            if cached is not None:
+                return cached[0]
+            raise
+        self.cache.set("search", cache_key, results)
+        return results
 
-    def get_anime(self, media_id: int) -> dict[str, Any]:
-        """Fetch a single catalogue entry by AniList media ID."""
+    def get_anime(self, media_id: int, *, refresh: bool = False) -> dict[str, Any]:
+        """Fetch one catalogue entry, falling back to cached metadata offline."""
         if isinstance(media_id, bool) or not isinstance(media_id, int) or media_id <= 0:
             raise ValueError("media_id must be a positive integer")
-        data = self._request(DETAIL_QUERY, {"id": media_id})
-        media = data.get("Media")
-        if not isinstance(media, dict):
-            raise AniListError(f"AniList anime {media_id} was not found")
-        return _normalise_media(media)
+        cache_key = str(media_id)
+        cached = self.cache.get("details", cache_key)
+        if cached is not None and cached[1] and not refresh:
+            return cached[0]
+        try:
+            data = self._request(DETAIL_QUERY, {"id": media_id})
+            media = data.get("Media")
+            if not isinstance(media, dict):
+                raise AniListError(f"AniList anime {media_id} was not found")
+            result = _normalise_media(media)
+        except AniListError:
+            if cached is not None:
+                return cached[0]
+            raise
+        self.cache.set("details", cache_key, result)
+        return result
