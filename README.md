@@ -21,6 +21,7 @@ A native Linux anime tracker built with Python, GTK 4, PyGObject, and libadwaita
 - Search titles and filter by watch status.
 - Switch between compact list and grid views.
 - Mark one additional episode watched using the `+1` controls.
+- Automatically mark an entry Completed when progress reaches its known episode total; Paused and Dropped statuses are preserved when progress changes.
 - Store local entries in SQLite under `$XDG_DATA_HOME/aniyori/library.sqlite3`, falling back to `~/.local/share/aniyori/library.sqlite3`.
 
 Library entries are stored locally. Public catalogue search is available, but user-list import/sync is not implemented. The interface still needs a launch and interaction test on a Linux desktop.
