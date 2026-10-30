@@ -98,6 +98,26 @@ class LibraryStorage:
             ).fetchall()
         return [self._to_entry(row) for row in rows]
 
+    def find_manual_title_matches(self, title: str) -> list[AnimeEntry]:
+        """Find manual entries with the same case- and whitespace-insensitive title."""
+        normalized_title = " ".join(title.split()).casefold()
+        if not normalized_title:
+            return []
+        with self._connect() as connection:
+            rows = connection.execute(
+                """
+                SELECT id, title, episodes_total, episodes_watched, status, provider, provider_id
+                FROM anime
+                WHERE provider IS NULL AND provider_id IS NULL
+                ORDER BY title COLLATE NOCASE, id
+                """
+            ).fetchall()
+        return [
+            self._to_entry(row)
+            for row in rows
+            if " ".join(row["title"].split()).casefold() == normalized_title
+        ]
+
     def add(self, entry: AnimeEntry) -> None:
         try:
             with self._connect() as connection:
