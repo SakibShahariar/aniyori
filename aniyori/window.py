@@ -349,6 +349,10 @@ class AniyoriWindow(Adw.ApplicationWindow):
             self.entries = self.storage.list_entries()
             self._render_library()
             self.toast_overlay.add_toast(Adw.Toast.new(f"Progress updated: {entry.title}"))
+        else:
+            self.toast_overlay.add_toast(
+                Adw.Toast.new("That anime could not be updated. Try again.")
+            )
 
     def _show_edit_dialog(self, entry: AnimeEntry):
         dialog = Adw.AlertDialog(
