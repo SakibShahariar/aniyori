@@ -81,6 +81,11 @@ class CoverCacheTests(unittest.TestCase):
         first.parent.mkdir(parents=True)
         first.write_bytes(b"123456")
         second.write_bytes(b"abcdef")
+        first.touch()
+        second.touch()
+        import os
+        os.utime(first, (1, 1))
+        os.utime(second, (2, 2))
         with patch("aniyori.services.covers.MAX_COVER_CACHE_BYTES", 8):
             _prune_cache(self.cache_dir)
         self.assertFalse(first.exists())
