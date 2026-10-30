@@ -8,14 +8,43 @@ import gi
 
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
-from gi.repository import Adw, Gio, GLib, Gtk
+from gi.repository import Adw, Gdk, Gio, GLib, Gtk
 
 from .models import AnimeEntry, WatchStatus, parse_episode_count
 from .search import SearchGeneration
 from .services.anilist import AniListClient, AniListError
+from .services.covers import get_cached_cover
 from .storage import LibraryStorage
 
 LOGGER = logging.getLogger(__name__)
+
+
+def _load_cover_async(picture: Gtk.Picture, url: str | None) -> None:
+    """Load a cached/downloaded cover without blocking the GTK main thread."""
+    if not url:
+        return
+
+    def worker():
+        try:
+            path = get_cached_cover(url)
+        except (OSError, RuntimeError, ValueError):
+            LOGGER.debug("Could not load cover image %s", url, exc_info=True)
+            return
+        GLib.idle_add(_apply_cover_texture, picture, str(path))
+
+    threading.Thread(target=worker, daemon=True).start()
+
+
+def _apply_cover_texture(picture: Gtk.Picture, path: str):
+    if picture.get_parent() is None:
+        return GLib.SOURCE_REMOVE
+    try:
+        texture = Gdk.Texture.new_from_filename(path)
+    except GLib.Error:
+        LOGGER.debug("Could not decode cached cover image %s", path, exc_info=True)
+        return GLib.SOURCE_REMOVE
+    picture.set_paintable(texture)
+    return GLib.SOURCE_REMOVE
 
 
 class AnimeRow(Gtk.Box):
@@ -26,11 +55,16 @@ class AnimeRow(Gtk.Box):
         self.set_margin_start(12)
         self.set_margin_end(12)
 
-        poster = Gtk.Image.new_from_icon_name("video-x-generic-symbolic")
-        poster.set_pixel_size(34)
+        placeholder = Gtk.Image.new_from_icon_name("video-x-generic-symbolic")
+        placeholder.set_pixel_size(34)
+        poster = Gtk.Picture()
+        poster.set_size_request(48, 68)
+        poster.set_can_shrink(True)
+        poster.set_content_fit(Gtk.ContentFit.COVER)
+        poster.set_paintable(placeholder.get_paintable())
         poster.set_valign(Gtk.Align.CENTER)
-        poster.add_css_class("dim-label")
         self.append(poster)
+        _load_cover_async(poster, entry.cover_image)
 
         details = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
         details.set_hexpand(True)
@@ -97,11 +131,17 @@ class AnimeCard(Gtk.Box):
         self.set_margin_end(12)
         self.add_css_class("card")
 
-        poster = Gtk.Image.new_from_icon_name("video-x-generic-symbolic")
-        poster.set_pixel_size(42)
+        placeholder = Gtk.Image.new_from_icon_name("video-x-generic-symbolic")
+        placeholder.set_pixel_size(42)
+        poster = Gtk.Picture()
+        poster.set_size_request(112, 148)
+        poster.set_can_shrink(True)
+        poster.set_content_fit(Gtk.ContentFit.COVER)
+        poster.set_paintable(placeholder.get_paintable())
+        poster.set_halign(Gtk.Align.CENTER)
         poster.set_margin_top(14)
-        poster.add_css_class("dim-label")
         self.append(poster)
+        _load_cover_async(poster, entry.cover_image)
 
         title = Gtk.Label(label=entry.title, wrap=True, justify=Gtk.Justification.CENTER)
         title.add_css_class("heading")
@@ -491,7 +531,8 @@ class AniyoriWindow(Adw.ApplicationWindow):
                 watched = total
             edited = AnimeEntry(title=title, episodes_total=total, episodes_watched=watched,
                                 status=status, provider=original.provider,
-                                provider_id=original.provider_id, storage_id=original.storage_id)
+                                provider_id=original.provider_id, cover_image=original.cover_image,
+                                storage_id=original.storage_id)
             if not self.storage.update_entry(edited):
                 self.toast_overlay.add_toast(Adw.Toast.new("That anime no longer exists."))
                 return
@@ -818,6 +859,10 @@ class AniyoriWindow(Adw.ApplicationWindow):
                 provider="anilist" if catalogue_state["selected"] else None,
                 provider_id=(
                     str(catalogue_state["selected"]["id"])
+                    if catalogue_state["selected"] else None
+                ),
+                cover_image=(
+                    catalogue_state["selected"].get("cover_image")
                     if catalogue_state["selected"] else None
                 ),
             )
