@@ -22,6 +22,7 @@ A native Linux anime tracker built with Python, GTK 4, PyGObject, and libadwaita
 - Show AniList cover art in list and grid views, loading images asynchronously and caching them locally.
 - Cache AniList search results and details for 24 hours, use stale metadata when offline, and allow callers to force refresh or clear the metadata cache.
 - View local library statistics, including watched episodes, completion rate, status distribution, and estimated watch time (24 minutes per episode).
+- Export the library as JSON or CSV, and import validated backups after confirming full-library replacement.
 - Switch between compact list and grid views.
 - Mark one additional episode watched using the `+1` controls.
 - Automatically mark an entry Completed when progress reaches its known episode total; Paused and Dropped statuses are preserved when progress changes.
