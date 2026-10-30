@@ -20,6 +20,8 @@ def default_database_path() -> Path:
 class LibraryStorage:
     """Store the local library in a small SQLite database."""
 
+    LATEST_SCHEMA_VERSION = 1
+
     @staticmethod
     def _is_duplicate_catalogue_error(error: sqlite3.IntegrityError) -> bool:
         """Identify only the catalogue identity constraint, not all DB integrity errors."""
@@ -35,27 +37,46 @@ class LibraryStorage:
         connection.row_factory = sqlite3.Row
         return connection
 
+    @staticmethod
+    def _migration_1(connection: sqlite3.Connection) -> None:
+        """Create the initial library schema; safe for existing unversioned databases."""
+        connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS anime (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                title TEXT NOT NULL,
+                episodes_total INTEGER,
+                episodes_watched INTEGER NOT NULL DEFAULT 0,
+                status TEXT NOT NULL DEFAULT 'planning',
+                provider TEXT,
+                provider_id TEXT,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(provider, provider_id)
+            )
+            """
+        )
+        connection.execute(
+            "CREATE INDEX IF NOT EXISTS anime_title_idx ON anime(title COLLATE NOCASE)"
+        )
+
     def _initialize(self) -> None:
+        migrations = {1: self._migration_1}
         with self._connect() as connection:
-            connection.execute(
-                """
-                CREATE TABLE IF NOT EXISTS anime (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    title TEXT NOT NULL,
-                    episodes_total INTEGER,
-                    episodes_watched INTEGER NOT NULL DEFAULT 0,
-                    status TEXT NOT NULL DEFAULT 'planning',
-                    provider TEXT,
-                    provider_id TEXT,
-                    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                    UNIQUE(provider, provider_id)
+            version = connection.execute("PRAGMA user_version").fetchone()[0]
+            if version > self.LATEST_SCHEMA_VERSION:
+                raise RuntimeError(
+                    f"Database schema version {version} is newer than supported "
+                    f"version {self.LATEST_SCHEMA_VERSION}."
                 )
-                """
-            )
-            connection.execute(
-                "CREATE INDEX IF NOT EXISTS anime_title_idx ON anime(title COLLATE NOCASE)"
-            )
+            while version < self.LATEST_SCHEMA_VERSION:
+                next_version = version + 1
+                migration = migrations.get(next_version)
+                if migration is None:
+                    raise RuntimeError(f"Missing database migration {next_version}.")
+                migration(connection)
+                connection.execute(f"PRAGMA user_version = {next_version}")
+                version = next_version
 
     @staticmethod
     def _to_entry(row: sqlite3.Row) -> AnimeEntry:
