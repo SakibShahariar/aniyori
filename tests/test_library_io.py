@@ -1,9 +1,12 @@
 """Tests for validated JSON and CSV library import/export."""
 
+import tempfile
 import unittest
+from pathlib import Path
 
 from aniyori.library_io import export_csv, export_json, import_csv, import_json
 from aniyori.models import AnimeEntry, WatchStatus
+from aniyori.storage import LibraryStorage
 
 
 class LibraryIOTests(unittest.TestCase):
@@ -48,6 +51,24 @@ class LibraryIOTests(unittest.TestCase):
             import_json(
                 '{"format":"aniyori-library","version":1,"entries":'
                 '[{"title":"Example","episodes_watched":true}]}'
+            )
+
+    def test_failed_database_import_keeps_existing_library_intact(self):
+        with tempfile.TemporaryDirectory() as directory:
+            storage = LibraryStorage(Path(directory) / "library.sqlite3")
+            original = AnimeEntry(title="Existing library entry")
+            storage.add(original)
+            duplicate_provider_entries = [
+                AnimeEntry(title="First", provider="anilist", provider_id="21"),
+                AnimeEntry(title="Duplicate", provider="anilist", provider_id="21"),
+            ]
+
+            with self.assertRaises(Exception):
+                storage.replace_all(import_json(export_json(duplicate_provider_entries)))
+
+            self.assertEqual(
+                [entry.title for entry in storage.list_entries()],
+                ["Existing library entry"],
             )
 
     def test_csv_round_trip_preserves_library_fields(self):
