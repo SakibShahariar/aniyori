@@ -354,6 +354,8 @@ class AniyoriWindow(Adw.ApplicationWindow):
         self.stack.set_visible_child_name(key)
 
     def _render_library(self, *_args):
+        list_scroll_value = self.list_scroll.get_vadjustment().get_value()
+        grid_scroll_value = self.grid_scroll.get_vadjustment().get_value()
         child = self.list_box.get_first_child()
         while child is not None:
             self.list_box.remove(child)
@@ -398,6 +400,14 @@ class AniyoriWindow(Adw.ApplicationWindow):
             self.stack.set_visible_child_name(
                 "grid" if self.view_switches["grid"].get_active() else "list"
             )
+        GLib.idle_add(
+            self._restore_scroll_positions, list_scroll_value, grid_scroll_value
+        )
+
+    def _restore_scroll_positions(self, list_value: float, grid_value: float):
+        self.list_scroll.get_vadjustment().set_value(list_value)
+        self.grid_scroll.get_vadjustment().set_value(grid_value)
+        return GLib.SOURCE_REMOVE
 
     def _increment_progress(self, entry: AnimeEntry):
         if entry.episodes_total is not None and entry.episodes_watched >= entry.episodes_total:
