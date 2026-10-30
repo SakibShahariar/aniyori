@@ -495,7 +495,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
     def _confirm_remove_entry(self, entry: AnimeEntry):
         dialog = Adw.AlertDialog(
             heading="Remove anime?",
-            body=f"Remove ‘{entry.title}’ from your local library? This cannot be undone.",
+            body=f"Remove ‘{entry.title}’ from your local library? You can undo this for 10 seconds.",
         )
         dialog.add_response("cancel", "Cancel")
         dialog.add_response("remove", "Remove")
@@ -521,7 +521,6 @@ class AniyoriWindow(Adw.ApplicationWindow):
         self.entries = self.storage.list_entries()
         self._render_library()
         if self._undo_toast is not None:
-            previous_entry = self._undo_entry
             self._undo_entry = None
             self._undo_toast.dismiss()
             self._undo_toast = None
@@ -531,7 +530,8 @@ class AniyoriWindow(Adw.ApplicationWindow):
         toast.set_action_name("win.undo-delete")
         toast.set_timeout(10)
         toast.connect("dismissed", self._on_undo_toast_dismissed, entry)
-        self._undo_toast = self.toast_overlay.add_toast(toast)
+        self._undo_toast = toast
+        self.toast_overlay.add_toast(toast)
 
     def _on_undo_toast_dismissed(self, _toast, entry: AnimeEntry):
         if self._undo_entry is entry:
