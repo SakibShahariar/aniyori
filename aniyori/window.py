@@ -396,31 +396,73 @@ class AniyoriWindow(Adw.ApplicationWindow):
     def _render_library(self, *_args):
         list_scroll_value = self.list_scroll.get_vadjustment().get_value()
         grid_scroll_value = self.grid_scroll.get_vadjustment().get_value()
-        child = self.list_box.get_first_child()
-        while child is not None:
-            self.list_box.remove(child)
-            child = self.list_box.get_first_child()
-        child = self.grid_flow.get_first_child()
-        while child is not None:
-            self.grid_flow.remove(child)
-            child = self.grid_flow.get_first_child()
+
+        if not hasattr(self, "_row_widgets"):
+            self._row_widgets = {}
+            self._card_widgets = {}
+            self._widget_entries = {}
+
+        current_keys = {
+            entry.storage_id if entry.storage_id is not None else ("transient", id(entry))
+            for entry in self.entries
+        }
+        for key in set(self._row_widgets) - current_keys:
+            row = self._row_widgets.pop(key)
+            card = self._card_widgets.pop(key)
+            self._widget_entries.pop(key, None)
+            if row.get_parent() is not None:
+                self.list_box.remove(row.get_parent())
+            if card.get_parent() is not None:
+                self.grid_flow.remove(card.get_parent())
 
         query = self.search.get_text().strip().casefold() if hasattr(self, "search") else ""
-        visible = [
-            entry for entry in self.entries
+        for position, entry in enumerate(self.entries):
+            key = entry.storage_id if entry.storage_id is not None else ("transient", id(entry))
+            row = self._row_widgets.get(key)
+            card = self._card_widgets.get(key)
+
+            if row is None or self._widget_entries.get(key) != entry:
+                if row is not None:
+                    if row.get_parent() is not None:
+                        self.list_box.remove(row.get_parent())
+                    if card.get_parent() is not None:
+                        self.grid_flow.remove(card.get_parent())
+
+                row = AnimeRow(
+                    entry,
+                    self._increment_progress,
+                    self._confirm_remove_entry,
+                    self._show_edit_dialog,
+                )
+                card = AnimeCard(
+                    entry,
+                    self._increment_progress,
+                    self._confirm_remove_entry,
+                    self._show_edit_dialog,
+                )
+                self.list_box.insert(row, position)
+                self.grid_flow.insert(card, position)
+                self._row_widgets[key] = row
+                self._card_widgets[key] = card
+                self._widget_entries[key] = entry
+            else:
+                self.list_box.reorder_child(row.get_parent(), position)
+                self.grid_flow.reorder_child(card.get_parent(), position)
+
+            is_visible = (
+                (self.current_filter == "all" or entry.status.value == self.current_filter)
+                and query in entry.title.casefold()
+            )
+            row.get_parent().set_visible(is_visible)
+            card.get_parent().set_visible(is_visible)
+
+        visible_count = sum(
+            1
+            for entry in self.entries
             if (self.current_filter == "all" or entry.status.value == self.current_filter)
             and query in entry.title.casefold()
-        ]
-
-        for entry in visible:
-            self.list_box.append(
-                AnimeRow(entry, self._increment_progress, self._confirm_remove_entry, self._show_edit_dialog)
-            )
-            self.grid_flow.insert(
-                AnimeCard(entry, self._increment_progress, self._confirm_remove_entry, self._show_edit_dialog), -1
-            )
-
-        if not visible:
+        )
+        if not visible_count:
             if not self.entries:
                 self.empty_title.set_label("Your library is empty")
                 self.empty_description.set_label(
