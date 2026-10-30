@@ -1,6 +1,7 @@
 """Offline tests for the AniList cover cache."""
 
 import io
+import os
 import tempfile
 import unittest
 from pathlib import Path
@@ -83,7 +84,6 @@ class CoverCacheTests(unittest.TestCase):
         second.write_bytes(b"abcdef")
         first.touch()
         second.touch()
-        import os
         os.utime(first, (1, 1))
         os.utime(second, (2, 2))
         with patch("aniyori.services.covers.MAX_COVER_CACHE_BYTES", 8):
