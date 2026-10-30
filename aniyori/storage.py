@@ -100,34 +100,40 @@ class LibraryStorage:
                 raise ValueError("This catalogue entry is already in your library.") from error
             raise
 
-    def update_progress(self, entry_id: int | str, episodes_watched: int) -> bool:
-        """Update one entry by database ID; title strings remain supported for compatibility."""
+    def update_progress(self, storage_id: int, episodes_watched: int) -> bool:
+        """Update progress for exactly one entry identified by its database ID."""
+        if isinstance(storage_id, bool) or not isinstance(storage_id, int) or storage_id <= 0:
+            raise ValueError("A valid storage ID is required.")
         if episodes_watched < 0:
             raise ValueError("Watched episode count cannot be negative")
         with self._connect() as connection:
-            if isinstance(entry_id, int):
-                row = connection.execute(
-                    "SELECT id, episodes_total FROM anime WHERE id = ?", (entry_id,)
-                ).fetchone()
-            else:
-                row = connection.execute(
-                    "SELECT id, episodes_total FROM anime "
-                    "WHERE title = ? COLLATE NOCASE ORDER BY id LIMIT 1",
-                    (entry_id,),
-                ).fetchone()
+            row = connection.execute(
+                "SELECT id, episodes_total, status FROM anime WHERE id = ?",
+                (storage_id,),
+            ).fetchone()
             if row is None:
                 return False
             total = row["episodes_total"]
             if total is not None and episodes_watched > total:
                 raise ValueError("Watched episodes cannot exceed the total")
-            status = "completed" if total is not None and total > 0 and episodes_watched == total else "watching"
+
+            current_status = row["status"]
+            if total is not None and total > 0 and episodes_watched == total:
+                status = "completed"
+            elif current_status in ("paused", "dropped") or (
+                current_status == "completed" and total is None
+            ):
+                status = current_status
+            else:
+                status = "watching"
+
             connection.execute(
                 """
                 UPDATE anime
                 SET episodes_watched = ?, status = ?, updated_at = CURRENT_TIMESTAMP
                 WHERE id = ?
                 """,
-                (episodes_watched, status, row["id"]),
+                (episodes_watched, status, storage_id),
             )
             return True
 
@@ -153,17 +159,12 @@ class LibraryStorage:
                 raise ValueError("This catalogue entry is already in your library.") from error
             raise
 
-    def remove(self, entry_id: int | str) -> bool:
-        """Remove one entry by database ID; title strings remain supported."""
+    def remove(self, storage_id: int) -> bool:
+        """Remove exactly one entry identified by its database ID."""
+        if isinstance(storage_id, bool) or not isinstance(storage_id, int) or storage_id <= 0:
+            raise ValueError("A valid storage ID is required.")
         with self._connect() as connection:
-            if isinstance(entry_id, int):
-                cursor = connection.execute("DELETE FROM anime WHERE id = ?", (entry_id,))
-            else:
-                cursor = connection.execute(
-                    "DELETE FROM anime WHERE id = (SELECT id FROM anime "
-                    "WHERE title = ? COLLATE NOCASE ORDER BY id LIMIT 1)",
-                    (entry_id,),
-                )
+            cursor = connection.execute("DELETE FROM anime WHERE id = ?", (storage_id,))
             return cursor.rowcount > 0
 
     def replace_all(self, entries: Iterable[AnimeEntry]) -> None:
