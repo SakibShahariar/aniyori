@@ -43,7 +43,14 @@ class AnimeRow(Gtk.Box):
         details.append(title)
 
         status_text = entry.status.value.replace("_", " ").title()
-        subtitle = Gtk.Label(label=f"{status_text} · {entry.progress_label}", xalign=0)
+        source_text = (
+            f"{entry.provider.title()} #{entry.provider_id}"
+            if entry.provider and entry.provider_id
+            else f"Manual entry #{entry.storage_id}" if entry.storage_id is not None else "Manual entry"
+        )
+        subtitle = Gtk.Label(
+            label=f"{status_text} · {entry.progress_label} · {source_text}", xalign=0
+        )
         subtitle.add_css_class("dim-label")
         subtitle.add_css_class("caption")
         details.append(subtitle)
@@ -102,7 +109,15 @@ class AnimeCard(Gtk.Box):
         self.append(title)
 
         status = entry.status.value.replace("_", " ").title()
-        subtitle = Gtk.Label(label=f"{status}\n{entry.progress_label}", justify=Gtk.Justification.CENTER)
+        source_text = (
+            f"{entry.provider.title()} #{entry.provider_id}"
+            if entry.provider and entry.provider_id
+            else f"Manual entry #{entry.storage_id}" if entry.storage_id is not None else "Manual entry"
+        )
+        subtitle = Gtk.Label(
+            label=f"{status}\n{entry.progress_label}\n{source_text}",
+            justify=Gtk.Justification.CENTER,
+        )
         subtitle.add_css_class("dim-label")
         subtitle.add_css_class("caption")
         self.append(subtitle)
@@ -640,6 +655,54 @@ class AniyoriWindow(Adw.ApplicationWindow):
             self.toast_overlay.add_toast(Adw.Toast.new("Check the episode count and try again."))
             return
 
+        if entry.provider is None and entry.provider_id is None:
+            matches = self.storage.find_manual_title_matches(entry.title)
+            if matches:
+                self._show_duplicate_choice(entry, matches)
+                return
+        self._save_new_entry(entry)
+
+    def _show_duplicate_choice(self, entry: AnimeEntry, matches: list[AnimeEntry]):
+        dialog = Adw.AlertDialog(
+            heading="Possible duplicate",
+            body=(
+                f"{len(matches)} manual {'entry matches' if len(matches) == 1 else 'entries match'} "
+                f"“{entry.title}”. Edit an existing entry or add another edition."
+            ),
+        )
+        labels = [
+            f"#{item.storage_id} · {item.status.value.title()} · {item.progress_label}"
+            for item in matches
+        ]
+        dropdown = Gtk.DropDown(model=Gtk.StringList.new(labels))
+        dropdown.set_selected(0)
+        content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+        content.append(Gtk.Label(label="Existing entries", xalign=0))
+        content.append(dropdown)
+        dialog.set_extra_child(content)
+        dialog.add_response("cancel", "Cancel")
+        dialog.add_response("edit", "Edit selected")
+        dialog.add_response("add-anyway", "Add another edition")
+        dialog.set_response_appearance("edit", Adw.ResponseAppearance.SUGGESTED)
+        dialog.set_default_response("edit")
+        dialog.set_close_response("cancel")
+        dialog.choose(self, None, self._on_duplicate_choice_response, (entry, matches, dropdown))
+
+    def _on_duplicate_choice_response(self, dialog, result, data):
+        try:
+            response = dialog.choose_finish(result)
+        except GLib.Error:
+            LOGGER.warning("Could not finish duplicate-entry dialog", exc_info=True)
+            return
+        entry, matches, dropdown = data
+        if response == "edit":
+            index = dropdown.get_selected()
+            if index < len(matches):
+                self._show_edit_dialog(matches[index])
+        elif response == "add-anyway":
+            self._save_new_entry(entry)
+
+    def _save_new_entry(self, entry: AnimeEntry):
         try:
             self.storage.add(entry)
         except ValueError as error:
@@ -656,5 +719,5 @@ class AniyoriWindow(Adw.ApplicationWindow):
         self.filter_buttons["all"].set_active(True)
         self.search.set_text("")
         self._render_library()
-        self.toast_overlay.add_toast(Adw.Toast.new(f"Added {title} to your library."))
+        self.toast_overlay.add_toast(Adw.Toast.new(f"Added {entry.title} to your library."))
 
