@@ -85,5 +85,64 @@ class AniListClientTests(unittest.TestCase):
             AniListClient().get_anime(True)
 
 
+    def test_search_uses_fresh_cached_metadata_without_network(self):
+        expected = [{"id": 21, "title": "Cached", "genres": []}]
+        self.client.cache.set("search", '{"per_page": 10, "search": "example"}', expected)
+
+        with patch.object(self.client, "_request") as request:
+            self.assertEqual(self.client.search_anime("Example"), expected)
+
+        request.assert_not_called()
+
+    def test_search_returns_stale_cache_when_network_is_unavailable(self):
+        from aniyori.services.metadata_cache import MetadataCache
+
+        stale_client = AniListClient(
+            cache=MetadataCache(self.temp_dir.name, ttl=0)
+        )
+        expected = [{"id": 21, "title": "Offline result"}]
+        stale_client.cache.set(
+            "search", '{"per_page": 10, "search": "example"}', expected
+        )
+
+        with patch.object(
+            stale_client, "_request", side_effect=AniListError("offline")
+        ):
+            self.assertEqual(stale_client.search_anime("Example"), expected)
+
+    def test_refresh_bypasses_fresh_search_cache(self):
+        cached = [{"id": 21, "title": "Old title"}]
+        self.client.cache.set(
+            "search", '{"per_page": 10, "search": "example"}', cached
+        )
+        payload = {
+            "Page": {
+                "media": [{
+                    "id": 21,
+                    "title": {"english": "New title"},
+                    "coverImage": {},
+                }]
+            }
+        }
+        with patch.object(self.client, "_request", return_value=payload) as request:
+            results = self.client.search_anime("Example", refresh=True)
+
+        request.assert_called_once()
+        self.assertEqual(results[0]["title"], "New title")
+
+    def test_detail_uses_cache_and_refreshes_when_requested(self):
+        cached = {"id": 21, "title": "Cached title"}
+        self.client.cache.set("details", "21", cached)
+        with patch.object(self.client, "_request") as request:
+            self.assertEqual(self.client.get_anime(21), cached)
+        request.assert_not_called()
+
+        payload = {"Media": {"id": 21, "title": {"english": "Fresh title"}}}
+        with patch.object(self.client, "_request", return_value=payload) as request:
+            result = self.client.get_anime(21, refresh=True)
+        request.assert_called_once()
+        self.assertEqual(result["title"], "Fresh title")
+
+
 if __name__ == "__main__":
     unittest.main()
