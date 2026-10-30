@@ -98,7 +98,8 @@ def import_json(content: str) -> list[AnimeEntry]:
         raise ValueError("The JSON library backup must be an object.")
     if payload.get("format") != "aniyori-library":
         raise ValueError("This file is not an Aniyori library export.")
-    if payload.get("version") != JSON_FORMAT_VERSION:
+    version = payload.get("version")
+    if isinstance(version, bool) or not isinstance(version, int) or version != JSON_FORMAT_VERSION:
         raise ValueError("This library export uses an unsupported format version.")
     records = payload.get("entries")
     if not isinstance(records, list):
