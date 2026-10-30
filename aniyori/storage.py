@@ -267,6 +267,7 @@ class LibraryStorage:
                         entry.status.value,
                         entry.provider,
                         entry.provider_id,
+                        entry.cover_image,
                     )
                     for entry in entries
                 ],
