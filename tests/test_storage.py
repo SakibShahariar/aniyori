@@ -95,6 +95,43 @@ class LibraryStorageTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "storage ID"):
             self.storage.remove("Example Anime")
 
+    def test_restore_preserves_original_id_and_all_entry_fields(self):
+        entry = AnimeEntry(
+            title="Restorable Anime",
+            episodes_total=24,
+            episodes_watched=9,
+            status=WatchStatus.PAUSED,
+            provider="anilist",
+            provider_id="456",
+        )
+        self.storage.add(entry)
+        deleted = self.storage.list_entries()[0]
+        self.assertTrue(self.storage.remove(deleted.storage_id))
+
+        self.storage.restore(deleted)
+
+        restored = self.storage.list_entries()[0]
+        self.assertEqual(restored.storage_id, deleted.storage_id)
+        self.assertEqual(restored.title, deleted.title)
+        self.assertEqual(restored.episodes_total, deleted.episodes_total)
+        self.assertEqual(restored.episodes_watched, deleted.episodes_watched)
+        self.assertEqual(restored.status, deleted.status)
+        self.assertEqual(restored.provider, deleted.provider)
+        self.assertEqual(restored.provider_id, deleted.provider_id)
+
+    def test_restore_rejects_entry_without_valid_storage_id(self):
+        with self.assertRaisesRegex(ValueError, "storage ID"):
+            self.storage.restore(AnimeEntry(title="No ID"))
+
+    def test_restore_does_not_overwrite_an_existing_entry(self):
+        self.storage.add(AnimeEntry(title="Original"))
+        deleted = AnimeEntry(title="Deleted", storage_id=1)
+
+        with self.assertRaisesRegex(ValueError, "already in use"):
+            self.storage.restore(deleted)
+
+        self.assertEqual([item.title for item in self.storage.list_entries()], ["Original"])
+
     def test_duplicate_titles_are_mutated_by_storage_id_only(self):
         self.storage.add(AnimeEntry(title="Duplicate", episodes_total=12))
         self.storage.add(AnimeEntry(title="Duplicate", episodes_total=24))
