@@ -208,6 +208,34 @@ class LibraryStorage:
             cursor = connection.execute("DELETE FROM anime WHERE id = ?", (storage_id,))
             return cursor.rowcount > 0
 
+    def restore(self, entry: AnimeEntry) -> None:
+        """Restore a deleted entry with its original database ID."""
+        storage_id = entry.storage_id
+        if isinstance(storage_id, bool) or not isinstance(storage_id, int) or storage_id <= 0:
+            raise ValueError("A valid storage ID is required to restore an anime.")
+        try:
+            with self._connect() as connection:
+                connection.execute(
+                    """
+                    INSERT INTO anime
+                        (id, title, episodes_total, episodes_watched, status, provider, provider_id)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        storage_id,
+                        entry.title.strip(),
+                        entry.episodes_total,
+                        entry.episodes_watched,
+                        entry.status.value,
+                        entry.provider,
+                        entry.provider_id,
+                    ),
+                )
+        except sqlite3.IntegrityError as error:
+            raise ValueError(
+                "This entry could not be restored because its ID or catalogue entry is already in use."
+            ) from error
+
     def replace_all(self, entries: Iterable[AnimeEntry]) -> None:
         """Replace the stored library atomically (useful for import/sync)."""
         with self._connect() as connection:
