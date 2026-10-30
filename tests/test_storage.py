@@ -23,10 +23,26 @@ class LibraryStorageTests(unittest.TestCase):
             episodes_total=12,
             episodes_watched=4,
             status=WatchStatus.WATCHING,
+            provider="anilist",
+            provider_id="21",
+            cover_image="https://s4.anilist.co/file/cover.jpg",
         )
         self.storage.add(entry)
         reopened = LibraryStorage(self.database)
         self.assertEqual(reopened.list_entries(), [entry])
+
+    def test_replace_all_preserves_cover_image_urls(self):
+        entry = AnimeEntry(
+            title="Cover Anime",
+            provider="anilist",
+            provider_id="789",
+            cover_image="https://s4.anilist.co/file/cover.jpg",
+        )
+
+        self.storage.replace_all([entry])
+
+        stored = self.storage.list_entries()[0]
+        self.assertEqual(stored.cover_image, entry.cover_image)
 
     def test_update_progress(self):
         self.storage.add(AnimeEntry(title="Example Anime", episodes_total=12))
@@ -118,6 +134,7 @@ class LibraryStorageTests(unittest.TestCase):
         self.assertEqual(restored.status, deleted.status)
         self.assertEqual(restored.provider, deleted.provider)
         self.assertEqual(restored.provider_id, deleted.provider_id)
+        self.assertEqual(restored.cover_image, deleted.cover_image)
 
     def test_restore_rejects_entry_without_valid_storage_id(self):
         with self.assertRaisesRegex(ValueError, "storage ID"):
