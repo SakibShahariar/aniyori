@@ -56,6 +56,7 @@ class StorageMigrationTests(unittest.TestCase):
         self.assertEqual(len(entries), 1)
         self.assertEqual(entries[0].title, "Existing series")
         self.assertEqual(entries[0].episodes_watched, 7)
+        self.assertIsNone(entries[0].cover_image)
 
     def test_migration_is_idempotent(self):
         LibraryStorage(self.database)
