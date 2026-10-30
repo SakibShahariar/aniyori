@@ -54,7 +54,15 @@ class AnimeRow(Gtk.Box):
             self.append(progress)
 
         next_button = Gtk.Button(label="+1")
-        next_button.set_tooltip_text("Mark one more episode watched")
+        can_increment = not (
+            entry.status == WatchStatus.COMPLETED
+            and entry.episodes_total is not None
+            and entry.episodes_watched >= entry.episodes_total
+        )
+        next_button.set_sensitive(can_increment)
+        next_button.set_tooltip_text(
+            "Mark one more episode watched" if can_increment else "All known episodes are completed"
+        )
         next_button.set_valign(Gtk.Align.CENTER)
         next_button.connect("clicked", lambda _button: on_progress(entry))
         self.append(next_button)
@@ -105,6 +113,15 @@ class AnimeCard(Gtk.Box):
             self.append(progress)
 
         next_button = Gtk.Button(label="+1 episode")
+        can_increment = not (
+            entry.status == WatchStatus.COMPLETED
+            and entry.episodes_total is not None
+            and entry.episodes_watched >= entry.episodes_total
+        )
+        next_button.set_sensitive(can_increment)
+        next_button.set_tooltip_text(
+            "Mark one more episode watched" if can_increment else "All known episodes are completed"
+        )
         next_button.set_halign(Gtk.Align.CENTER)
         next_button.connect("clicked", lambda _button: on_progress(entry))
         self.append(next_button)
@@ -305,7 +322,10 @@ class AniyoriWindow(Adw.ApplicationWindow):
             self.toast_overlay.add_toast(Adw.Toast.new("All known episodes are already marked watched."))
             return
         try:
-            updated = self.storage.update_progress(entry.storage_id if entry.storage_id is not None else entry.title, entry.episodes_watched + 1)
+            if entry.storage_id is None:
+                self.toast_overlay.add_toast(Adw.Toast.new("This library entry has no storage ID."))
+                return
+            updated = self.storage.update_progress(entry.storage_id, entry.episodes_watched + 1)
         except ValueError as error:
             self.toast_overlay.add_toast(Adw.Toast.new(str(error)))
             return
@@ -401,8 +421,10 @@ class AniyoriWindow(Adw.ApplicationWindow):
             return
         if response != "remove":
             return
-        entry_id = entry.storage_id if entry.storage_id is not None else entry.title
-        if not self.storage.remove(entry_id):
+        if entry.storage_id is None:
+            self.toast_overlay.add_toast(Adw.Toast.new("This library entry has no storage ID."))
+            return
+        if not self.storage.remove(entry.storage_id):
             self.toast_overlay.add_toast(Adw.Toast.new("That anime was already removed."))
             return
         self.entries = self.storage.list_entries()
