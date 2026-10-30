@@ -128,6 +128,10 @@ class AniListClient:
             raise AniListError("AniList response did not contain data")
         return payload["data"]
 
+    def clear_cache(self) -> None:
+        """Clear cached catalogue metadata; cached cover images are unaffected."""
+        self.cache.clear()
+
     def search_anime(
         self, search: str, per_page: int = 10, *, refresh: bool = False
     ) -> list[dict[str, Any]]:
