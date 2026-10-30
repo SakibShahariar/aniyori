@@ -1,5 +1,7 @@
 """Main library window for Aniyori."""
 
+import logging
+import sqlite3
 import threading
 
 import gi
@@ -15,6 +17,7 @@ from .storage import LibraryStorage
 
 
 APP_ID = "io.github.sakibshahariar.Aniyori"
+LOGGER = logging.getLogger(__name__)
 
 
 class AnimeRow(Gtk.Box):
@@ -390,7 +393,8 @@ class AniyoriWindow(Adw.ApplicationWindow):
     def _on_edit_response(self, dialog, result, widgets):
         try:
             response = dialog.choose_finish(result)
-        except Exception:
+        except GLib.Error:
+            LOGGER.warning("Could not finish an application dialog", exc_info=True)
             return
         if response != "save":
             return
@@ -440,7 +444,8 @@ class AniyoriWindow(Adw.ApplicationWindow):
     def _on_remove_response(self, dialog, result, entry: AnimeEntry):
         try:
             response = dialog.choose_finish(result)
-        except Exception:
+        except GLib.Error:
+            LOGGER.warning("Could not finish an application dialog", exc_info=True)
             return
         if response != "remove":
             return
@@ -571,6 +576,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
                 except AniListError as error:
                     GLib.idle_add(show_catalogue_error, str(error), request_id)
                 except Exception:
+                    LOGGER.exception("Unexpected error while searching AniList for %r", query)
                     GLib.idle_add(
                         show_catalogue_error,
                         "An unexpected error occurred. Please try again.",
@@ -597,7 +603,8 @@ class AniyoriWindow(Adw.ApplicationWindow):
     def _on_add_response(self, dialog, result, widgets):
         try:
             response = dialog.choose_finish(result)
-        except Exception:
+        except GLib.Error:
+            LOGGER.warning("Could not finish an application dialog", exc_info=True)
             return
         if response != "add":
             return
@@ -637,8 +644,14 @@ class AniyoriWindow(Adw.ApplicationWindow):
 
         try:
             self.storage.add(entry)
-        except Exception as error:
-            self.toast_overlay.add_toast(Adw.Toast.new(f"Could not save anime: {error}"))
+        except ValueError as error:
+            self.toast_overlay.add_toast(Adw.Toast.new(str(error)))
+            return
+        except (sqlite3.Error, OSError):
+            LOGGER.exception("Could not save anime entry %r", entry.title)
+            self.toast_overlay.add_toast(
+                Adw.Toast.new("Could not save anime. Check storage availability and permissions.")
+            )
             return
         self.entries = self.storage.list_entries()
         self.current_filter = "all"
