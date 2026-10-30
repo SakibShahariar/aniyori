@@ -8,7 +8,7 @@ gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
 from gi.repository import Adw, Gio, GLib, Gtk
 
-from .models import AnimeEntry, WatchStatus
+from .models import AnimeEntry, WatchStatus, parse_episode_count
 from .search import SearchGeneration
 from .services.anilist import AniListClient, AniListError
 from .storage import LibraryStorage
@@ -378,9 +378,12 @@ class AniyoriWindow(Adw.ApplicationWindow):
         original, title_entry, total_entry, watched_entry, status_dropdown, statuses = widgets
         try:
             title = title_entry.get_text().strip()
-            total_text = total_entry.get_text().strip()
-            total = int(total_text) if total_text else None
-            watched = int(watched_entry.get_text().strip())
+            total = parse_episode_count(
+                total_entry.get_text(), optional=True, field_name="Total episode count"
+            )
+            watched = parse_episode_count(
+                watched_entry.get_text(), field_name="Watched episode count"
+            )
             status = statuses[status_dropdown.get_selected()]
             if not title:
                 raise ValueError("Anime title must not be empty.")
@@ -586,11 +589,10 @@ class AniyoriWindow(Adw.ApplicationWindow):
             self.toast_overlay.add_toast(Adw.Toast.new("Enter an anime title first."))
             return
 
-        total_text = total_entry.get_text().strip()
         try:
-            total = int(total_text) if total_text else None
-            if total is not None and total < 0:
-                raise ValueError
+            total = parse_episode_count(
+                total_entry.get_text(), optional=True, field_name="Total episode count"
+            )
             status = [
                 WatchStatus.PLANNING,
                 WatchStatus.WATCHING,
