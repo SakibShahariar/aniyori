@@ -121,7 +121,7 @@ class AniListClient:
         return payload["data"]
 
     def search_anime(self, search: str, per_page: int = 10) -> list[dict[str, Any]]:
-        """Search the public anime catalogue; return up to 25 normalised results."""
+        """Search the public catalogue; return 10 results by default (up to 25)."""
         search = search.strip()
         if not search:
             return []
