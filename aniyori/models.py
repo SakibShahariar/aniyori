@@ -51,5 +51,5 @@ class AnimeEntry:
     @property
     def progress_label(self) -> str:
         if self.episodes_total is None:
-            return f"{self.episodes_watched} watched"
+            return f"{self.episodes_watched} / ? episodes"
         return f"{self.episodes_watched} / {self.episodes_total} episodes"
