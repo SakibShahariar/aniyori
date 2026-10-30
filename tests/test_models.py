@@ -19,7 +19,7 @@ class AnimeEntryTests(unittest.TestCase):
     def test_unknown_total_has_no_fraction(self):
         entry = AnimeEntry(title="Airing Series", episodes_watched=2)
         self.assertIsNone(entry.progress_fraction)
-        self.assertEqual(entry.progress_label, "2 watched")
+        self.assertEqual(entry.progress_label, "2 / ? episodes")
 
     def test_empty_title_is_rejected(self):
         with self.assertRaises(ValueError):
