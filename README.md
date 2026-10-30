@@ -19,6 +19,7 @@ A native Linux anime tracker built with Python, GTK 4, PyGObject, and libadwaita
 
 - Add an anime manually with an optional episode total and watch status.
 - Search titles and filter by watch status.
+- Show AniList cover art in list and grid views, loading images asynchronously and caching them locally.
 - Switch between compact list and grid views.
 - Mark one additional episode watched using the `+1` controls.
 - Automatically mark an entry Completed when progress reaches its known episode total; Paused and Dropped statuses are preserved when progress changes.
