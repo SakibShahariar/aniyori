@@ -3,6 +3,7 @@
 import logging
 import sqlite3
 import threading
+from pathlib import Path
 
 import gi
 
@@ -11,6 +12,7 @@ gi.require_version("Adw", "1")
 from gi.repository import Adw, Gdk, Gio, GLib, Gtk
 
 from .models import AnimeEntry, WatchStatus, parse_episode_count
+from .library_io import export_csv, export_json, import_csv, import_json
 from .search import SearchGeneration
 from .services.anilist import AniListClient, AniListError
 from .services.covers import get_cached_cover
@@ -216,6 +218,9 @@ class AniyoriWindow(Adw.ApplicationWindow):
             ("focus-search", lambda: self.search.grab_focus()),
             ("quit", lambda: self.get_application().quit()),
             ("statistics", self._show_statistics_dialog),
+            ("export-json", lambda: self._show_export_dialog("json")),
+            ("export-csv", lambda: self._show_export_dialog("csv")),
+            ("import-library", self._show_import_dialog),
             ("about", self._show_about_dialog),
         ]:
             action = Gio.SimpleAction.new(name, None)
@@ -245,6 +250,9 @@ class AniyoriWindow(Adw.ApplicationWindow):
         primary_menu.append("Add Anime", "win.add-anime")
         primary_menu.append("Search Library", "win.focus-search")
         primary_menu.append("Library Statistics", "win.statistics")
+        primary_menu.append("Export Library (JSON)", "win.export-json")
+        primary_menu.append("Export Library (CSV)", "win.export-csv")
+        primary_menu.append("Import Library", "win.import-library")
         primary_menu.append("About Aniyori", "win.about")
         primary_menu.append("Quit", "win.quit")
         menu_button = Gtk.MenuButton()
@@ -369,6 +377,109 @@ class AniyoriWindow(Adw.ApplicationWindow):
         self.view_switches["list"].set_active(True)
         self._render_library()
         self.filter_buttons["all"].set_active(True)
+
+    def _show_export_dialog(self, file_format: str):
+        chooser = Gtk.FileChooserNative.new(
+            f"Export library as {file_format.upper()}",
+            self,
+            Gtk.FileChooserAction.SAVE,
+            "Export",
+            "Cancel",
+        )
+        chooser.set_current_name(f"aniyori-library.{file_format}")
+        chooser.connect("response", self._on_export_file_chosen, file_format)
+        chooser.show()
+
+    def _on_export_file_chosen(self, chooser, response, file_format: str):
+        if response != Gtk.ResponseType.ACCEPT:
+            chooser.destroy()
+            return
+        selected_file = chooser.get_file()
+        path = selected_file.get_path() if selected_file is not None else None
+        chooser.destroy()
+        if not path:
+            self.toast_overlay.add_toast(Adw.Toast.new("Choose a local file to export."))
+            return
+        try:
+            content = (
+                export_json(self.entries)
+                if file_format == "json"
+                else export_csv(self.entries)
+            )
+            Path(path).write_text(content, encoding="utf-8", newline="")
+        except OSError as error:
+            LOGGER.warning("Could not export library", exc_info=True)
+            self.toast_overlay.add_toast(Adw.Toast.new(f"Export failed: {error}"))
+            return
+        self.toast_overlay.add_toast(Adw.Toast.new("Library exported successfully."))
+
+    def _show_import_dialog(self):
+        chooser = Gtk.FileChooserNative.new(
+            "Import library",
+            self,
+            Gtk.FileChooserAction.OPEN,
+            "Import",
+            "Cancel",
+        )
+        chooser.connect("response", self._on_import_file_chosen)
+        chooser.show()
+
+    def _on_import_file_chosen(self, chooser, response):
+        if response != Gtk.ResponseType.ACCEPT:
+            chooser.destroy()
+            return
+        selected_file = chooser.get_file()
+        path = selected_file.get_path() if selected_file is not None else None
+        chooser.destroy()
+        if not path:
+            self.toast_overlay.add_toast(Adw.Toast.new("Choose a local JSON or CSV file."))
+            return
+        try:
+            source = Path(path)
+            content = source.read_text(encoding="utf-8")
+            if source.suffix.casefold() == ".csv":
+                entries = import_csv(content)
+            elif source.suffix.casefold() == ".json":
+                entries = import_json(content)
+            else:
+                raise ValueError("Choose a .json or .csv library export.")
+        except (OSError, UnicodeDecodeError, ValueError) as error:
+            self.toast_overlay.add_toast(Adw.Toast.new(f"Import failed: {error}"))
+            return
+
+        dialog = Adw.AlertDialog(
+            heading="Replace current library?",
+            body=(
+                f"Import {len(entries)} anime entries and replace all "
+                "entries currently in your library? This cannot be undone."
+            ),
+        )
+        dialog.add_response("cancel", "Cancel")
+        dialog.add_response("replace", "Replace Library")
+        dialog.set_response_appearance("replace", Adw.ResponseAppearance.DESTRUCTIVE)
+        dialog.set_default_response("cancel")
+        dialog.set_close_response("cancel")
+        dialog.choose(self, None, self._on_import_confirmed, entries)
+
+    def _on_import_confirmed(self, dialog, result, entries: list[AnimeEntry]):
+        try:
+            response = dialog.choose_finish(result)
+        except GLib.Error:
+            LOGGER.warning("Could not finish the import confirmation dialog", exc_info=True)
+            return
+        if response != "replace":
+            return
+        try:
+            self.storage.replace_all(entries)
+        except (ValueError, sqlite3.Error, OSError) as error:
+            LOGGER.exception("Could not replace library from imported backup")
+            self.toast_overlay.add_toast(Adw.Toast.new(f"Import failed: {error}"))
+            return
+        self.entries = self.storage.list_entries()
+        self._render_library()
+        self.toast_overlay.add_toast(
+            Adw.Toast.new(f"Imported {len(entries)} anime entries.")
+        )
 
     def _show_statistics_dialog(self):
         stats = calculate_library_statistics(self.entries)
