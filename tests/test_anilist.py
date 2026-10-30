@@ -40,6 +40,16 @@ class AniListClientTests(unittest.TestCase):
             self.assertEqual(AniListClient().search_anime("  "), [])
         open_url.assert_not_called()
 
+    def test_search_uses_ten_results_by_default(self):
+        with patch.object(AniListClient, "_request", return_value={"Page": {"media": []}}) as request:
+            self.assertEqual(AniListClient().search_anime("Naruto"), [])
+        self.assertEqual(request.call_args.args[1]["perPage"], 10)
+
+    def test_search_accepts_maximum_page_size(self):
+        with patch.object(AniListClient, "_request", return_value={"Page": {"media": []}}) as request:
+            self.assertEqual(AniListClient().search_anime("Naruto", per_page=25), [])
+        self.assertEqual(request.call_args.args[1]["perPage"], 25)
+
     def test_rejects_invalid_page_size(self):
         with self.assertRaises(ValueError):
             AniListClient().search_anime("Naruto", per_page=26)
