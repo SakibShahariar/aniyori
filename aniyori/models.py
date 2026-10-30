@@ -4,6 +4,27 @@ from dataclasses import dataclass, field
 from enum import Enum
 
 
+MAX_EPISODE_COUNT = 10_000
+
+
+def parse_episode_count(value: str, *, optional: bool = False, field_name: str = "Episode count") -> int | None:
+    """Parse a user-entered episode count with clear errors and a sanity limit."""
+    text = str(value).strip()
+    if not text and optional:
+        return None
+    if not text:
+        raise ValueError(f"{field_name} is required.")
+    try:
+        count = int(text)
+    except (TypeError, ValueError):
+        raise ValueError(f"{field_name} must be a whole number.") from None
+    if count < 0:
+        raise ValueError(f"{field_name} cannot be negative.")
+    if count > MAX_EPISODE_COUNT:
+        raise ValueError(f"{field_name} cannot exceed {MAX_EPISODE_COUNT:,}.")
+    return count
+
+
 class WatchStatus(str, Enum):
     PLANNING = "planning"
     WATCHING = "watching"
@@ -35,6 +56,10 @@ class AnimeEntry:
             raise ValueError("Total episode count cannot be negative")
         if self.episodes_watched < 0:
             raise ValueError("Watched episode count cannot be negative")
+        if self.episodes_total is not None and self.episodes_total > MAX_EPISODE_COUNT:
+            raise ValueError(f"Total episode count cannot exceed {MAX_EPISODE_COUNT:,}.")
+        if self.episodes_watched > MAX_EPISODE_COUNT:
+            raise ValueError(f"Watched episode count cannot exceed {MAX_EPISODE_COUNT:,}.")
         if (
             self.episodes_total is not None
             and self.episodes_watched > self.episodes_total
