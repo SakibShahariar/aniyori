@@ -552,7 +552,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
             catalogue_dropdown.set_model(Gtk.StringList.new(["Search failed. Try again."]))
             catalogue_dropdown.set_sensitive(False)
             catalogue_button.set_sensitive(True)
-            catalogue_button.set_label("Search")
+            catalogue_button.set_label("Retry")
             self.toast_overlay.add_toast(Adw.Toast.new("AniList search failed: " + message))
 
         def start_catalogue_search(_button):
