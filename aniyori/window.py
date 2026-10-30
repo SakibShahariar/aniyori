@@ -379,13 +379,13 @@ class AniyoriWindow(Adw.ApplicationWindow):
         ]
         estimated_hours = stats["estimated_minutes"] / 60
         body = (
-            f"Anime in library: {stats['anime_count']}\\n"
-            f"Episodes watched: {stats['episodes_watched']}\\n"
-            f"Known episode total: {stats['known_episodes_total']}\\n"
-            f"Completed anime: {stats['completion_rate']}%\\n"
+            f"Anime in library: {stats['anime_count']}\n"
+            f"Episodes watched: {stats['episodes_watched']}\n"
+            f"Known episode total: {stats['known_episodes_total']}\n"
+            f"Completed anime: {stats['completion_rate']}%\n"
             f"Estimated watch time: {estimated_hours:.1f} hours "
-            "(24 minutes per episode)\\n\\n"
-            + "\\n".join(status_lines)
+            "(24 minutes per episode)\n\n"
+            + "\n".join(status_lines)
         )
         dialog = Adw.AlertDialog(
             heading="Library Statistics",
