@@ -20,7 +20,7 @@ def default_database_path() -> Path:
 class LibraryStorage:
     """Store the local library in a small SQLite database."""
 
-    LATEST_SCHEMA_VERSION = 1
+    LATEST_SCHEMA_VERSION = 2
 
     @staticmethod
     def _is_duplicate_catalogue_error(error: sqlite3.IntegrityError) -> bool:
@@ -60,8 +60,17 @@ class LibraryStorage:
             "CREATE INDEX IF NOT EXISTS anime_title_idx ON anime(title COLLATE NOCASE)"
         )
 
+    @staticmethod
+    def _migration_2(connection: sqlite3.Connection) -> None:
+        """Add optional AniList cover URLs without disturbing existing library rows."""
+        columns = {
+            row["name"] for row in connection.execute("PRAGMA table_info(anime)")
+        }
+        if "cover_image" not in columns:
+            connection.execute("ALTER TABLE anime ADD COLUMN cover_image TEXT")
+
     def _initialize(self) -> None:
-        migrations = {1: self._migration_1}
+        migrations = {1: self._migration_1, 2: self._migration_2}
         with self._connect() as connection:
             version = connection.execute("PRAGMA user_version").fetchone()[0]
             if version > self.LATEST_SCHEMA_VERSION:
@@ -88,12 +97,13 @@ class LibraryStorage:
             status=WatchStatus(row["status"]),
             provider=row["provider"],
             provider_id=row["provider_id"],
+            cover_image=row["cover_image"],
         )
 
     def list_entries(self) -> list[AnimeEntry]:
         with self._connect() as connection:
             rows = connection.execute(
-                "SELECT id, title, episodes_total, episodes_watched, status, provider, provider_id "
+                "SELECT id, title, episodes_total, episodes_watched, status, provider, provider_id, cover_image "
                 "FROM anime ORDER BY title COLLATE NOCASE, id"
             ).fetchall()
         return [self._to_entry(row) for row in rows]
@@ -106,7 +116,7 @@ class LibraryStorage:
         with self._connect() as connection:
             rows = connection.execute(
                 """
-                SELECT id, title, episodes_total, episodes_watched, status, provider, provider_id
+                SELECT id, title, episodes_total, episodes_watched, status, provider, provider_id, cover_image
                 FROM anime
                 WHERE provider IS NULL AND provider_id IS NULL
                 ORDER BY title COLLATE NOCASE, id
@@ -124,8 +134,8 @@ class LibraryStorage:
                 connection.execute(
                     """
                     INSERT INTO anime
-                        (title, episodes_total, episodes_watched, status, provider, provider_id)
-                    VALUES (?, ?, ?, ?, ?, ?)
+                        (title, episodes_total, episodes_watched, status, provider, provider_id, cover_image)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         entry.title.strip(),
@@ -134,6 +144,7 @@ class LibraryStorage:
                         entry.status.value,
                         entry.provider,
                         entry.provider_id,
+                        entry.cover_image,
                     ),
                 )
         except sqlite3.IntegrityError as error:
@@ -188,11 +199,12 @@ class LibraryStorage:
                     """
                     UPDATE anime
                     SET title = ?, episodes_total = ?, episodes_watched = ?, status = ?,
-                        provider = ?, provider_id = ?, updated_at = CURRENT_TIMESTAMP
+                        provider = ?, provider_id = ?, cover_image = ?, updated_at = CURRENT_TIMESTAMP
                     WHERE id = ?
                     """,
                     (entry.title.strip(), entry.episodes_total, entry.episodes_watched,
-                     entry.status.value, entry.provider, entry.provider_id, entry.storage_id),
+                     entry.status.value, entry.provider, entry.provider_id,
+                     entry.cover_image, entry.storage_id),
                 )
                 return cursor.rowcount > 0
         except sqlite3.IntegrityError as error:
@@ -218,8 +230,8 @@ class LibraryStorage:
                 connection.execute(
                     """
                     INSERT INTO anime
-                        (id, title, episodes_total, episodes_watched, status, provider, provider_id)
-                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                        (id, title, episodes_total, episodes_watched, status, provider, provider_id, cover_image)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         storage_id,
@@ -229,6 +241,7 @@ class LibraryStorage:
                         entry.status.value,
                         entry.provider,
                         entry.provider_id,
+                        entry.cover_image,
                     ),
                 )
         except sqlite3.IntegrityError as error:
@@ -243,8 +256,8 @@ class LibraryStorage:
             connection.executemany(
                 """
                 INSERT INTO anime
-                    (title, episodes_total, episodes_watched, status, provider, provider_id)
-                VALUES (?, ?, ?, ?, ?, ?)
+                    (title, episodes_total, episodes_watched, status, provider, provider_id, cover_image)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
                 """,
                 [
                     (
