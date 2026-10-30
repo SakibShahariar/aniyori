@@ -1,5 +1,6 @@
 """Tests for validated JSON and CSV library import/export."""
 
+import sqlite3
 import tempfile
 import unittest
 from pathlib import Path
@@ -63,7 +64,7 @@ class LibraryIOTests(unittest.TestCase):
                 AnimeEntry(title="Duplicate", provider="anilist", provider_id="21"),
             ]
 
-            with self.assertRaises(Exception):
+            with self.assertRaises(sqlite3.IntegrityError):
                 storage.replace_all(import_json(export_json(duplicate_provider_entries)))
 
             self.assertEqual(
