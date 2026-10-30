@@ -208,7 +208,7 @@ class LibraryStorage:
                 )
                 return cursor.rowcount > 0
         except sqlite3.IntegrityError as error:
-            if entry.provider and entry.provider_id:
+            if self._is_duplicate_catalogue_error(error):
                 raise ValueError("This catalogue entry is already in your library.") from error
             raise
 
