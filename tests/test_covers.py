@@ -6,7 +6,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from aniyori.services.covers import MAX_COVER_BYTES, get_cached_cover
+from aniyori.services.covers import MAX_COVER_BYTES, get_cached_cover, _prune_cache
 
 
 class ImageResponse(io.BytesIO):
@@ -74,6 +74,17 @@ class CoverCacheTests(unittest.TestCase):
                 get_cached_cover(
                     "https://s4.anilist.co/file/cover.jpg", cache_dir=self.cache_dir
                 )
+
+    def test_cover_cache_prunes_oldest_files_when_over_limit(self):
+        first = self.cache_dir / "first.img"
+        second = self.cache_dir / "second.img"
+        first.parent.mkdir(parents=True)
+        first.write_bytes(b"123456")
+        second.write_bytes(b"abcdef")
+        with patch("aniyori.services.covers.MAX_COVER_CACHE_BYTES", 8):
+            _prune_cache(self.cache_dir)
+        self.assertFalse(first.exists())
+        self.assertTrue(second.exists())
 
     def test_failed_download_does_not_leave_cache_file(self):
         with patch(
