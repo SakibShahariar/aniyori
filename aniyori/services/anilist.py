@@ -53,6 +53,7 @@ query AnimeDetails($id: Int!) {
     coverImage { medium large }
     siteUrl
     genres
+    nextAiringEpisode { airingAt timeUntilAiring episode }
   }
 }
 """
@@ -66,6 +67,18 @@ def _normalise_media(media: dict[str, Any]) -> dict[str, Any]:
     cover = media.get("coverImage")
     if not isinstance(cover, dict):
         cover = {}
+    airing = media.get("nextAiringEpisode")
+    if not isinstance(airing, dict):
+        airing = {}
+    airing_at = airing.get("airingAt")
+    time_until = airing.get("timeUntilAiring")
+    next_episode = airing.get("episode")
+    if isinstance(airing_at, bool) or not isinstance(airing_at, int) or airing_at <= 0:
+        airing_at = None
+    if isinstance(time_until, bool) or not isinstance(time_until, int) or time_until < 0:
+        time_until = None
+    if isinstance(next_episode, bool) or not isinstance(next_episode, int) or next_episode <= 0:
+        next_episode = None
     title = title_data.get("english") or title_data.get("romaji") or title_data.get("native")
     if not title:
         title = "Untitled anime"
@@ -87,6 +100,9 @@ def _normalise_media(media: dict[str, Any]) -> dict[str, Any]:
             if isinstance(media.get("genres"), list)
             else []
         ),
+        "next_episode": next_episode,
+        "next_airing_at": airing_at,
+        "time_until_airing": time_until,
     }
 
 

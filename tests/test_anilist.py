@@ -124,6 +124,33 @@ class AniListClientTests(unittest.TestCase):
             with self.assertRaisesRegex(AniListError, "was not found"):
                 AniListClient().get_anime(123)
 
+    def test_normaliser_includes_valid_next_airing_data(self):
+        result = _normalise_media({
+            "id": 21,
+            "title": {"english": "Example"},
+            "nextAiringEpisode": {
+                "airingAt": 1_800_000_000,
+                "timeUntilAiring": 3600,
+                "episode": 13,
+            },
+        })
+        self.assertEqual(result["next_episode"], 13)
+        self.assertEqual(result["next_airing_at"], 1_800_000_000)
+        self.assertEqual(result["time_until_airing"], 3600)
+
+    def test_normaliser_uses_clean_fallback_for_missing_or_invalid_airing_data(self):
+        for airing in (None, [], {}, {
+            "airingAt": True, "timeUntilAiring": -1, "episode": "13"
+        }):
+            with self.subTest(airing=airing):
+                result = _normalise_media({
+                    "id": 21, "title": {"english": "Example"},
+                    "nextAiringEpisode": airing,
+                })
+                self.assertIsNone(result["next_episode"])
+                self.assertIsNone(result["next_airing_at"])
+                self.assertIsNone(result["time_until_airing"])
+
     def test_normaliser_handles_sparse_data(self):
         result = _normalise_media({"id": 1, "title": {}, "coverImage": None})
         self.assertEqual(result["title"], "Untitled anime")
