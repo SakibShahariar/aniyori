@@ -313,7 +313,7 @@ class ReleaseScoringSettingsStore:
             },
             ensure_ascii=False,
             indent=2,
-        ) + "\\n"
+        ) + "\n"
         self.path.parent.mkdir(parents=True, exist_ok=True)
         temporary_path = None
         try:
