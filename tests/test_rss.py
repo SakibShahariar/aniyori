@@ -3,7 +3,7 @@
 import unittest
 from datetime import timezone
 
-from aniyori.services.rss import FeedParseError, parse_release_feed
+from aniyori.services.rss import FeedParseError, RSSFeed, RSSFeedStore, parse_release_feed
 
 
 class ReleaseFeedParserTests(unittest.TestCase):
@@ -67,6 +67,47 @@ class ReleaseFeedParserTests(unittest.TestCase):
             parse_release_feed("<rss><channel>")
         with self.assertRaisesRegex(FeedParseError, "Unsupported feed"):
             parse_release_feed("<html/>")
+
+
+    def test_feed_store_adds_removes_and_round_trips_sources(self):
+        import tempfile
+        from pathlib import Path
+
+        with tempfile.TemporaryDirectory() as directory:
+            store = RSSFeedStore(Path(directory) / "feeds.json")
+            self.assertEqual(store.load(), ())
+            added = store.add("https://example.org/feed.xml", "Example Releases")
+            self.assertEqual(added, (RSSFeed("Example Releases", "https://example.org/feed.xml"),))
+            self.assertEqual(store.load(), added)
+            self.assertEqual(store.remove("https://example.org/feed.xml"), ())
+            self.assertEqual(store.load(), ())
+
+    def test_feed_store_rejects_duplicate_and_unsafe_urls(self):
+        import tempfile
+        from pathlib import Path
+
+        with tempfile.TemporaryDirectory() as directory:
+            store = RSSFeedStore(Path(directory) / "feeds.json")
+            store.add("https://example.org/feed.xml")
+            with self.assertRaisesRegex(FeedParseError, "already configured"):
+                store.add("https://EXAMPLE.org/feed.xml")
+            for url in ("file:///tmp/feed.xml", "https://user:pass@example.org/feed.xml"):
+                with self.subTest(url=url), self.assertRaises(FeedParseError):
+                    store.add(url)
+
+    def test_feed_store_rejects_duplicate_sources_and_invalid_enabled_values(self):
+        import tempfile
+        from pathlib import Path
+
+        with tempfile.TemporaryDirectory() as directory:
+            store = RSSFeedStore(Path(directory) / "feeds.json")
+            with self.assertRaisesRegex(FeedParseError, "unique"):
+                store.save([
+                    RSSFeed("First", "https://example.org/feed.xml"),
+                    RSSFeed("Second", "https://EXAMPLE.org/feed.xml"),
+                ])
+            with self.assertRaisesRegex(FeedParseError, "boolean"):
+                store.save([RSSFeed("Broken", "https://example.org/feed.xml", 1)])
 
     def test_invalid_limits_are_rejected(self):
         for kwargs in ({"max_bytes": True}, {"max_bytes": 0}, {"max_entries": -1}, {"max_entries": True}):

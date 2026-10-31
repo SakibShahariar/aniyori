@@ -179,3 +179,146 @@ def parse_release_feed(
         if item is not None:
             entries.append(item)
     return tuple(entries)
+
+
+RSS_FEED_FORMAT = "aniyori-rss-feeds"
+RSS_FEED_VERSION = 1
+
+
+@dataclass(frozen=True, slots=True)
+class RSSFeed:
+    """A user-configured RSS or Atom feed source."""
+
+    name: str
+    url: str
+    enabled: bool = True
+
+
+def _validate_feed(feed: RSSFeed) -> RSSFeed:
+    if not isinstance(feed, RSSFeed):
+        raise FeedParseError("Feed sources must be RSSFeed values.")
+    name = feed.name.strip() if isinstance(feed.name, str) else ""
+    url = _safe_link(feed.url)
+    if not name:
+        raise FeedParseError("Feed names must be non-empty text.")
+    if url is None:
+        raise FeedParseError("Feed URLs must be credential-free HTTP(S) URLs.")
+    if not isinstance(feed.enabled, bool):
+        raise FeedParseError("Feed enabled state must be a boolean.")
+    return RSSFeed(name=name, url=url, enabled=feed.enabled)
+
+
+def default_rss_feed_path() -> Path:
+    """Return the XDG configuration path without creating it."""
+    import os
+    from pathlib import Path
+
+    config_home = Path(os.environ.get("XDG_CONFIG_HOME") or Path.home() / ".config")
+    if not config_home.is_absolute():
+        config_home = Path.home() / ".config"
+    return config_home / "aniyori" / "rss-feeds.json"
+
+
+class RSSFeedStore:
+    """Persist validated feed sources atomically in the user's config directory."""
+
+    def __init__(self, path=None):
+        from pathlib import Path
+
+        self.path = Path(path) if path is not None else default_rss_feed_path()
+
+    def load(self) -> tuple[RSSFeed, ...]:
+        import json
+
+        try:
+            content = self.path.read_text(encoding="utf-8")
+        except FileNotFoundError:
+            return ()
+        try:
+            payload = json.loads(content)
+        except (UnicodeDecodeError, json.JSONDecodeError) as error:
+            raise FeedParseError("Saved RSS feeds are invalid JSON.") from error
+        if (
+            not isinstance(payload, dict)
+            or payload.get("format") != RSS_FEED_FORMAT
+            or isinstance(payload.get("version"), bool)
+            or not isinstance(payload.get("version"), int)
+            or payload.get("version") != RSS_FEED_VERSION
+            or not isinstance(payload.get("feeds"), list)
+        ):
+            raise FeedParseError("Saved RSS feeds have an unsupported format.")
+        feeds = []
+        seen = set()
+        for item in payload["feeds"]:
+            if not isinstance(item, dict):
+                raise FeedParseError("Saved RSS feed entries must be objects.")
+            feed = _validate_feed(RSSFeed(
+                name=item.get("name"),
+                url=item.get("url"),
+                enabled=item.get("enabled", True),
+            ))
+            key = feed.url.casefold()
+            if key in seen:
+                raise FeedParseError("Saved RSS feeds contain duplicate URLs.")
+            seen.add(key)
+            feeds.append(feed)
+        return tuple(feeds)
+
+    def save(self, feeds: Iterable[RSSFeed]) -> None:
+        import json
+        import os
+        import tempfile
+
+        if isinstance(feeds, (str, bytes)):
+            raise FeedParseError("RSS feeds must be an iterable of feed sources.")
+        normalized = tuple(_validate_feed(feed) for feed in feeds)
+        seen = set()
+        for feed in normalized:
+            key = feed.url.casefold()
+            if key in seen:
+                raise FeedParseError("RSS feed URLs must be unique.")
+            seen.add(key)
+        payload = {
+            "format": RSS_FEED_FORMAT,
+            "version": RSS_FEED_VERSION,
+            "feeds": [
+                {"name": feed.name, "url": feed.url, "enabled": feed.enabled}
+                for feed in normalized
+            ],
+        }
+        content = json.dumps(payload, ensure_ascii=False, indent=2) + "\\n"
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        temporary_path = None
+        try:
+            with tempfile.NamedTemporaryFile(
+                mode="w", encoding="utf-8", dir=self.path.parent,
+                prefix=".rss-feeds-", delete=False,
+            ) as temporary:
+                temporary.write(content)
+                temporary_path = Path(temporary.name)
+            os.replace(temporary_path, self.path)
+        finally:
+            if temporary_path is not None:
+                temporary_path.unlink(missing_ok=True)
+
+    def add(self, url: str, name: str | None = None) -> tuple[RSSFeed, ...]:
+        feeds = list(self.load())
+        safe_url = _safe_link(url)
+        if safe_url is None:
+            raise FeedParseError("Feed URLs must be credential-free HTTP(S) URLs.")
+        if any(feed.url.casefold() == safe_url.casefold() for feed in feeds):
+            raise FeedParseError("This RSS feed URL is already configured.")
+        label = name.strip() if isinstance(name, str) else ""
+        if not label:
+            label = safe_url
+        feeds.append(RSSFeed(label, safe_url))
+        self.save(feeds)
+        return tuple(feeds)
+
+    def remove(self, url: str) -> tuple[RSSFeed, ...]:
+        target = _safe_link(url)
+        if target is None:
+            raise FeedParseError("Feed URLs must be credential-free HTTP(S) URLs.")
+        feeds = [feed for feed in self.load() if feed.url.casefold() != target.casefold()]
+        self.save(feeds)
+        return tuple(feeds)
