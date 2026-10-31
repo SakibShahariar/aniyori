@@ -323,3 +323,41 @@ class RSSFeedStore:
         feeds = [feed for feed in self.load() if feed.url.casefold() != target.casefold()]
         self.save(feeds)
         return tuple(feeds)
+
+
+    def update(
+        self,
+        url: str,
+        *,
+        name: str | None = None,
+        new_url: str | None = None,
+        enabled: bool | None = None,
+    ) -> tuple[RSSFeed, ...]:
+        """Update a configured feed's label, URL, or enabled state."""
+        target = _safe_link(url)
+        replacement_url = _safe_link(new_url) if new_url is not None else target
+        if target is None or replacement_url is None:
+            raise FeedParseError("Feed URLs must be credential-free HTTP(S) URLs.")
+        feeds = list(self.load())
+        index = next(
+            (position for position, feed in enumerate(feeds)
+             if feed.url.casefold() == target.casefold()),
+            None,
+        )
+        if index is None:
+            raise FeedParseError("The configured RSS feed was not found.")
+        current = feeds[index]
+        label = current.name if name is None else name.strip() if isinstance(name, str) else ""
+        if not label:
+            raise FeedParseError("Feed names must be non-empty text.")
+        active = current.enabled if enabled is None else enabled
+        if not isinstance(active, bool):
+            raise FeedParseError("Feed enabled state must be a boolean.")
+        if any(
+            position != index and feed.url.casefold() == replacement_url.casefold()
+            for position, feed in enumerate(feeds)
+        ):
+            raise FeedParseError("This RSS feed URL is already configured.")
+        feeds[index] = RSSFeed(label, replacement_url, active)
+        self.save(feeds)
+        return tuple(feeds)

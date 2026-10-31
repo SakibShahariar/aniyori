@@ -171,5 +171,39 @@ class ReleaseFeedParserTests(unittest.TestCase):
             fetch_feed_content("file:///etc/passwd")
 
 
+
+    def test_feed_store_updates_name_url_and_enabled_state(self):
+        import tempfile
+        from pathlib import Path
+
+        with tempfile.TemporaryDirectory() as directory:
+            store = RSSFeedStore(Path(directory) / "feeds.json")
+            store.add("https://example.org/old.xml", "Old name")
+            updated = store.update(
+                "https://example.org/old.xml",
+                name="New name",
+                new_url="https://example.org/new.xml",
+                enabled=False,
+            )
+            self.assertEqual(
+                updated,
+                (RSSFeed("New name", "https://example.org/new.xml", False),),
+            )
+            self.assertEqual(store.load(), updated)
+
+    def test_feed_store_update_rejects_missing_or_duplicate_urls(self):
+        import tempfile
+        from pathlib import Path
+
+        with tempfile.TemporaryDirectory() as directory:
+            store = RSSFeedStore(Path(directory) / "feeds.json")
+            store.add("https://example.org/one.xml")
+            store.add("https://example.org/two.xml")
+            with self.assertRaisesRegex(FeedParseError, "already configured"):
+                store.update("https://example.org/one.xml", new_url="https://example.org/two.xml")
+            with self.assertRaisesRegex(FeedParseError, "not found"):
+                store.update("https://example.org/missing.xml", name="Missing")
+
+
 if __name__ == "__main__":
     unittest.main()
