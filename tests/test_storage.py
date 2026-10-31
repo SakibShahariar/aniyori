@@ -152,17 +152,19 @@ class LibraryStorageTests(unittest.TestCase):
     def test_bulk_progress_updates_are_atomic_and_preserve_status_rules(self):
         self.storage.add(AnimeEntry(title="Planning", episodes_total=2))
         self.storage.add(AnimeEntry(title="Paused", episodes_total=12, status=WatchStatus.PAUSED))
-        first, second = self.storage.list_entries()
+        entries = {entry.title: entry for entry in self.storage.list_entries()}
+        planning = entries["Planning"]
+        paused = entries["Paused"]
 
         self.assertEqual(
             self.storage.update_progress_many({
-                first.storage_id: 2, second.storage_id: 3,
+                planning.storage_id: 2, paused.storage_id: 3,
             }),
             2,
         )
         updated = {entry.storage_id: entry for entry in self.storage.list_entries()}
-        self.assertEqual(updated[first.storage_id].status, WatchStatus.COMPLETED)
-        self.assertEqual(updated[second.storage_id].status, WatchStatus.PAUSED)
+        self.assertEqual(updated[planning.storage_id].status, WatchStatus.COMPLETED)
+        self.assertEqual(updated[paused.storage_id].status, WatchStatus.PAUSED)
 
     def test_bulk_progress_rejects_invalid_value_without_partial_updates(self):
         self.storage.add(AnimeEntry(title="First", episodes_total=12))
