@@ -373,7 +373,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
         self.bulk_bar.append(clear_selection_button)
         body.append(self.bulk_bar)
 
-        self.filter_buttons = {
+        self.filter_buttons = {}
         for key, label in [
             ("all", "All"),
             ("watching", "Watching"),
