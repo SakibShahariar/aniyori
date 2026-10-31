@@ -131,6 +131,28 @@ class ReleaseScoringTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "unsupported format"):
                 ReleaseScoringSettingsStore(path).load()
 
+    def test_scoring_settings_store_persists_minimum_score(self):
+        import tempfile
+        from pathlib import Path
+        from aniyori.services.release_scoring import ReleaseScoringSettingsStore
+
+        with tempfile.TemporaryDirectory() as directory:
+            store = ReleaseScoringSettingsStore(Path(directory) / "scoring.json")
+            store.save(DEFAULT_WEIGHTS, minimum_score=72.5)
+            self.assertEqual(store.load_minimum_score(), 72.5)
+            self.assertEqual(store.load(), DEFAULT_WEIGHTS)
+
+    def test_scoring_settings_store_rejects_invalid_minimum_score(self):
+        import tempfile
+        from pathlib import Path
+        from aniyori.services.release_scoring import ReleaseScoringSettingsStore
+
+        with tempfile.TemporaryDirectory() as directory:
+            store = ReleaseScoringSettingsStore(Path(directory) / "scoring.json")
+            for value in (-1, 101, True, float("nan")):
+                with self.subTest(value=value), self.assertRaises(ValueError):
+                    store.save(DEFAULT_WEIGHTS, minimum_score=value)
+
     def test_invalid_numeric_metadata_is_ignored(self):
         result = score_release({
             "resolution": True, "file_size_mb": float("inf"), "seeders": -2,

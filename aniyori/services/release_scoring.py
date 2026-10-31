@@ -56,6 +56,18 @@ SUBTITLE_SCORES = {
 QUALITY_FIELDS = frozenset(DEFAULT_WEIGHTS)
 
 
+DEFAULT_MINIMUM_SCORE = 0.0
+
+
+def validate_minimum_score(value: float) -> float:
+    """Validate the optional 0–100 release eligibility threshold."""
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise ValueError("Minimum release score must be a finite number from 0 to 100.")
+    if not math.isfinite(value) or not 0 <= value <= 100:
+        raise ValueError("Minimum release score must be a finite number from 0 to 100.")
+    return float(value)
+
+
 @dataclass(frozen=True, slots=True)
 class ScoreFactor:
     """One normalized score contribution and its explanation."""
@@ -283,11 +295,15 @@ class ReleaseScoringSettingsStore:
     def __init__(self, path: str | Path | None = None):
         self.path = Path(path) if path is not None else default_release_scoring_path()
 
-    def load(self) -> dict[str, float]:
+    def load_settings(self) -> dict[str, Any]:
+        """Load weights and the score cutoff, defaulting older files safely."""
         try:
             content = self.path.read_text(encoding="utf-8")
         except FileNotFoundError:
-            return dict(DEFAULT_WEIGHTS)
+            return {
+                "weights": dict(DEFAULT_WEIGHTS),
+                "minimum_score": DEFAULT_MINIMUM_SCORE,
+            }
         try:
             payload = json.loads(content)
         except (UnicodeDecodeError, json.JSONDecodeError) as error:
@@ -301,15 +317,35 @@ class ReleaseScoringSettingsStore:
             or not isinstance(payload.get("weights"), dict)
         ):
             raise ValueError("Saved release-scoring settings have an unsupported format.")
-        return _validate_weights(payload["weights"])
+        return {
+            "weights": _validate_weights(payload["weights"]),
+            "minimum_score": validate_minimum_score(
+                payload.get("minimum_score", DEFAULT_MINIMUM_SCORE)
+            ),
+        }
 
-    def save(self, weights: Mapping[str, float]) -> None:
+    def load(self) -> dict[str, float]:
+        """Load scoring weights (kept as a convenience for existing callers)."""
+        return self.load_settings()["weights"]
+
+    def load_minimum_score(self) -> float:
+        """Load the score cutoff used by release eligibility decisions."""
+        return self.load_settings()["minimum_score"]
+
+    def save(
+        self,
+        weights: Mapping[str, float],
+        *,
+        minimum_score: float = DEFAULT_MINIMUM_SCORE,
+    ) -> None:
         normalized = _validate_weights(weights)
+        cutoff = validate_minimum_score(minimum_score)
         content = json.dumps(
             {
                 "format": SCORING_SETTINGS_FORMAT,
                 "version": SCORING_SETTINGS_VERSION,
                 "weights": normalized,
+                "minimum_score": cutoff,
             },
             ensure_ascii=False,
             indent=2,
