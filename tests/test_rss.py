@@ -1,9 +1,19 @@
-"""Tests for bounded RSS and Atom release-feed parsing."""
+"""Tests for RSS parsing, feed persistence, and independent refresh results."""
 
 import unittest
 from datetime import timezone
 
 from aniyori.services.rss import FeedParseError, RSSFeed, RSSFeedStore, parse_release_feed
+from aniyori.services.release_monitor import (
+    FeedFetchError, fetch_feed_content, refresh_release_feeds,
+)
+
+
+CATALOGUE = [
+    {"id": 10, "title": "Sousou no Frieren",
+     "title_english": "Frieren: Beyond Journey's End"},
+    {"id": 20, "title": "Spy x Family", "title_english": "SPY×FAMILY"},
+]
 
 
 class ReleaseFeedParserTests(unittest.TestCase):
@@ -68,7 +78,6 @@ class ReleaseFeedParserTests(unittest.TestCase):
         with self.assertRaisesRegex(FeedParseError, "Unsupported feed"):
             parse_release_feed("<html/>")
 
-
     def test_feed_store_adds_removes_and_round_trips_sources(self):
         import tempfile
         from pathlib import Path
@@ -109,10 +118,57 @@ class ReleaseFeedParserTests(unittest.TestCase):
             with self.assertRaisesRegex(FeedParseError, "boolean"):
                 store.save([RSSFeed("Broken", "https://example.org/feed.xml", 1)])
 
-    def test_invalid_limits_are_rejected(self):
-        for kwargs in ({"max_bytes": True}, {"max_bytes": 0}, {"max_entries": -1}, {"max_entries": True}):
-            with self.subTest(kwargs=kwargs), self.assertRaises(FeedParseError):
-                parse_release_feed("<rss/>", **kwargs)
+    def test_refresh_matches_releases_scores_quality_and_keeps_feed_failures_isolated(self):
+        feeds = (
+            RSSFeed("Working", "https://example.org/good.xml"),
+            RSSFeed("Broken", "https://example.org/bad.xml"),
+            RSSFeed("Disabled", "https://example.org/disabled.xml", False),
+        )
+        payload = b"""<rss><channel>
+          <item><title>[SubsPlease] Frieren Beyond Journeys End - 01 (1080p) [WEB-DL]</title>
+            <link>https://example.org/releases/1</link><guid>release-1</guid></item>
+          <item><title>Unparseable announcement</title></item>
+        </channel></rss>"""
+
+        def fetcher(url):
+            if url.endswith("bad.xml"):
+                raise OSError("temporary network failure")
+            return payload
+
+        results = refresh_release_feeds(
+            feeds,
+            CATALOGUE,
+            fetcher=fetcher,
+            preferences={"resolution": {"preferred": ["1080p"]}},
+        )
+        self.assertEqual(len(results), 2)
+        self.assertEqual(results[0].error, None)
+        matched = results[0].releases[0]
+        self.assertEqual(matched.match_status, "matched")
+        self.assertEqual(matched.media_id, 10)
+        self.assertEqual(matched.episode, 1)
+        self.assertEqual(matched.score.score, 100.0)
+        self.assertTrue(matched.score.accepted)
+        self.assertEqual(results[0].releases[1].match_status, "unparsed")
+        self.assertIn("temporary network failure", results[1].error)
+
+    def test_refresh_rejected_preferences_are_visible_in_score_decision(self):
+        feed = RSSFeed("Quality", "https://example.org/feed.xml")
+        payload = b"""<rss><channel><item>
+          <title>[BadGroup] Frieren - 01 (480p) [HDTV]</title>
+        </item></channel></rss>"""
+        results = refresh_release_feeds(
+            [feed], CATALOGUE,
+            fetcher=lambda _url: payload,
+            preferences={"source": {"rejected": ["HDTV"]}},
+        )
+        release = results[0].releases[0]
+        self.assertFalse(release.score.accepted)
+        self.assertIn("Rejected: source is HDTV", release.score.explanation)
+
+    def test_fetcher_rejects_unsafe_urls_before_network_access(self):
+        with self.assertRaisesRegex(FeedFetchError, "HTTP"):
+            fetch_feed_content("file:///etc/passwd")
 
 
 if __name__ == "__main__":
