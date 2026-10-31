@@ -26,6 +26,19 @@ class StorageEdgeCaseTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "cannot be negative"):
             self.storage.update_progress(entry.storage_id, -1)
 
+    def test_progress_updates_reject_non_integer_values_without_mutation(self):
+        self.storage.add(AnimeEntry(title="Example", episodes_total=12))
+        entry = self.storage.list_entries()[0]
+
+        for value in (True, False, 1.5, "2"):
+            with self.subTest(value=value):
+                with self.assertRaisesRegex(ValueError, "whole number"):
+                    self.storage.update_progress(entry.storage_id, value)
+                self.assertEqual(
+                    self.storage.list_entries()[0].episodes_watched,
+                    0,
+                )
+
     def test_progress_cannot_exceed_selected_entry_total(self):
         self.storage.add(AnimeEntry(title="Example", episodes_total=3))
         entry = self.storage.list_entries()[0]

@@ -156,6 +156,8 @@ class LibraryStorage:
         """Update progress for exactly one entry identified by its database ID."""
         if isinstance(storage_id, bool) or not isinstance(storage_id, int) or storage_id <= 0:
             raise ValueError("A valid storage ID is required.")
+        if isinstance(episodes_watched, bool) or not isinstance(episodes_watched, int):
+            raise ValueError("Watched episode count must be a whole number.")
         if episodes_watched < 0:
             raise ValueError("Watched episode count cannot be negative")
         with self._connect() as connection:
