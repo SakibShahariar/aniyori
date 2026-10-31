@@ -220,6 +220,111 @@ class LibraryStorage:
                 raise ValueError("This catalogue entry is already in your library.") from error
             raise
 
+    def update_entries(self, entries: Iterable[AnimeEntry]) -> int:
+        """Update multiple entries atomically by storage ID."""
+        updates = tuple(entries)
+        if not updates:
+            return 0
+        ids = [entry.storage_id for entry in updates]
+        if any(isinstance(value, bool) or not isinstance(value, int) or value <= 0 for value in ids):
+            raise ValueError("Every bulk-updated entry must have a valid storage ID.")
+        if len(set(ids)) != len(ids):
+            raise ValueError("A bulk update cannot contain duplicate storage IDs.")
+        try:
+            with self._connect() as connection:
+                for entry in updates:
+                    cursor = connection.execute(
+                        """
+                        UPDATE anime
+                        SET title = ?, episodes_total = ?, episodes_watched = ?, status = ?,
+                            provider = ?, provider_id = ?, cover_image = ?, updated_at = CURRENT_TIMESTAMP
+                        WHERE id = ?
+                        """,
+                        (
+                            entry.title.strip(), entry.episodes_total,
+                            entry.episodes_watched, entry.status.value,
+                            entry.provider, entry.provider_id, entry.cover_image,
+                            entry.storage_id,
+                        ),
+                    )
+                    if cursor.rowcount == 0:
+                        raise ValueError(f"Library entry {entry.storage_id} no longer exists.")
+            return len(updates)
+        except sqlite3.IntegrityError as error:
+            if self._is_duplicate_catalogue_error(error):
+                raise ValueError("The bulk update would create a duplicate catalogue entry.") from error
+            raise
+
+    def update_progress_many(self, updates: Mapping[int, int]) -> int:
+        """Apply progress changes atomically, preserving paused and dropped states."""
+        if not isinstance(updates, Mapping):
+            raise ValueError("Bulk progress updates must be a mapping.")
+        if not updates:
+            return 0
+        prepared = []
+        for storage_id, episodes_watched in updates.items():
+            if isinstance(storage_id, bool) or not isinstance(storage_id, int) or storage_id <= 0:
+                raise ValueError("Every bulk-updated entry must have a valid storage ID.")
+            if isinstance(episodes_watched, bool) or not isinstance(episodes_watched, int):
+                raise ValueError("Watched episode count must be a whole number.")
+            if episodes_watched < 0 or episodes_watched > MAX_EPISODE_COUNT:
+                raise ValueError(
+                    f"Watched episode count must be between 0 and {MAX_EPISODE_COUNT:,}."
+                )
+            prepared.append((storage_id, episodes_watched))
+        with self._connect() as connection:
+            current_rows = {}
+            for storage_id, episodes_watched in prepared:
+                row = connection.execute(
+                    "SELECT episodes_total, status FROM anime WHERE id = ?",
+                    (storage_id,),
+                ).fetchone()
+                if row is None:
+                    raise ValueError(f"Library entry {storage_id} no longer exists.")
+                total = row["episodes_total"]
+                if total is not None and episodes_watched > total:
+                    raise ValueError(
+                        f"Progress for library entry {storage_id} cannot exceed its total."
+                    )
+                current_rows[storage_id] = row
+            for storage_id, episodes_watched in prepared:
+                row = current_rows[storage_id]
+                total = row["episodes_total"]
+                current_status = row["status"]
+                if total is not None and total > 0 and episodes_watched == total:
+                    status = "completed"
+                elif current_status in ("paused", "dropped") or (
+                    current_status == "completed" and total is None
+                ):
+                    status = current_status
+                else:
+                    status = "watching"
+                connection.execute(
+                    """
+                    UPDATE anime
+                    SET episodes_watched = ?, status = ?, updated_at = CURRENT_TIMESTAMP
+                    WHERE id = ?
+                    """,
+                    (episodes_watched, status, storage_id),
+                )
+        return len(prepared)
+
+    def remove_many(self, storage_ids: Iterable[int]) -> int:
+        """Remove multiple entries atomically, ignoring repeated IDs."""
+        ids = tuple(dict.fromkeys(storage_ids))
+        if any(isinstance(value, bool) or not isinstance(value, int) or value <= 0 for value in ids):
+            raise ValueError("Every bulk-removed entry must have a valid storage ID.")
+        if not ids:
+            return 0
+        with self._connect() as connection:
+            removed = 0
+            for storage_id in ids:
+                cursor = connection.execute(
+                    "DELETE FROM anime WHERE id = ?", (storage_id,)
+                )
+                removed += cursor.rowcount
+        return removed
+
     def remove(self, storage_id: int) -> bool:
         """Remove exactly one entry identified by its database ID."""
         if isinstance(storage_id, bool) or not isinstance(storage_id, int) or storage_id <= 0:
