@@ -16,6 +16,8 @@ from .library_io import export_csv, export_json, import_csv, import_json
 from .search import SearchGeneration
 from .services.anilist import AniListClient, AniListError
 from .services.airing import format_airing_countdown
+from .services.scan_locations import ScanLocationStore
+from .services.scan_library import scan_configured_library
 from .services.covers import get_cached_cover
 from .storage import LibraryStorage
 from .statistics import calculate_library_statistics
@@ -225,6 +227,8 @@ class AniyoriWindow(Adw.ApplicationWindow):
         self.entries: list[AnimeEntry] = self.storage.list_entries()
         self._airing_by_id = {}
         self._airing_refresh_running = False
+        self.scan_location_store = ScanLocationStore()
+        self._scan_cancel_event = None
         self.current_filter = "all"
         self._undo_entry: AnimeEntry | None = None
         self._undo_toast = None
@@ -239,6 +243,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
             ("export-json", lambda: self._show_export_dialog("json")),
             ("export-csv", lambda: self._show_export_dialog("csv")),
             ("import-library", self._show_import_dialog),
+            ("scan-folders", self._show_scan_folders_dialog),
             ("about", self._show_about_dialog),
         ]:
             action = Gio.SimpleAction.new(name, None)
@@ -271,6 +276,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
         primary_menu.append("Export Library (JSON)", "win.export-json")
         primary_menu.append("Export Library (CSV)", "win.export-csv")
         primary_menu.append("Import Library", "win.import-library")
+        primary_menu.append("Scan Local Folders", "win.scan-folders")
         primary_menu.append("About Aniyori", "win.about")
         primary_menu.append("Quit", "win.quit")
         menu_button = Gtk.MenuButton()
@@ -398,6 +404,233 @@ class AniyoriWindow(Adw.ApplicationWindow):
         self._refresh_airing_schedule()
         GLib.timeout_add_seconds(60, self._update_airing_countdowns)
         GLib.timeout_add_seconds(1800, self._periodic_airing_refresh)
+
+    def _show_scan_folders_dialog(self):
+        dialog = Adw.AlertDialog(
+            heading="Local Anime Folders",
+            body="Choose folders to scan for video files. Scans run in the background.",
+        )
+        content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
+        folder_list = Gtk.ListBox()
+        folder_list.set_selection_mode(Gtk.SelectionMode.SINGLE)
+        folder_list.add_css_class("boxed-list")
+        folder_scroll = Gtk.ScrolledWindow()
+        folder_scroll.set_min_content_height(150)
+        folder_scroll.set_max_content_height(260)
+        folder_scroll.set_child(folder_list)
+        content.append(folder_scroll)
+
+        def refresh_folders():
+            child = folder_list.get_first_child()
+            while child is not None:
+                following = child.get_next_sibling()
+                folder_list.remove(child)
+                child = following
+            try:
+                locations = self.scan_location_store.list_locations()
+            except (OSError, ValueError) as error:
+                self.toast_overlay.add_toast(
+                    Adw.Toast.new(f"Could not read scan folders: {error}")
+                )
+                return
+            for location in locations:
+                row = Gtk.ListBoxRow()
+                label = Gtk.Label(label=str(location), xalign=0, wrap=True)
+                label.set_margin_top(8)
+                label.set_margin_bottom(8)
+                label.set_margin_start(10)
+                label.set_margin_end(10)
+                row.set_child(label)
+                folder_list.append(row)
+
+        actions = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        add_button = Gtk.Button(label="Add Folder")
+        remove_button = Gtk.Button(label="Remove Selected")
+        scan_button = Gtk.Button(label="Scan Now")
+        scan_button.add_css_class("suggested-action")
+        cancel_button = Gtk.Button(label="Cancel Scan")
+        cancel_button.set_sensitive(False)
+        actions.append(add_button)
+        actions.append(remove_button)
+        actions.append(scan_button)
+        actions.append(cancel_button)
+        content.append(actions)
+        dialog.set_extra_child(content)
+        dialog.add_response("close", "Close")
+        dialog.set_default_response("close")
+        dialog.present(self)
+        refresh_folders()
+
+        def add_folder(_button):
+            chooser = Gtk.FileChooserNative.new(
+                "Choose an anime folder",
+                self,
+                Gtk.FileChooserAction.SELECT_FOLDER,
+                "Add Folder",
+                "Cancel",
+            )
+            chooser.connect("response", self._on_scan_folder_selected, refresh_folders)
+            chooser.show()
+
+        def remove_folder(_button):
+            selected = folder_list.get_selected_row()
+            if selected is None:
+                self.toast_overlay.add_toast(
+                    Adw.Toast.new("Select a folder to remove.")
+                )
+                return
+            try:
+                locations = self.scan_location_store.list_locations()
+                index = selected.get_index()
+                if index < 0 or index >= len(locations):
+                    return
+                self.scan_location_store.remove_location(locations[index])
+            except (OSError, ValueError) as error:
+                self.toast_overlay.add_toast(
+                    Adw.Toast.new(f"Could not remove scan folder: {error}")
+                )
+                return
+            refresh_folders()
+
+        add_button.connect("clicked", add_folder)
+        remove_button.connect("clicked", remove_folder)
+        scan_button.connect(
+            "clicked",
+            lambda _button: self._start_configured_library_scan(
+                scan_button, cancel_button
+            ),
+        )
+        cancel_button.connect("clicked", self._cancel_configured_library_scan)
+
+    def _on_scan_folder_selected(self, chooser, response, refresh_folders):
+        if response != Gtk.ResponseType.ACCEPT:
+            chooser.destroy()
+            return
+        selected = chooser.get_file()
+        path = selected.get_path() if selected is not None else None
+        chooser.destroy()
+        if not path:
+            self.toast_overlay.add_toast(
+                Adw.Toast.new("Choose a local folder to add.")
+            )
+            return
+        try:
+            added = self.scan_location_store.add_location(path)
+        except (OSError, ValueError) as error:
+            self.toast_overlay.add_toast(
+                Adw.Toast.new(f"Could not add scan folder: {error}")
+            )
+            return
+        refresh_folders()
+        self.toast_overlay.add_toast(
+            Adw.Toast.new("Folder added." if added else "Folder is already configured.")
+        )
+
+    def _start_configured_library_scan(self, scan_button, cancel_button):
+        if self._scan_cancel_event is not None:
+            return
+        try:
+            locations = self.scan_location_store.list_locations()
+        except (OSError, ValueError) as error:
+            self.toast_overlay.add_toast(
+                Adw.Toast.new(f"Could not read scan folders: {error}")
+            )
+            return
+        if not locations:
+            self.toast_overlay.add_toast(
+                Adw.Toast.new("Add at least one local folder before scanning.")
+            )
+            return
+
+        event = threading.Event()
+        self._scan_cancel_event = event
+        scan_button.set_sensitive(False)
+        cancel_button.set_sensitive(True)
+        entries = tuple(self.entries)
+        candidates = [
+            {"id": int(entry.provider_id), "title": entry.title}
+            for entry in entries
+            if entry.provider == "anilist"
+            and entry.provider_id
+            and str(entry.provider_id).isdigit()
+        ]
+
+        def worker():
+            result = None
+            error = None
+            try:
+                result = scan_configured_library(
+                    self.scan_location_store,
+                    candidates,
+                    entries,
+                    is_cancelled=event.is_set,
+                )
+            except Exception as caught:
+                LOGGER.exception("Local library scan failed")
+                error = str(caught)
+            GLib.idle_add(
+                self._finish_configured_library_scan,
+                result,
+                error,
+                event,
+                scan_button,
+                cancel_button,
+            )
+
+        threading.Thread(target=worker, daemon=True).start()
+
+    def _cancel_configured_library_scan(self, _button):
+        if self._scan_cancel_event is not None:
+            self._scan_cancel_event.set()
+            self.toast_overlay.add_toast(Adw.Toast.new("Cancelling local scan…"))
+
+    def _finish_configured_library_scan(
+        self, result, error, event, scan_button, cancel_button
+    ):
+        if self._scan_cancel_event is event:
+            self._scan_cancel_event = None
+        scan_button.set_sensitive(True)
+        cancel_button.set_sensitive(False)
+        if error is not None:
+            self.toast_overlay.add_toast(Adw.Toast.new(f"Local scan failed: {error}"))
+            return GLib.SOURCE_REMOVE
+        if result is None:
+            return GLib.SOURCE_REMOVE
+
+        lines = [
+            f"Scanned {len(result.matches)} video file(s) across "
+            f"{len(result.locations)} configured folder(s)."
+        ]
+        if event.is_set():
+            lines.append("The scan was cancelled; the results below may be partial.")
+        if not result.inventory:
+            lines.append("No AniList-backed library entries are available to summarize.")
+        for item in result.inventory:
+            available = ", ".join(map(str, item.available_episodes)) or "none"
+            missing = ", ".join(map(str, item.missing_episodes)) or "none"
+            next_episode = (
+                str(item.next_episode) if item.next_episode is not None else "unknown"
+            )
+            lines.append(
+                f"\n{item.entry.title}\n"
+                f"Available: {available}\nMissing: {missing}\n"
+                f"Next episode: {next_episode}"
+            )
+            if item.seasoned_episodes:
+                seasons = "; ".join(
+                    f"Season {season}: {', '.join(map(str, episodes))}"
+                    for season, episodes in item.seasoned_episodes
+                )
+                lines.append(f"Season-tagged files: {seasons}")
+
+        dialog = Adw.AlertDialog(
+            heading="Local Scan Results",
+            body="\n".join(lines),
+        )
+        dialog.add_response("close", "Close")
+        dialog.set_default_response("close")
+        dialog.present(self)
+        return GLib.SOURCE_REMOVE
 
     def _show_export_dialog(self, file_format: str):
         chooser = Gtk.FileChooserNative.new(
