@@ -47,6 +47,13 @@ class AnimeFilenameParserTests(unittest.TestCase):
         self.assertEqual(parsed.title, "Chainsaw Man")
         self.assertEqual(parsed.episode, 12)
 
+    def test_windows_style_path_is_parsed_on_linux(self):
+        parsed = parse_anime_filename(
+            r"C:\\Users\\Example\\Videos\\Cowboy Bebop - 03 [1080p].mkv"
+        )
+        self.assertEqual(parsed.title, "Cowboy Bebop")
+        self.assertEqual(parsed.episode, 3)
+
     def test_japanese_episode_marker(self):
         parsed = parse_anime_filename("Mob Psycho 100 第08話 [1080p].mkv")
         self.assertEqual(parsed.title, "Mob Psycho 100")
