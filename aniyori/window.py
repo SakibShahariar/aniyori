@@ -62,12 +62,21 @@ def _apply_cover_texture(picture: Gtk.Picture, path: str):
 
 
 class AnimeRow(Gtk.Box):
-    def __init__(self, entry: AnimeEntry, on_progress, on_remove, on_edit, airing=None):
+    def __init__(self, entry: AnimeEntry, on_progress, on_remove, on_edit, airing=None, selected=False, on_select=None):
         super().__init__(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
         self.set_margin_top(10)
         self.set_margin_bottom(10)
         self.set_margin_start(12)
         self.set_margin_end(12)
+
+        self.selection_check = Gtk.CheckButton()
+        self.selection_check.set_active(selected)
+        self.selection_check.set_tooltip_text("Select anime for bulk actions")
+        self.selection_check.connect(
+            "toggled",
+            lambda button: on_select(entry, button.get_active()) if on_select else None,
+        )
+        self.prepend(self.selection_check)
 
         placeholder = Gtk.Image.new_from_icon_name("video-x-generic-symbolic")
         placeholder.set_pixel_size(34)
@@ -150,6 +159,15 @@ class AnimeCard(Gtk.Box):
         self.set_margin_start(12)
         self.set_margin_end(12)
         self.add_css_class("card")
+
+        self.selection_check = Gtk.CheckButton()
+        self.selection_check.set_active(selected)
+        self.selection_check.set_tooltip_text("Select anime for bulk actions")
+        self.selection_check.connect(
+            "toggled",
+            lambda button: on_select(entry, button.get_active()) if on_select else None,
+        )
+        self.prepend(self.selection_check)
 
         placeholder = Gtk.Image.new_from_icon_name("video-x-generic-symbolic")
         placeholder.set_pixel_size(42)
@@ -235,6 +253,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
         self.entries: list[AnimeEntry] = self.storage.list_entries()
         self._airing_by_id = {}
         self._airing_refresh_running = False
+        self._selected_entry_ids = set()
         self.scan_location_store = ScanLocationStore()
         self.share_template_store = ShareTemplateStore()
         self.release_preference_store = ReleasePreferenceStore()
@@ -325,7 +344,36 @@ class AniyoriWindow(Adw.ApplicationWindow):
         toolbar.set_margin_bottom(12)
         body.append(toolbar)
 
-        self.filter_buttons = {}
+        self.bulk_bar = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        self.bulk_bar.set_margin_bottom(10)
+        self.bulk_bar.set_visible(False)
+        self.bulk_count_label = Gtk.Label(label="0 selected")
+        self.bulk_bar.append(self.bulk_count_label)
+        self.bulk_status_dropdown = Gtk.DropDown(model=Gtk.StringList.new(
+            ["Planning", "Watching", "Completed", "Paused", "Dropped"]
+        ))
+        self.bulk_bar.append(self.bulk_status_dropdown)
+        bulk_status_button = Gtk.Button(label="Set Status")
+        bulk_status_button.connect("clicked", self._apply_bulk_status)
+        self.bulk_bar.append(bulk_status_button)
+        self.bulk_progress_entry = Gtk.Entry()
+        self.bulk_progress_entry.set_placeholder_text("Watched episodes")
+        self.bulk_progress_entry.set_input_purpose(Gtk.InputPurpose.DIGITS)
+        self.bulk_progress_entry.set_width_chars(8)
+        self.bulk_bar.append(self.bulk_progress_entry)
+        bulk_progress_button = Gtk.Button(label="Set Progress")
+        bulk_progress_button.connect("clicked", self._apply_bulk_progress)
+        self.bulk_bar.append(bulk_progress_button)
+        bulk_delete_button = Gtk.Button(label="Delete")
+        bulk_delete_button.add_css_class("destructive-action")
+        bulk_delete_button.connect("clicked", self._confirm_bulk_delete)
+        self.bulk_bar.append(bulk_delete_button)
+        clear_selection_button = Gtk.Button(label="Clear")
+        clear_selection_button.connect("clicked", lambda _button: self._clear_bulk_selection())
+        self.bulk_bar.append(clear_selection_button)
+        body.append(self.bulk_bar)
+
+        self.filter_buttons = {
         for key, label in [
             ("all", "All"),
             ("watching", "Watching"),
@@ -1105,6 +1153,143 @@ class AniyoriWindow(Adw.ApplicationWindow):
                 )
         return GLib.SOURCE_CONTINUE
 
+    def _toggle_entry_selection(self, entry: AnimeEntry, selected: bool):
+        storage_id = entry.storage_id
+        if storage_id is None:
+            return
+        if selected:
+            self._selected_entry_ids.add(storage_id)
+        else:
+            self._selected_entry_ids.discard(storage_id)
+        for widgets in (self._row_widgets, self._card_widgets):
+            widget = widgets.get(storage_id)
+            if widget is not None and widget.selection_check.get_active() != selected:
+                widget.selection_check.set_active(selected)
+        self._widget_entries[storage_id] = (
+            entry, self._airing_by_id.get(storage_id), selected
+        )
+        self._update_bulk_bar()
+
+    def _update_bulk_bar(self):
+        count = len(self._selected_entry_ids)
+        self.bulk_count_label.set_label(f"{count} selected")
+        self.bulk_bar.set_visible(count > 0)
+
+    def _clear_bulk_selection(self):
+        self._selected_entry_ids.clear()
+        for widgets in (self._row_widgets, self._card_widgets):
+            for widget in widgets.values():
+                if widget.selection_check.get_active():
+                    widget.selection_check.set_active(False)
+        self._update_bulk_bar()
+
+    def _selected_entries(self):
+        return [
+            entry for entry in self.entries
+            if entry.storage_id is not None
+            and entry.storage_id in self._selected_entry_ids
+        ]
+
+    def _apply_bulk_status(self, _button):
+        entries = self._selected_entries()
+        if not entries:
+            return
+        statuses = [
+            WatchStatus.PLANNING, WatchStatus.WATCHING, WatchStatus.COMPLETED,
+            WatchStatus.PAUSED, WatchStatus.DROPPED,
+        ]
+        index = self.bulk_status_dropdown.get_selected()
+        if index >= len(statuses):
+            return
+        status = statuses[index]
+        updates = [
+            AnimeEntry(
+                title=entry.title,
+                episodes_total=entry.episodes_total,
+                episodes_watched=(
+                    entry.episodes_total
+                    if status == WatchStatus.COMPLETED and entry.episodes_total is not None
+                    else entry.episodes_watched
+                ),
+                status=status,
+                provider=entry.provider,
+                provider_id=entry.provider_id,
+                cover_image=entry.cover_image,
+                storage_id=entry.storage_id,
+            )
+            for entry in entries
+        ]
+        try:
+            changed = self.storage.update_entries(updates)
+        except (ValueError, sqlite3.Error, OSError) as error:
+            self.toast_overlay.add_toast(Adw.Toast.new(f"Bulk status update failed: {error}"))
+            return
+        self.entries = self.storage.list_entries()
+        self._clear_bulk_selection()
+        self._render_library()
+        self.toast_overlay.add_toast(Adw.Toast.new(f"Updated status for {changed} anime."))
+
+    def _apply_bulk_progress(self, _button):
+        entries = self._selected_entries()
+        if not entries:
+            return
+        try:
+            progress = parse_episode_count(
+                self.bulk_progress_entry.get_text(),
+                field_name="Watched episode count",
+            )
+            for entry in entries:
+                if entry.episodes_total is not None and progress > entry.episodes_total:
+                    raise ValueError(
+                        f"{entry.title}: watched episodes cannot exceed its total ({entry.episodes_total})."
+                    )
+            changed = self.storage.update_progress_many(
+                {entry.storage_id: progress for entry in entries}
+            )
+        except (ValueError, sqlite3.Error, OSError) as error:
+            self.toast_overlay.add_toast(Adw.Toast.new(f"Bulk progress update failed: {error}"))
+            return
+        self.entries = self.storage.list_entries()
+        self._clear_bulk_selection()
+        self._render_library()
+        self.toast_overlay.add_toast(Adw.Toast.new(f"Updated progress for {changed} anime."))
+
+    def _confirm_bulk_delete(self, _button):
+        entries = self._selected_entries()
+        if not entries:
+            return
+        dialog = Adw.AlertDialog(
+            heading=f"Delete {len(entries)} anime?",
+            body="This permanently removes the selected entries from your local library.",
+        )
+        dialog.add_response("cancel", "Cancel")
+        dialog.add_response("delete", "Delete Selected")
+        dialog.set_response_appearance("delete", Adw.ResponseAppearance.DESTRUCTIVE)
+        dialog.set_default_response("cancel")
+        dialog.set_close_response("cancel")
+        dialog.choose(self, None, self._on_bulk_delete_response, entries)
+
+    def _on_bulk_delete_response(self, dialog, result, entries):
+        try:
+            response = dialog.choose_finish(result)
+        except GLib.Error:
+            LOGGER.warning("Could not finish bulk-delete confirmation", exc_info=True)
+            return
+        if response != "delete":
+            return
+        try:
+            removed = self.storage.remove_many(
+                entry.storage_id for entry in entries if entry.storage_id is not None
+            )
+        except (ValueError, sqlite3.Error, OSError) as error:
+            self.toast_overlay.add_toast(Adw.Toast.new(f"Bulk delete failed: {error}"))
+            return
+        self.entries = self.storage.list_entries()
+        self._selected_entry_ids.clear()
+        self._render_library()
+        self._update_bulk_bar()
+        self.toast_overlay.add_toast(Adw.Toast.new(f"Deleted {removed} anime."))
+
     def _render_library(self, *_args):
         list_scroll_value = self.list_scroll.get_vadjustment().get_value()
         grid_scroll_value = self.grid_scroll.get_vadjustment().get_value()
@@ -1136,7 +1321,8 @@ class AniyoriWindow(Adw.ApplicationWindow):
             card = self._card_widgets.get(key)
 
             airing = self._airing_by_id.get(key)
-            widget_signature = (entry, airing)
+            selected = entry.storage_id in self._selected_entry_ids
+            widget_signature = (entry, airing, selected)
             if row is None or self._widget_entries.get(key) != widget_signature:
                 if row is not None:
                     if row.get_parent() is not None:
@@ -1150,6 +1336,8 @@ class AniyoriWindow(Adw.ApplicationWindow):
                     self._confirm_remove_entry,
                     self._show_edit_dialog,
                     airing,
+                    selected,
+                    self._toggle_entry_selection,
                 )
                 card = AnimeCard(
                     entry,
@@ -1157,6 +1345,8 @@ class AniyoriWindow(Adw.ApplicationWindow):
                     self._confirm_remove_entry,
                     self._show_edit_dialog,
                     airing,
+                    selected,
+                    self._toggle_entry_selection,
                 )
                 self.list_box.insert(row, position)
                 self.grid_flow.insert(card, position)
