@@ -39,6 +39,17 @@ class StorageEdgeCaseTests(unittest.TestCase):
                     0,
                 )
 
+    def test_progress_cannot_exceed_model_limit_when_total_is_unknown(self):
+        self.storage.add(AnimeEntry(title="Unknown total"))
+        entry = self.storage.list_entries()[0]
+
+        with self.assertRaisesRegex(ValueError, "cannot exceed 10,000"):
+            self.storage.update_progress(entry.storage_id, 10_001)
+
+        # Invalid progress must not poison the database or break later reads.
+        stored = self.storage.list_entries()[0]
+        self.assertEqual(stored.episodes_watched, 0)
+
     def test_progress_cannot_exceed_selected_entry_total(self):
         self.storage.add(AnimeEntry(title="Example", episodes_total=3))
         entry = self.storage.list_entries()[0]

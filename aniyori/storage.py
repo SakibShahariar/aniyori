@@ -6,7 +6,7 @@ import sqlite3
 from pathlib import Path
 from typing import Iterable
 
-from .models import AnimeEntry, WatchStatus
+from .models import MAX_EPISODE_COUNT, AnimeEntry, WatchStatus
 
 
 def default_database_path() -> Path:
@@ -160,6 +160,10 @@ class LibraryStorage:
             raise ValueError("Watched episode count must be a whole number.")
         if episodes_watched < 0:
             raise ValueError("Watched episode count cannot be negative")
+        if episodes_watched > MAX_EPISODE_COUNT:
+            raise ValueError(
+                f"Watched episode count cannot exceed {MAX_EPISODE_COUNT:,}."
+            )
         with self._connect() as connection:
             row = connection.execute(
                 "SELECT id, episodes_total, status FROM anime WHERE id = ?",
