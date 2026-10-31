@@ -40,6 +40,13 @@ class CoverCacheTests(unittest.TestCase):
                     _cache_directory(), Path("/home/test/.cache/aniyori/covers")
                 )
 
+    def test_relative_xdg_cache_home_uses_default_cover_directory(self):
+        with patch.dict("os.environ", {"XDG_CACHE_HOME": "relative/cache"}):
+            with patch("pathlib.Path.home", return_value=Path("/home/test")):
+                self.assertEqual(
+                    _cache_directory(), Path("/home/test/.cache/aniyori/covers")
+                )
+
     def test_downloads_and_caches_cover(self):
         payload = b"fake-image-data"
         with patch(

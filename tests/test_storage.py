@@ -26,6 +26,14 @@ class LibraryStorageTests(unittest.TestCase):
                     Path("/home/test/.local/share/aniyori/library.sqlite3"),
                 )
 
+    def test_relative_xdg_data_home_uses_default_data_directory(self):
+        with patch.dict("os.environ", {"XDG_DATA_HOME": "relative/data"}):
+            with patch("pathlib.Path.home", return_value=Path("/home/test")):
+                self.assertEqual(
+                    default_database_path(),
+                    Path("/home/test/.local/share/aniyori/library.sqlite3"),
+                )
+
     def test_add_and_reload_entry(self):
         entry = AnimeEntry(
             title="Example Anime",

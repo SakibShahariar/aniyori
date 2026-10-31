@@ -14,6 +14,8 @@ def default_database_path() -> Path:
     import os
 
     data_home = Path(os.environ.get("XDG_DATA_HOME") or Path.home() / ".local/share")
+    if not data_home.is_absolute():
+        data_home = Path.home() / ".local/share"
     return data_home / "aniyori" / "library.sqlite3"
 
 
