@@ -67,6 +67,14 @@ class AnimeFilenameParserTests(unittest.TestCase):
             with self.subTest(filename=filename):
                 self.assertIsNone(parse_anime_filename(filename))
 
+    def test_multi_episode_ranges_are_not_misidentified_as_single_episodes(self):
+        for filename in (
+            "[Group] Example Anime - 01-02 [1080p].mkv",
+            "[Group] Example Anime S01E01-E02 [1080p].mkv",
+        ):
+            with self.subTest(filename=filename):
+                self.assertIsNone(parse_anime_filename(filename))
+
     def test_invalid_input_type_is_safe(self):
         self.assertIsNone(parse_anime_filename(123))
 

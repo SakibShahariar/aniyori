@@ -83,7 +83,11 @@ def parse_anime_filename(filename: str) -> ParsedAnimeFilename | None:
     title = _clean(name[:episode_match.start()])
     if not title:
         return None
-    remainder = re.sub(r"(?i)^\s*[-_. ]+\s*", "", name[episode_match.end():])
+    remainder = name[episode_match.end():]
+    # A second episode number denotes a batch/range; don't mislabel it as a title.
+    if re.match(r"(?i)^\s*-\s*(?:E\d{1,3}|\d{1,4})(?=$|[ ._\-\[])", remainder):
+        return None
+    remainder = re.sub(r"(?i)^\s*[-_. ]+\s*", "", remainder)
     remainder = re.sub(r"(?i)\s+v\d+(?=\s*(?:\[|\(|$))", "", remainder)
     quality_match = _QUALITY_SUFFIX.search(remainder)
     if quality_match:
