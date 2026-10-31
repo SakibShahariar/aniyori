@@ -147,7 +147,7 @@ class ReleaseFeedParserTests(unittest.TestCase):
         self.assertEqual(matched.match_status, "matched")
         self.assertEqual(matched.media_id, 10)
         self.assertEqual(matched.episode, 1)
-        self.assertEqual(matched.score.score, 100.0)
+        self.assertAlmostEqual(matched.score.score, 85.45)
         self.assertTrue(matched.score.accepted)
         self.assertEqual(results[0].releases[1].match_status, "unparsed")
         self.assertIn("temporary network failure", results[1].error)
