@@ -173,6 +173,18 @@ class ReleaseFeedParserTests(unittest.TestCase):
             "release_group", "file_size", "seeders",
         })
 
+    def test_refresh_ranks_accepted_higher_quality_releases_first(self):
+        feed = RSSFeed("Ranked", "https://example.org/feed.xml")
+        payload = b"""<rss><channel>
+          <item><title>[GroupA] Frieren - 01 (480p) [HDTV]</title></item>
+          <item><title>[GroupA] Frieren - 02 (1080p) [BluRay]</title></item>
+        </channel></rss>"""
+        releases = refresh_release_feeds(
+            [feed], CATALOGUE, fetcher=lambda _url: payload,
+        )[0].releases
+        self.assertEqual(releases[0].episode, 2)
+        self.assertGreater(releases[0].score.score, releases[1].score.score)
+
     def test_refresh_rejected_preferences_are_visible_in_score_decision(self):
         feed = RSSFeed("Quality", "https://example.org/feed.xml")
         payload = b"""<rss><channel><item>

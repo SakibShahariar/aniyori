@@ -212,16 +212,19 @@ def refresh_release_feeds(
         try:
             content = fetcher(feed.url)
             entries = parse_release_feed(content)
-            releases = tuple(
-                _enrich_entry(
-                    feed,
-                    entry,
-                    candidate_list,
-                    preferences=preferences,
-                    weights=weights if weights is not None else DEFAULT_WEIGHTS,
-                )
-                for entry in entries
-            )
+            releases = tuple(sorted(
+                (
+                    _enrich_entry(
+                        feed,
+                        entry,
+                        candidate_list,
+                        preferences=preferences,
+                        weights=weights if weights is not None else DEFAULT_WEIGHTS,
+                    )
+                    for entry in entries
+                ),
+                key=lambda release: (not release.score.accepted, -release.score.score),
+            ))
             results.append(FeedRefreshResult(feed, releases))
         except Exception as error:
             # Keep a failed feed visible to the caller while continuing with
