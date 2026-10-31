@@ -33,6 +33,15 @@ class AnimeFilenameParserTests(unittest.TestCase):
         self.assertEqual(parsed.episode_title, "The Hero of the South")
         self.assertEqual(parsed.version, 2)
 
+    def test_episode_number_release_version_and_underscored_separators(self):
+        parsed = parse_anime_filename(
+            "[TaigaSubs]_Toradora!_(2008)_-_01v2_-_Tiger_and_Dragon_[1080p].mkv"
+        )
+        self.assertEqual(parsed.title, "Toradora! (2008)")
+        self.assertEqual(parsed.episode, 1)
+        self.assertEqual(parsed.version, 2)
+        self.assertEqual(parsed.episode_title, "Tiger and Dragon")
+
     def test_accepts_paths_and_video_extensions(self):
         parsed = parse_anime_filename("/media/anime/Chainsaw Man - 12 [1080p].mp4")
         self.assertEqual(parsed.title, "Chainsaw Man")

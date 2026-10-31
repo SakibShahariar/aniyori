@@ -8,7 +8,7 @@ import re
 _VIDEO_SUFFIXES = {".mkv", ".mp4", ".avi", ".webm", ".mov", ".m4v", ".ts"}
 _RESOLUTION = re.compile(r"(?i)\b(2160|1440|1080|720|576|480|360)p\b")
 _SOURCE = re.compile(r"(?i)\b(BluRay|BDRip|BRRip|WEB[- .]?DL|WEBRip|HDTV|DVD|DVDRip)\b")
-_VERSION = re.compile(r"(?i)\bv(\d+)\b")
+_VERSION = re.compile(r"(?i)v(\d+)\b")
 _QUALITY_SUFFIX = re.compile(
     r"(?i)(?:^|[ ._\-])(?:2160p|1440p|1080p|720p|576p|480p|360p|"
     r"WEB[- .]?DL|WEBRip|BluRay|BDRip|BRRip|HDTV|DVDRip|DVD)"
@@ -17,7 +17,7 @@ _QUALITY_SUFFIX = re.compile(
 _EPISODE_PATTERNS = (
     re.compile(r"(?i)(?:^|[ ._\-])S(\d{1,2})E(\d{1,3})(?:\b|$)"),
     re.compile(r"(?i)(?:^|[ ._\-])第(\d{1,3})話"),
-    re.compile(r"(?i)(?:^|[ ._\-])-\s*(\d{1,4})(?:\s|$|\[|\()"),
+    re.compile(r"(?i)(?:^|[ ._\-])-[ ._]*(\d{1,4})(?:v\d+)?(?=[ ._\-]|$|\[|\()"),
     re.compile(r"(?i)(?:^|[ ._])(?<!\d)(\d{1,3})(?:v\d)?(?=\s*(?:\[|\(|$))"),
 )
 _HASH = re.compile(r"(?i)\[[0-9a-f]{8,}\]")
