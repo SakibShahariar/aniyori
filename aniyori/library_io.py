@@ -88,10 +88,20 @@ def export_json(entries: Iterable[AnimeEntry]) -> str:
     return json.dumps(payload, ensure_ascii=False, indent=2) + "\n"
 
 
+def _reject_duplicate_json_keys(pairs: list[tuple[str, object]]) -> dict[str, object]:
+    """Reject ambiguous object fields instead of silently keeping the last value."""
+    result = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError(f"The JSON library backup contains a duplicate key: {key}")
+        result[key] = value
+    return result
+
+
 def import_json(content: str) -> list[AnimeEntry]:
     """Validate a versioned JSON library export before returning any entries."""
     try:
-        payload = json.loads(content)
+        payload = json.loads(content, object_pairs_hook=_reject_duplicate_json_keys)
     except json.JSONDecodeError as error:
         raise ValueError("The selected file is not valid JSON.") from error
     if not isinstance(payload, dict):
