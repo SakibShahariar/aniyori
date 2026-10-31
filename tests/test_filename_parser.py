@@ -22,6 +22,7 @@ class AnimeFilenameParserTests(unittest.TestCase):
         self.assertEqual(parsed.episode, 3)
         self.assertEqual(parsed.resolution, "1080p")
         self.assertEqual(parsed.source, "WEB-DL")
+        self.assertIsNone(parsed.episode_title)
 
     def test_episode_title_and_version(self):
         parsed = parse_anime_filename(
