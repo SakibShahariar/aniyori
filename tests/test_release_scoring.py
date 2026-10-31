@@ -104,6 +104,33 @@ class ReleaseScoringTests(unittest.TestCase):
         self.assertFalse(ranked[1][1].accepted)
         self.assertIn("Rejected: source is CAM", ranked[1][1].explanation)
 
+
+    def test_scoring_settings_store_defaults_and_round_trips_weights(self):
+        import tempfile
+        from pathlib import Path
+        from aniyori.services.release_scoring import ReleaseScoringSettingsStore
+
+        with tempfile.TemporaryDirectory() as directory:
+            store = ReleaseScoringSettingsStore(Path(directory) / "scoring.json")
+            self.assertEqual(store.load(), DEFAULT_WEIGHTS)
+            custom = dict(DEFAULT_WEIGHTS, resolution=0.8, source=0.4)
+            store.save(custom)
+            self.assertEqual(store.load(), custom)
+
+    def test_scoring_settings_store_rejects_invalid_saved_weights(self):
+        import tempfile
+        from pathlib import Path
+        from aniyori.services.release_scoring import ReleaseScoringSettingsStore
+
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "scoring.json"
+            path.write_text(
+                '{"format":"aniyori-release-scoring","version":true,"weights":{}}',
+                encoding="utf-8",
+            )
+            with self.assertRaisesRegex(ValueError, "unsupported format"):
+                ReleaseScoringSettingsStore(path).load()
+
     def test_invalid_numeric_metadata_is_ignored(self):
         result = score_release({
             "resolution": True, "file_size_mb": float("inf"), "seeders": -2,

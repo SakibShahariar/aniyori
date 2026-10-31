@@ -19,6 +19,7 @@ from .services.anilist import AniListClient, AniListError
 from .services.airing import format_airing_countdown
 from .services.scan_locations import ScanLocationStore
 from .services.scan_library import scan_configured_library
+from .services.release_scoring import DEFAULT_WEIGHTS, ReleaseScoringSettingsStore
 from .services.release_preferences import (
     PREFERENCE_ATTRIBUTES, ReleasePreferenceError, ReleasePreferenceStore,
     evaluate_release_preferences,
@@ -258,6 +259,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
         self.scan_location_store = ScanLocationStore()
         self.share_template_store = ShareTemplateStore()
         self.release_preference_store = ReleasePreferenceStore()
+        self.release_scoring_store = ReleaseScoringSettingsStore()
         self.search_history_store = SearchHistoryStore()
         self._scan_cancel_event = None
         self.current_filter = "all"
@@ -277,6 +279,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
             ("scan-folders", self._show_scan_folders_dialog),
             ("share-format", self._show_share_format_dialog),
             ("release-preferences", self._show_release_preferences_dialog),
+            ("release-scoring", self._show_release_scoring_dialog),
             ("about", self._show_about_dialog),
         ]:
             action = Gio.SimpleAction.new(name, None)
@@ -312,6 +315,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
         primary_menu.append("Scan Local Folders", "win.scan-folders")
         primary_menu.append("Share Format", "win.share-format")
         primary_menu.append("Release Preferences", "win.release-preferences")
+        primary_menu.append("Release Scoring Weights", "win.release-scoring")
         primary_menu.append("About Aniyori", "win.about")
         primary_menu.append("Quit", "win.quit")
         menu_button = Gtk.MenuButton()
@@ -468,6 +472,70 @@ class AniyoriWindow(Adw.ApplicationWindow):
         self._refresh_airing_schedule()
         GLib.timeout_add_seconds(60, self._update_airing_countdowns)
         GLib.timeout_add_seconds(1800, self._periodic_airing_refresh)
+
+
+    def _show_release_scoring_dialog(self):
+        try:
+            saved = self.release_scoring_store.load()
+        except (OSError, ValueError) as error:
+            self.toast_overlay.add_toast(
+                Adw.Toast.new(f"Could not load release-scoring weights: {error}")
+            )
+            saved = dict(DEFAULT_WEIGHTS)
+
+        dialog = Adw.AlertDialog(
+            heading="Release Scoring Weights",
+            body=(
+                "Adjust how much each available release attribute contributes to its "
+                "quality score. Missing metadata is omitted from the weighted average."
+            ),
+        )
+        content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+        grid = Gtk.Grid(column_spacing=12, row_spacing=8)
+        editors = {}
+        for row, (name, default) in enumerate(DEFAULT_WEIGHTS.items()):
+            label = Gtk.Label(label=name.replace("_", " ").title(), xalign=0)
+            weight = Gtk.SpinButton.new_with_range(0, 100, 1)
+            weight.set_value(saved.get(name, default) * 100)
+            weight.set_numeric(True)
+            suffix = Gtk.Label(label="%")
+            grid.attach(label, 0, row, 1, 1)
+            grid.attach(weight, 1, row, 1, 1)
+            grid.attach(suffix, 2, row, 1, 1)
+            editors[name] = weight
+        content.append(grid)
+
+        help_label = Gtk.Label(
+            label="Weights are relative: they do not need to add up to 100%.",
+            xalign=0,
+            wrap=True,
+        )
+        help_label.add_css_class("dim-label")
+        content.append(help_label)
+
+        save_button = Gtk.Button(label="Save Weights")
+        save_button.add_css_class("suggested-action")
+        content.append(save_button)
+        dialog.set_extra_child(content)
+        dialog.add_response("close", "Close")
+        dialog.set_default_response("close")
+        dialog.present(self)
+
+        def save_weights(_button):
+            weights = {
+                name: editor.get_value_as_int() / 100
+                for name, editor in editors.items()
+            }
+            try:
+                self.release_scoring_store.save(weights)
+            except (OSError, ValueError) as error:
+                self.toast_overlay.add_toast(
+                    Adw.Toast.new(f"Could not save scoring weights: {error}")
+                )
+                return
+            self.toast_overlay.add_toast(Adw.Toast.new("Release scoring weights saved."))
+
+        save_button.connect("clicked", save_weights)
 
     def _show_release_preferences_dialog(self):
         try:

@@ -2,10 +2,14 @@
 
 from __future__ import annotations
 
+import json
 import math
+import os
 import re
+import tempfile
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
 from .release_preferences import evaluate_release_preferences
@@ -259,3 +263,67 @@ def rank_releases(
     ]
     ranked.sort(key=lambda item: (not item[1].accepted, -item[1].score, item[2]))
     return [(release, score) for release, score, _index in ranked]
+
+
+SCORING_SETTINGS_FORMAT = "aniyori-release-scoring"
+SCORING_SETTINGS_VERSION = 1
+
+
+def default_release_scoring_path() -> Path:
+    """Return the XDG configuration path without creating it."""
+    config_home = Path(os.environ.get("XDG_CONFIG_HOME") or Path.home() / ".config")
+    if not config_home.is_absolute():
+        config_home = Path.home() / ".config"
+    return config_home / "aniyori" / "release-scoring.json"
+
+
+class ReleaseScoringSettingsStore:
+    """Load and atomically persist validated release-scoring weights."""
+
+    def __init__(self, path: str | Path | None = None):
+        self.path = Path(path) if path is not None else default_release_scoring_path()
+
+    def load(self) -> dict[str, float]:
+        try:
+            content = self.path.read_text(encoding="utf-8")
+        except FileNotFoundError:
+            return dict(DEFAULT_WEIGHTS)
+        try:
+            payload = json.loads(content)
+        except (UnicodeDecodeError, json.JSONDecodeError) as error:
+            raise ValueError("Saved release-scoring settings are invalid JSON.") from error
+        if (
+            not isinstance(payload, dict)
+            or payload.get("format") != SCORING_SETTINGS_FORMAT
+            or isinstance(payload.get("version"), bool)
+            or not isinstance(payload.get("version"), int)
+            or payload.get("version") != SCORING_SETTINGS_VERSION
+            or not isinstance(payload.get("weights"), dict)
+        ):
+            raise ValueError("Saved release-scoring settings have an unsupported format.")
+        return _validate_weights(payload["weights"])
+
+    def save(self, weights: Mapping[str, float]) -> None:
+        normalized = _validate_weights(weights)
+        content = json.dumps(
+            {
+                "format": SCORING_SETTINGS_FORMAT,
+                "version": SCORING_SETTINGS_VERSION,
+                "weights": normalized,
+            },
+            ensure_ascii=False,
+            indent=2,
+        ) + "\\n"
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        temporary_path = None
+        try:
+            with tempfile.NamedTemporaryFile(
+                mode="w", encoding="utf-8", dir=self.path.parent,
+                prefix=".release-scoring-", delete=False,
+            ) as temporary:
+                temporary.write(content)
+                temporary_path = Path(temporary.name)
+            os.replace(temporary_path, self.path)
+        finally:
+            if temporary_path is not None:
+                temporary_path.unlink(missing_ok=True)
