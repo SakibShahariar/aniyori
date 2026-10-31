@@ -1,0 +1,78 @@
+"""Tests for bounded RSS and Atom release-feed parsing."""
+
+import unittest
+from datetime import timezone
+
+from aniyori.services.rss import FeedParseError, parse_release_feed
+
+
+class ReleaseFeedParserTests(unittest.TestCase):
+    def test_parses_rss_items_and_normalizes_dates_categories_and_links(self):
+        feed = """<?xml version="1.0"?>
+        <rss version="2.0"><channel><title>Anime Releases</title>
+          <item><title>Example - 01 [1080p]</title>
+            <link>https://example.org/releases/1</link>
+            <guid>release-1</guid>
+            <pubDate>Sat, 31 Oct 2026 05:00:00 +0000</pubDate>
+            <description><![CDATA[<p>Episode one</p>]]></description>
+            <category>1080p</category><category>English</category>
+          </item>
+        </channel></rss>"""
+        entries = parse_release_feed(feed)
+        self.assertEqual(len(entries), 1)
+        entry = entries[0]
+        self.assertEqual(entry.title, "Example - 01 [1080p]")
+        self.assertEqual(entry.link, "https://example.org/releases/1")
+        self.assertEqual(entry.identifier, "release-1")
+        self.assertEqual(entry.published_at.tzinfo, timezone.utc)
+        self.assertEqual(entry.categories, ("1080p", "English"))
+        self.assertIn("<p>Episode one</p>", entry.summary)
+
+    def test_parses_atom_namespaces_and_prefers_alternate_link(self):
+        feed = """<feed xmlns="http://www.w3.org/2005/Atom">
+          <title>Releases</title><entry><title>Example Episode 2</title>
+            <id>tag:example.org,2026:2</id>
+            <link rel="self" href="https://example.org/api/2"/>
+            <link rel="alternate" href="https://example.org/releases/2"/>
+            <updated>2026-10-31T05:30:00Z</updated>
+            <category term="1080p"/><summary>Episode two</summary>
+          </entry></feed>"""
+        entry = parse_release_feed(feed)[0]
+        self.assertEqual(entry.link, "https://example.org/releases/2")
+        self.assertEqual(entry.identifier, "tag:example.org,2026:2")
+        self.assertEqual(entry.categories, ("1080p",))
+        self.assertEqual(entry.published_at.tzinfo, timezone.utc)
+
+    def test_ignores_unsafe_or_malformed_entry_links(self):
+        feed = """<rss><channel><item><title>One</title>
+          <link>javascript:alert(1)</link><guid>one</guid></item>
+          <item><title>Two</title><link>https://user:pass@example.org/x</link></item>
+          <item><title>Three</title><link>https://example.org:bad/x</link></item>
+        </channel></rss>"""
+        self.assertTrue(all(item.link is None for item in parse_release_feed(feed)))
+
+    def test_skips_entries_without_titles_and_respects_entry_limit(self):
+        feed = """<rss><channel><item><description>missing title</description></item>
+          <item><title>One</title></item><item><title>Two</title></item>
+        </channel></rss>"""
+        self.assertEqual([item.title for item in parse_release_feed(feed, max_entries=1)], ["One"])
+        self.assertEqual(len(parse_release_feed(feed, max_entries=0)), 0)
+
+    def test_rejects_oversized_dtd_and_malformed_feeds(self):
+        with self.assertRaisesRegex(FeedParseError, "maximum allowed size"):
+            parse_release_feed("<rss/>", max_bytes=3)
+        with self.assertRaisesRegex(FeedParseError, "DTD and entity"):
+            parse_release_feed("<!DOCTYPE rss [<!ENTITY x 'boom'>]><rss/>")
+        with self.assertRaisesRegex(FeedParseError, "invalid XML"):
+            parse_release_feed("<rss><channel>")
+        with self.assertRaisesRegex(FeedParseError, "Unsupported feed"):
+            parse_release_feed("<html/>")
+
+    def test_invalid_limits_are_rejected(self):
+        for kwargs in ({"max_bytes": True}, {"max_bytes": 0}, {"max_entries": -1}, {"max_entries": True}):
+            with self.subTest(kwargs=kwargs), self.assertRaises(FeedParseError):
+                parse_release_feed("<rss/>", **kwargs)
+
+
+if __name__ == "__main__":
+    unittest.main()
