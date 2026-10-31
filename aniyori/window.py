@@ -1318,6 +1318,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
                 self.grid_flow.remove(card.get_parent())
 
         query = self.search.get_text().strip().casefold() if hasattr(self, "search") else ""
+        visible_count = 0
         for position, entry in enumerate(self.entries):
             key = entry.storage_id if entry.storage_id is not None else ("transient", id(entry))
             row = self._row_widgets.get(key)
@@ -1357,8 +1358,12 @@ class AniyoriWindow(Adw.ApplicationWindow):
                 self._card_widgets[key] = card
                 self._widget_entries[key] = widget_signature
             else:
-                self.list_box.reorder_child(row.get_parent(), position)
-                self.grid_flow.reorder_child(card.get_parent(), position)
+                list_child = row.get_parent()
+                grid_child = card.get_parent()
+                if list_child is not None and list_child.get_index() != position:
+                    self.list_box.reorder_child(list_child, position)
+                if grid_child is not None and grid_child.get_index() != position:
+                    self.grid_flow.reorder_child(grid_child, position)
 
             is_visible = (
                 (self.current_filter == "all" or entry.status.value == self.current_filter)
@@ -1366,13 +1371,9 @@ class AniyoriWindow(Adw.ApplicationWindow):
             )
             row.get_parent().set_visible(is_visible)
             card.get_parent().set_visible(is_visible)
+            if is_visible:
+                visible_count += 1
 
-        visible_count = sum(
-            1
-            for entry in self.entries
-            if (self.current_filter == "all" or entry.status.value == self.current_filter)
-            and query in entry.title.casefold()
-        )
         if not visible_count:
             if not self.entries:
                 self.empty_title.set_label("Your library is empty")
