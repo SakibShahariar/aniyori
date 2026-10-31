@@ -7,6 +7,8 @@ import unicodedata
 from collections.abc import Iterable, Mapping
 from typing import Any
 
+from ..filename_parser import ParsedAnimeFilename, parse_anime_filename
+
 @dataclass(frozen=True, slots=True)
 class ScoredAnimeMatch:
     media_id: int | str
@@ -114,3 +116,38 @@ def match_anime_title(
     if len(matches) > 1 and matches[0].score - matches[1].score <= ambiguity_margin:
         return AnimeMatchDecision("ambiguous", matches)
     return AnimeMatchDecision("matched", matches)
+
+@dataclass(frozen=True, slots=True)
+class ReleaseMatchDecision:
+    """Filename parsing and catalogue matching result for one local video."""
+
+    parsed: ParsedAnimeFilename | None
+    decision: AnimeMatchDecision
+
+    @property
+    def status(self) -> str:
+        return "unparsed" if self.parsed is None else self.decision.status
+
+
+def match_release_filename(
+    filename: str,
+    candidates: Iterable[Mapping[str, Any]],
+    *,
+    aliases: Mapping[int | str, Iterable[str]] | None = None,
+    overrides: Mapping[str, int | str] | None = None,
+    minimum_score: float = 0.84,
+    ambiguity_margin: float = 0.06,
+) -> ReleaseMatchDecision:
+    """Parse a release filename, then match its title without guessing ambiguity."""
+    parsed = parse_anime_filename(filename)
+    if parsed is None:
+        return ReleaseMatchDecision(None, AnimeMatchDecision("no_match", ()))
+    decision = match_anime_title(
+        parsed.title,
+        candidates,
+        aliases=aliases,
+        overrides=overrides,
+        minimum_score=minimum_score,
+        ambiguity_margin=ambiguity_margin,
+    )
+    return ReleaseMatchDecision(parsed, decision)
