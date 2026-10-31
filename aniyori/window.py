@@ -132,7 +132,7 @@ class AnimeRow(Gtk.Box):
 
 
 class AnimeCard(Gtk.Box):
-    def __init__(self, entry: AnimeEntry, on_progress, on_remove, on_edit):
+    def __init__(self, entry: AnimeEntry, on_progress, on_remove, on_edit, airing=None):
         super().__init__(orientation=Gtk.Orientation.VERTICAL, spacing=10)
         self.set_size_request(180, 180)
         self.set_margin_top(12)
@@ -498,6 +498,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
             return
         self.entries = self.storage.list_entries()
         self._render_library()
+        self._refresh_airing_schedule()
         self.toast_overlay.add_toast(
             Adw.Toast.new(f"Imported {len(entries)} anime entries.")
         )
@@ -636,6 +637,8 @@ class AniyoriWindow(Adw.ApplicationWindow):
             entry.storage_id if entry.storage_id is not None else ("transient", id(entry))
             for entry in self.entries
         }
+        for key in set(self._airing_by_id) - current_keys:
+            self._airing_by_id.pop(key, None)
         for key in set(self._row_widgets) - current_keys:
             row = self._row_widgets.pop(key)
             card = self._card_widgets.pop(key)
@@ -1206,6 +1209,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
             )
             return
         self.entries = self.storage.list_entries()
+        self._refresh_airing_schedule()
         self.current_filter = "all"
         self.filter_buttons["all"].set_active(True)
         self.search.set_text("")
