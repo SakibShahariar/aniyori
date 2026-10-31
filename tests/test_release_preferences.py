@@ -76,6 +76,29 @@ class ReleasePreferenceTests(unittest.TestCase):
             self.assertEqual(by_name["resolution"].preferred, ("1080p", "2160p"))
             self.assertEqual(by_name["audio"].preferred, ("flac",))
 
+    def test_duplicate_json_keys_are_rejected_without_rewriting_file(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "prefs.json"
+            content = (
+                '{"format":"aniyori-release-preferences",'
+                '"version":1,"version":1,"preferences":{}}'
+            )
+            path.write_text(content, encoding="utf-8")
+            with self.assertRaisesRegex(ReleasePreferenceError, "duplicate key"):
+                ReleasePreferenceStore(path).load()
+            self.assertEqual(path.read_text(encoding="utf-8"), content)
+
+    def test_boolean_version_is_not_accepted_as_integer_version(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "prefs.json"
+            path.write_text(
+                '{"format":"aniyori-release-preferences",'
+                '"version":true,"preferences":{}}',
+                encoding="utf-8",
+            )
+            with self.assertRaisesRegex(ReleasePreferenceError, "unsupported format"):
+                ReleasePreferenceStore(path).load()
+
     def test_malformed_saved_preferences_are_not_silently_reset(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "prefs.json"

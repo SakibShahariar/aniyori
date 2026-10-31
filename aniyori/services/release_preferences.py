@@ -42,6 +42,15 @@ class PreferenceDecision:
     explanations: tuple[str, ...]
 
 
+def _reject_duplicate_json_keys(pairs):
+    result = {}
+    for key, value in pairs:
+        if key in result:
+            raise ReleasePreferenceError(f"Saved release preferences contain duplicate key: {key}.")
+        result[key] = value
+    return result
+
+
 def _normalise_value(value: Any) -> str:
     if not isinstance(value, str) or not value.strip():
         raise ReleasePreferenceError("Preference values must be non-empty text.")
@@ -161,13 +170,18 @@ class ReleasePreferenceStore:
         except FileNotFoundError:
             return normalize_release_preferences()
         try:
-            payload = json.loads(content)
+            payload = json.loads(content, object_pairs_hook=_reject_duplicate_json_keys)
+        except ReleasePreferenceError:
+            raise
         except (UnicodeDecodeError, json.JSONDecodeError) as error:
             raise ReleasePreferenceError("Saved release preferences are invalid JSON.") from error
+        version = payload.get("version") if isinstance(payload, dict) else None
         if (
             not isinstance(payload, dict)
             or payload.get("format") != PREFERENCE_FORMAT
-            or payload.get("version") != PREFERENCE_VERSION
+            or isinstance(version, bool)
+            or not isinstance(version, int)
+            or version != PREFERENCE_VERSION
             or not isinstance(payload.get("preferences"), dict)
         ):
             raise ReleasePreferenceError("Saved release preferences have an unsupported format.")
