@@ -123,6 +123,8 @@ def import_csv(content: str) -> list[AnimeEntry]:
     """Validate CSV rows before returning any entries."""
     try:
         reader = csv.DictReader(io.StringIO(content, newline=""))
+        if reader.fieldnames is not None and len(reader.fieldnames) != len(set(reader.fieldnames)):
+            raise ValueError("The CSV file contains duplicate column names.")
         if reader.fieldnames is None or not set(CSV_FIELDS).issubset(reader.fieldnames):
             raise ValueError("The CSV file is missing required library columns.")
         records = list(reader)

@@ -83,6 +83,15 @@ class LibraryIOTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "missing required"):
             import_csv("title,status\nExample,watching\n")
 
+    def test_csv_rejects_duplicate_headers(self):
+        content = (
+            "title,title,episodes_total,episodes_watched,status,provider,"
+            "provider_id,cover_image\\n"
+            "Wrong,Example,12,3,watching,,,,\\n"
+        )
+        with self.assertRaisesRegex(ValueError, "duplicate column names"):
+            import_csv(content)
+
     def test_csv_rejects_invalid_rows_with_row_number(self):
         content = export_csv(self.entries).replace(",32,watching,", ",not-a-number,watching,")
         with self.assertRaisesRegex(ValueError, "row 2"):
