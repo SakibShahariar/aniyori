@@ -1297,6 +1297,12 @@ class AniyoriWindow(Adw.ApplicationWindow):
                 state = Gtk.Label(label="Enabled" if feed.enabled else "Disabled")
                 state.add_css_class("dim-label")
                 row.append(state)
+                toggle_button = Gtk.Button(label="Disable" if feed.enabled else "Enable")
+                toggle_button.connect(
+                    "clicked",
+                    lambda _button, item=feed: toggle_feed(item),
+                )
+                row.append(toggle_button)
                 edit_button = Gtk.Button(label="Edit")
                 edit_button.connect("clicked", lambda _button, item=feed: begin_edit(item))
                 row.append(edit_button)
@@ -1308,6 +1314,14 @@ class AniyoriWindow(Adw.ApplicationWindow):
                 )
                 row.append(remove_button)
                 feed_list.append(row)
+
+        def toggle_feed(feed):
+            try:
+                self.rss_feed_store.update(feed.url, enabled=not feed.enabled)
+            except (OSError, FeedParseError) as error:
+                self.toast_overlay.add_toast(Adw.Toast.new(f"Could not update feed: {error}"))
+                return
+            reload_feeds()
 
         def begin_edit(feed):
             editing["url"] = feed.url
