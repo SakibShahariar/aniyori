@@ -51,8 +51,37 @@ class AnimeEntry:
     storage_id: int | None = field(default=None, compare=False, repr=False)
 
     def __post_init__(self) -> None:
+        if not isinstance(self.title, str):
+            raise ValueError("Anime title must be text.")
         if not self.title.strip():
             raise ValueError("Anime title must not be empty")
+
+        if self.episodes_total is not None and (
+            isinstance(self.episodes_total, bool)
+            or not isinstance(self.episodes_total, int)
+        ):
+            raise ValueError("Total episode count must be a whole number.")
+        if isinstance(self.episodes_watched, bool) or not isinstance(
+            self.episodes_watched, int
+        ):
+            raise ValueError("Watched episode count must be a whole number.")
+
+        if not isinstance(self.status, WatchStatus):
+            raise ValueError("Watch status must be a WatchStatus value.")
+
+        for field_name in ("provider", "provider_id", "cover_image"):
+            value = getattr(self, field_name)
+            if value is not None and not isinstance(value, str):
+                label = field_name.replace("_", " ").capitalize()
+                raise ValueError(f"{label} must be text.")
+
+        if self.storage_id is not None and (
+            isinstance(self.storage_id, bool)
+            or not isinstance(self.storage_id, int)
+            or self.storage_id <= 0
+        ):
+            raise ValueError("Storage ID must be a positive integer.")
+
         if self.episodes_total is not None and self.episodes_total < 0:
             raise ValueError("Total episode count cannot be negative")
         if self.episodes_watched < 0:

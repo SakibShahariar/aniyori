@@ -58,6 +58,32 @@ class AnimeEntryTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "10,000"):
             AnimeEntry(title="Too many watched", episodes_watched=MAX_EPISODE_COUNT + 1)
 
+    def test_model_rejects_boolean_and_non_integer_episode_counts(self):
+        invalid_values = (True, False, 1.5, "3")
+        for value in invalid_values:
+            with self.subTest(field="episodes_total", value=value):
+                with self.assertRaisesRegex(ValueError, "whole number"):
+                    AnimeEntry(title="Example", episodes_total=value)
+            with self.subTest(field="episodes_watched", value=value):
+                with self.assertRaisesRegex(ValueError, "whole number"):
+                    AnimeEntry(title="Example", episodes_watched=value)
+
+    def test_model_rejects_invalid_status_and_optional_text_fields(self):
+        with self.assertRaisesRegex(ValueError, "WatchStatus"):
+            AnimeEntry(title="Example", status="watching")
+        for field_name in ("provider", "provider_id", "cover_image"):
+            with self.subTest(field=field_name):
+                with self.assertRaisesRegex(ValueError, "must be text"):
+                    AnimeEntry(title="Example", **{field_name: 42})
+        with self.assertRaisesRegex(ValueError, "title must be text"):
+            AnimeEntry(title=None)
+
+    def test_model_rejects_invalid_storage_ids(self):
+        for value in (0, -1, True, 1.5, "1"):
+            with self.subTest(storage_id=value):
+                with self.assertRaisesRegex(ValueError, "positive integer"):
+                    AnimeEntry(title="Example", storage_id=value)
+
 
 if __name__ == "__main__":
     unittest.main()
