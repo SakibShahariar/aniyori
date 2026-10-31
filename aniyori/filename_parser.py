@@ -78,6 +78,7 @@ def parse_anime_filename(filename: str) -> ParsedAnimeFilename | None:
     if not title:
         return None
     remainder = re.sub(r"(?i)^\s*[-_. ]+\s*", "", name[episode_match.end():])
+    remainder = re.sub(r"(?i)\s+v\d+\s*$", "", remainder)
     remainder = re.split(
         r"(?i)\s*[\[(](?:\d{3,4}p|WEB[- .]?DL|WEBRip|BluRay|BDRip|HDTV|v\d+)\b",
         remainder, maxsplit=1
