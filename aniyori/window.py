@@ -451,13 +451,38 @@ class AniyoriWindow(Adw.ApplicationWindow):
         self.grid_scroll.set_child(self.grid_flow)
         self.stack.add_named(self.grid_scroll, "grid")
 
+        self.release_page = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+        release_controls = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        self.release_eligible_only_check = Gtk.CheckButton(label="Eligible only")
+        self.release_eligible_only_check.set_tooltip_text(
+            "Hide releases rejected by preferences or below the minimum score."
+        )
+        self.release_eligible_only_check.connect(
+            "toggled", lambda _button: self._render_release_results()
+        )
+        release_controls.append(self.release_eligible_only_check)
+        release_spacer = Gtk.Box()
+        release_spacer.set_hexpand(True)
+        release_controls.append(release_spacer)
+        refresh_releases_button = Gtk.Button(label="Refresh")
+        refresh_releases_button.connect(
+            "clicked", lambda _button: self._refresh_release_feeds()
+        )
+        release_controls.append(refresh_releases_button)
+        manage_releases_button = Gtk.Button(label="Manage Feeds")
+        manage_releases_button.connect(
+            "clicked", lambda _button: self._show_release_feed_manager()
+        )
+        release_controls.append(manage_releases_button)
+        self.release_page.append(release_controls)
         self.release_list_box = Gtk.ListBox()
         self.release_list_box.set_selection_mode(Gtk.SelectionMode.NONE)
         self.release_list_box.add_css_class("boxed-list")
         self.release_scroll = Gtk.ScrolledWindow()
         self.release_scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
         self.release_scroll.set_child(self.release_list_box)
-        self.stack.add_named(self.release_scroll, "releases")
+        self.release_page.append(self.release_scroll)
+        self.stack.add_named(self.release_page, "releases")
 
         self.empty_state = Gtk.Box(
             orientation=Gtk.Orientation.VERTICAL,
@@ -1222,6 +1247,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
             self.release_list_box.append(label)
             return
 
+        rendered = 0
         for result in self.release_results:
             if result.error:
                 row_label = Gtk.Label(
@@ -1235,9 +1261,12 @@ class AniyoriWindow(Adw.ApplicationWindow):
                 row_label.set_margin_start(12)
                 row_label.set_margin_end(12)
                 self.release_list_box.append(row_label)
+                rendered += 1
                 continue
 
             for release in result.releases:
+                if self.release_eligible_only_check.get_active() and not release.eligible:
+                    continue
                 row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
                 row.set_margin_top(10)
                 row.set_margin_bottom(10)
@@ -1262,7 +1291,10 @@ class AniyoriWindow(Adw.ApplicationWindow):
                     "Below score threshold"
                 )
                 subtitle = Gtk.Label(
-                    label=f"{match_text} · Quality {release.score.score:.1f}/100 · {decision}",
+                    label=(
+                        f"{release.feed_name} · {match_text} · "
+                        f"Quality {release.score.score:.1f}/100 · {decision}"
+                    ),
                     xalign=0,
                     wrap=True,
                 )
@@ -1275,6 +1307,22 @@ class AniyoriWindow(Adw.ApplicationWindow):
                     link.set_valign(Gtk.Align.CENTER)
                     row.append(link)
                 self.release_list_box.append(row)
+                rendered += 1
+
+        if rendered == 0:
+            label = Gtk.Label(
+                label=(
+                    "No eligible releases match the current preferences and score cutoff."
+                    if self.release_eligible_only_check.get_active()
+                    else "No release entries were found in the configured feeds."
+                ),
+                wrap=True,
+                justify=Gtk.Justification.CENTER,
+            )
+            label.set_margin_top(24)
+            label.set_margin_bottom(24)
+            label.add_css_class("dim-label")
+            self.release_list_box.append(label)
 
     def _show_release_feed_manager(self):
         dialog = Adw.AlertDialog(
