@@ -15,6 +15,7 @@ from .models import AnimeEntry, WatchStatus, parse_episode_count
 from .library_io import export_csv, export_json, import_csv, import_json
 from .search import SearchGeneration
 from .services.anilist import AniListClient, AniListError
+from .services.airing import format_airing_countdown
 from .services.covers import get_cached_cover
 from .storage import LibraryStorage
 from .statistics import calculate_library_statistics
@@ -51,7 +52,7 @@ def _apply_cover_texture(picture: Gtk.Picture, path: str):
 
 
 class AnimeRow(Gtk.Box):
-    def __init__(self, entry: AnimeEntry, on_progress, on_remove, on_edit):
+    def __init__(self, entry: AnimeEntry, on_progress, on_remove, on_edit, airing=None):
         super().__init__(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
         self.set_margin_top(10)
         self.set_margin_bottom(10)
@@ -91,6 +92,12 @@ class AnimeRow(Gtk.Box):
         subtitle.add_css_class("dim-label")
         subtitle.add_css_class("caption")
         details.append(subtitle)
+        self.airing_label = None
+        if airing is not None:
+            self.airing_label = Gtk.Label(label=format_airing_countdown(*airing) or "", xalign=0)
+            self.airing_label.add_css_class("caption")
+            self.airing_label.add_css_class("accent")
+            details.append(self.airing_label)
 
         if entry.progress_fraction is not None:
             progress = Gtk.ProgressBar()
@@ -164,6 +171,15 @@ class AnimeCard(Gtk.Box):
         subtitle.add_css_class("dim-label")
         subtitle.add_css_class("caption")
         self.append(subtitle)
+        self.airing_label = None
+        if airing is not None:
+            self.airing_label = Gtk.Label(
+                label=format_airing_countdown(*airing) or "",
+                justify=Gtk.Justification.CENTER,
+            )
+            self.airing_label.add_css_class("caption")
+            self.airing_label.add_css_class("accent")
+            self.append(self.airing_label)
 
         if entry.progress_fraction is not None:
             progress = Gtk.ProgressBar()
@@ -207,6 +223,8 @@ class AniyoriWindow(Adw.ApplicationWindow):
         self.set_size_request(600, 440)
         self.storage = LibraryStorage()
         self.entries: list[AnimeEntry] = self.storage.list_entries()
+        self._airing_by_id = {}
+        self._airing_refresh_running = False
         self.current_filter = "all"
         self._undo_entry: AnimeEntry | None = None
         self._undo_toast = None
@@ -377,6 +395,9 @@ class AniyoriWindow(Adw.ApplicationWindow):
         self.view_switches["list"].set_active(True)
         self._render_library()
         self.filter_buttons["all"].set_active(True)
+        self._refresh_airing_schedule()
+        GLib.timeout_add_seconds(60, self._update_airing_countdowns)
+        GLib.timeout_add_seconds(1800, self._periodic_airing_refresh)
 
     def _show_export_dialog(self, file_format: str):
         chooser = Gtk.FileChooserNative.new(
@@ -532,6 +553,76 @@ class AniyoriWindow(Adw.ApplicationWindow):
             return
         self.stack.set_visible_child_name(key)
 
+    def _refresh_airing_schedule(self):
+        """Fetch next-airing metadata in a worker; never block GTK."""
+        if self._airing_refresh_running:
+            return GLib.SOURCE_REMOVE
+        candidates = [
+            (entry.storage_id, entry.provider_id)
+            for entry in self.entries
+            if entry.provider == "anilist"
+            and entry.provider_id
+            and entry.storage_id is not None
+            and str(entry.provider_id).isdigit()
+        ]
+        if not candidates:
+            return GLib.SOURCE_REMOVE
+
+        self._airing_refresh_running = True
+
+        def worker():
+            client = AniListClient()
+            try:
+                for storage_id, provider_id in candidates:
+                    try:
+                        metadata = client.get_anime(int(provider_id), refresh=True)
+                        episode = metadata.get("next_episode")
+                        airing_at = metadata.get("next_airing_at")
+                        info = (episode, airing_at) if episode is not None and airing_at is not None else None
+                        GLib.idle_add(self._set_airing_info, storage_id, info)
+                    except (AniListError, ValueError):
+                        LOGGER.debug(
+                            "Could not refresh airing schedule for AniList ID %s",
+                            provider_id,
+                            exc_info=True,
+                        )
+            finally:
+                GLib.idle_add(self._finish_airing_refresh)
+
+        threading.Thread(target=worker, daemon=True).start()
+        return GLib.SOURCE_REMOVE
+
+    def _periodic_airing_refresh(self):
+        self._refresh_airing_schedule()
+        return GLib.SOURCE_CONTINUE
+
+    def _finish_airing_refresh(self):
+        self._airing_refresh_running = False
+        return GLib.SOURCE_REMOVE
+
+    def _set_airing_info(self, storage_id, airing):
+        if airing is None:
+            changed = self._airing_by_id.pop(storage_id, None) is not None
+        else:
+            changed = self._airing_by_id.get(storage_id) != airing
+            self._airing_by_id[storage_id] = airing
+        if changed:
+            self._render_library()
+        return GLib.SOURCE_REMOVE
+
+    def _update_airing_countdowns(self):
+        for key, row in getattr(self, "_row_widgets", {}).items():
+            if row.airing_label is not None and key in self._airing_by_id:
+                row.airing_label.set_label(
+                    format_airing_countdown(*self._airing_by_id[key]) or ""
+                )
+        for key, card in getattr(self, "_card_widgets", {}).items():
+            if card.airing_label is not None and key in self._airing_by_id:
+                card.airing_label.set_label(
+                    format_airing_countdown(*self._airing_by_id[key]) or ""
+                )
+        return GLib.SOURCE_CONTINUE
+
     def _render_library(self, *_args):
         list_scroll_value = self.list_scroll.get_vadjustment().get_value()
         grid_scroll_value = self.grid_scroll.get_vadjustment().get_value()
@@ -560,7 +651,9 @@ class AniyoriWindow(Adw.ApplicationWindow):
             row = self._row_widgets.get(key)
             card = self._card_widgets.get(key)
 
-            if row is None or self._widget_entries.get(key) != entry:
+            airing = self._airing_by_id.get(key)
+            widget_signature = (entry, airing)
+            if row is None or self._widget_entries.get(key) != widget_signature:
                 if row is not None:
                     if row.get_parent() is not None:
                         self.list_box.remove(row.get_parent())
@@ -572,18 +665,20 @@ class AniyoriWindow(Adw.ApplicationWindow):
                     self._increment_progress,
                     self._confirm_remove_entry,
                     self._show_edit_dialog,
+                    airing,
                 )
                 card = AnimeCard(
                     entry,
                     self._increment_progress,
                     self._confirm_remove_entry,
                     self._show_edit_dialog,
+                    airing,
                 )
                 self.list_box.insert(row, position)
                 self.grid_flow.insert(card, position)
                 self._row_widgets[key] = row
                 self._card_widgets[key] = card
-                self._widget_entries[key] = entry
+                self._widget_entries[key] = widget_signature
             else:
                 self.list_box.reorder_child(row.get_parent(), position)
                 self.grid_flow.reorder_child(card.get_parent(), position)
