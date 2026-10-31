@@ -36,7 +36,7 @@ class ParsedAnimeFilename:
 
 
 def _clean(value: str) -> str:
-    return re.sub(r"\s+", " ", re.sub(r"[._]+", " ", value)).strip(" -_.[]()")
+    return re.sub(r"\s+", " ", re.sub(r"[._]+", " ", value)).strip(" -_.[]")
 
 
 def parse_anime_filename(filename: str) -> ParsedAnimeFilename | None:
