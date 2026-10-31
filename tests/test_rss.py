@@ -185,6 +185,15 @@ class ReleaseFeedParserTests(unittest.TestCase):
         self.assertEqual(releases[0].episode, 2)
         self.assertGreater(releases[0].score.score, releases[1].score.score)
 
+    def test_refresh_rejects_invalid_minimum_score(self):
+        feed = RSSFeed("Invalid", "https://example.org/feed.xml")
+        for value in (-1, 101, True, float("inf")):
+            with self.subTest(value=value), self.assertRaises(ValueError):
+                refresh_release_feeds(
+                    [feed], CATALOGUE, fetcher=lambda _url: b"<rss/>",
+                    minimum_score=value,
+                )
+
     def test_refresh_applies_minimum_score_to_release_eligibility(self):
         feed = RSSFeed("Threshold", "https://example.org/feed.xml")
         payload = b"""<rss><channel>

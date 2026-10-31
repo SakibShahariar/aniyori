@@ -142,6 +142,23 @@ class ReleaseScoringTests(unittest.TestCase):
             self.assertEqual(store.load_minimum_score(), 72.5)
             self.assertEqual(store.load(), DEFAULT_WEIGHTS)
 
+    def test_scoring_settings_store_loads_legacy_files_without_cutoff(self):
+        import json
+        import tempfile
+        from pathlib import Path
+        from aniyori.services.release_scoring import ReleaseScoringSettingsStore
+
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "scoring.json"
+            path.write_text(json.dumps({
+                "format": "aniyori-release-scoring",
+                "version": 1,
+                "weights": DEFAULT_WEIGHTS,
+            }), encoding="utf-8")
+            store = ReleaseScoringSettingsStore(path)
+            self.assertEqual(store.load(), DEFAULT_WEIGHTS)
+            self.assertEqual(store.load_minimum_score(), 0.0)
+
     def test_scoring_settings_store_rejects_invalid_minimum_score(self):
         import tempfile
         from pathlib import Path
