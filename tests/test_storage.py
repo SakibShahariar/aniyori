@@ -2,10 +2,11 @@
 
 import tempfile
 import unittest
+from unittest.mock import patch
 from pathlib import Path
 
 from aniyori.models import AnimeEntry, WatchStatus
-from aniyori.storage import LibraryStorage
+from aniyori.storage import LibraryStorage, default_database_path
 
 
 class LibraryStorageTests(unittest.TestCase):
@@ -16,6 +17,14 @@ class LibraryStorageTests(unittest.TestCase):
 
     def tearDown(self):
         self.temp_dir.cleanup()
+
+    def test_empty_xdg_data_home_uses_default_data_directory(self):
+        with patch.dict("os.environ", {"XDG_DATA_HOME": ""}):
+            with patch("pathlib.Path.home", return_value=Path("/home/test")):
+                self.assertEqual(
+                    default_database_path(),
+                    Path("/home/test/.local/share/aniyori/library.sqlite3"),
+                )
 
     def test_add_and_reload_entry(self):
         entry = AnimeEntry(

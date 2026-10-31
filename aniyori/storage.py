@@ -13,7 +13,7 @@ def default_database_path() -> Path:
     """Return the XDG data location without creating it until needed."""
     import os
 
-    data_home = Path(os.environ.get("XDG_DATA_HOME", Path.home() / ".local/share"))
+    data_home = Path(os.environ.get("XDG_DATA_HOME") or Path.home() / ".local/share")
     return data_home / "aniyori" / "library.sqlite3"
 
 
