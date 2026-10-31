@@ -5,7 +5,8 @@ from dataclasses import dataclass
 from pathlib import PurePath
 import re
 
-_VIDEO_SUFFIXES = {".mkv", ".mp4", ".avi", ".webm", ".mov", ".m4v", ".ts"}
+_VIDEO_SUFFIXES = {".mkv", ".mp4", ".avi", ".webm", ".mov", ".m4v", ".ts", ".wmv", ".flv"}
+_NON_VIDEO_SUFFIXES = {".txt", ".pdf", ".srt", ".ass", ".ssa", ".nfo", ".jpg", ".jpeg", ".png", ".zip", ".rar"}
 _RESOLUTION = re.compile(r"(?i)\b(2160|1440|1080|720|576|480|360)p\b")
 _SOURCE = re.compile(r"(?i)\b(BluRay|BDRip|BRRip|WEB[- .]?DL|WEBRip|HDTV|DVD|DVDRip)\b")
 _VERSION = re.compile(r"(?i)v(\d+)(?=$|[ ._\-\[])")
@@ -46,6 +47,8 @@ def parse_anime_filename(filename: str) -> ParsedAnimeFilename | None:
     # Normalize Windows separators so imported paths parse on Linux too.
     name = PurePath(filename.replace("\\", "/")).name
     suffix = PurePath(name).suffix
+    if suffix.lower() in _NON_VIDEO_SUFFIXES:
+        return None
     if suffix.lower() in _VIDEO_SUFFIXES:
         name = name[:-len(suffix)]
     if not name:

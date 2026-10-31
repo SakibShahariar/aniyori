@@ -47,6 +47,23 @@ class AnimeFilenameParserTests(unittest.TestCase):
         self.assertEqual(parsed.title, "Chainsaw Man")
         self.assertEqual(parsed.episode, 12)
 
+    def test_accepts_all_scanner_video_suffixes(self):
+        for suffix in (".mkv", ".mp4", ".avi", ".webm", ".mov", ".m4v",
+                       ".ts", ".wmv", ".flv"):
+            with self.subTest(suffix=suffix):
+                parsed = parse_anime_filename("Example Anime - 01" + suffix)
+                self.assertIsNotNone(parsed)
+                self.assertEqual(parsed.title, "Example Anime")
+                self.assertEqual(parsed.episode, 1)
+                self.assertIsNone(parsed.episode_title)
+
+    def test_rejects_known_non_video_file_types(self):
+        for suffix in (".txt", ".pdf", ".srt", ".ass", ".nfo", ".jpg", ".zip"):
+            with self.subTest(suffix=suffix):
+                self.assertIsNone(
+                    parse_anime_filename("Example Anime - 01" + suffix)
+                )
+
     def test_windows_style_path_is_parsed_on_linux(self):
         parsed = parse_anime_filename(
             r"C:\Users\Example\Videos\Cowboy Bebop - 03 [1080p].mkv"
