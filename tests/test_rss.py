@@ -205,5 +205,22 @@ class ReleaseFeedParserTests(unittest.TestCase):
                 store.update("https://example.org/missing.xml", name="Missing")
 
 
+
+    def test_feed_store_rejects_duplicate_json_keys_without_rewriting_file(self):
+        import tempfile
+        from pathlib import Path
+
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "feeds.json"
+            content = (
+                '{"format":"aniyori-rss-feeds","version":1,'
+                '"version":1,"feeds":[]}'
+            )
+            path.write_text(content, encoding="utf-8")
+            with self.assertRaisesRegex(FeedParseError, "duplicate key"):
+                RSSFeedStore(path).load()
+            self.assertEqual(path.read_text(encoding="utf-8"), content)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -186,6 +186,15 @@ RSS_FEED_FORMAT = "aniyori-rss-feeds"
 RSS_FEED_VERSION = 1
 
 
+def _reject_duplicate_feed_keys(pairs):
+    result = {}
+    for key, value in pairs:
+        if key in result:
+            raise FeedParseError(f"Saved RSS feeds contain duplicate key: {key}.")
+        result[key] = value
+    return result
+
+
 @dataclass(frozen=True, slots=True)
 class RSSFeed:
     """A user-configured RSS or Atom feed source."""
@@ -236,7 +245,9 @@ class RSSFeedStore:
         except FileNotFoundError:
             return ()
         try:
-            payload = json.loads(content)
+            payload = json.loads(content, object_pairs_hook=_reject_duplicate_feed_keys)
+        except FeedParseError:
+            raise
         except (UnicodeDecodeError, json.JSONDecodeError) as error:
             raise FeedParseError("Saved RSS feeds are invalid JSON.") from error
         if (
