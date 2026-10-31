@@ -67,6 +67,17 @@ class ReleaseScoringTests(unittest.TestCase):
             with self.subTest(weights=weights), self.assertRaises(ValueError):
                 score_release({}, weights=weights)
 
+    def test_preferences_push_rejected_releases_below_accepted_releases(self):
+        accepted = {"resolution": "1080p", "source": "BluRay"}
+        rejected = {"resolution": "1080p", "source": "CAM"}
+        ranked = rank_releases(
+            [rejected, accepted],
+            preferences={"source": {"rejected": ["CAM"]}},
+        )
+        self.assertEqual(ranked[0][0], accepted)
+        self.assertFalse(ranked[1][1].accepted)
+        self.assertIn("Rejected: source is CAM", ranked[1][1].explanation)
+
     def test_invalid_numeric_metadata_is_ignored(self):
         result = score_release({
             "resolution": True, "file_size_mb": float("inf"), "seeders": -2,

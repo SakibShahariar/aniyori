@@ -129,6 +129,17 @@ def evaluate_release_preferences(
     )
 
 
+def filter_releases_by_preferences(
+    releases: Iterable[Mapping[str, Any]],
+    preferences: Mapping[str, Any] | tuple[AttributePreference, ...],
+) -> list[Mapping[str, Any]]:
+    """Return only releases accepted by the configured attribute rules."""
+    return [
+        release for release in releases
+        if evaluate_release_preferences(release, preferences).accepted
+    ]
+
+
 def default_release_preferences_path() -> Path:
     """Return the XDG configuration path without creating it."""
     config_home = Path(os.environ.get("XDG_CONFIG_HOME") or Path.home() / ".config")

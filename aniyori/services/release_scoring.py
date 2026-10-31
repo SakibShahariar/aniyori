@@ -8,6 +8,8 @@ from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from typing import Any
 
+from .release_preferences import evaluate_release_preferences
+
 
 DEFAULT_WEIGHTS = {
     "resolution": 0.25,
@@ -63,16 +65,18 @@ class ScoreFactor:
 
 @dataclass(frozen=True, slots=True)
 class ReleaseScore:
-    """A normalized 0–100 score with the factors that produced it."""
+    """A normalized 0–100 score with its factors and preference decision."""
 
     score: float
     factors: tuple[ScoreFactor, ...]
+    accepted: bool = True
+    preference_explanations: tuple[str, ...] = ()
 
     @property
     def explanation(self) -> str:
-        if not self.factors:
-            return "No supported release metadata was available to score."
-        return "; ".join(factor.explanation for factor in self.factors)
+        parts = [factor.explanation for factor in self.factors]
+        parts.extend(self.preference_explanations)
+        return "; ".join(parts) if parts else "No supported release metadata was available to score."
 
 
 def _normalise_text(value: Any) -> str | None:
@@ -145,6 +149,7 @@ def score_release(
     weights: Mapping[str, float] | None = None,
     preferred_groups: Iterable[str] = (),
     rejected_groups: Iterable[str] = (),
+    preferences: Mapping[str, Any] | None = None,
 ) -> ReleaseScore:
     """Score one release using available metadata; missing fields are omitted.
 
@@ -154,6 +159,10 @@ def score_release(
     if not isinstance(release, Mapping):
         raise ValueError("Release metadata must be a mapping.")
     configured_weights = _validate_weights(weights)
+    preference_decision = (
+        evaluate_release_preferences(release, preferences)
+        if preferences is not None else None
+    )
     preferred = {_normalise_text(item) for item in preferred_groups}
     rejected = {_normalise_text(item) for item in rejected_groups}
     preferred.discard(None)
@@ -196,10 +205,16 @@ def score_release(
         )
 
     if available_weight == 0:
-        return ReleaseScore(0.0, ())
+        return ReleaseScore(
+            0.0, (),
+            accepted=preference_decision.accepted if preference_decision else True,
+            preference_explanations=preference_decision.explanations if preference_decision else (),
+        )
     return ReleaseScore(
         score=round(weighted_total / available_weight * 100, 2),
         factors=tuple(factors),
+        accepted=preference_decision.accepted if preference_decision else True,
+        preference_explanations=preference_decision.explanations if preference_decision else (),
     )
 
 
@@ -209,6 +224,7 @@ def rank_releases(
     weights: Mapping[str, float] | None = None,
     preferred_groups: Iterable[str] = (),
     rejected_groups: Iterable[str] = (),
+    preferences: Mapping[str, Any] | None = None,
 ) -> list[tuple[Mapping[str, Any], ReleaseScore]]:
     """Return releases sorted by score, preserving input order for ties."""
     preferred = tuple(preferred_groups)
@@ -221,10 +237,11 @@ def rank_releases(
                 weights=weights,
                 preferred_groups=preferred,
                 rejected_groups=rejected,
+                preferences=preferences,
             ),
             index,
         )
         for index, release in enumerate(releases)
     ]
-    ranked.sort(key=lambda item: (-item[1].score, item[2]))
+    ranked.sort(key=lambda item: (not item[1].accepted, -item[1].score, item[2]))
     return [(release, score) for release, score, _index in ranked]

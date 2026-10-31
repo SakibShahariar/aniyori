@@ -18,6 +18,9 @@ from .services.anilist import AniListClient, AniListError
 from .services.airing import format_airing_countdown
 from .services.scan_locations import ScanLocationStore
 from .services.scan_library import scan_configured_library
+from .services.release_preferences import (
+    PREFERENCE_ATTRIBUTES, ReleasePreferenceError, ReleasePreferenceStore,
+)
 from .services.share_templates import (
     DEFAULT_SHARE_TEMPLATE, ShareTemplateError, ShareTemplateStore,
     render_share_template, share_context_for_entry,
@@ -233,6 +236,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
         self._airing_refresh_running = False
         self.scan_location_store = ScanLocationStore()
         self.share_template_store = ShareTemplateStore()
+        self.release_preference_store = ReleasePreferenceStore()
         self._scan_cancel_event = None
         self.current_filter = "all"
         self._undo_entry: AnimeEntry | None = None
@@ -250,6 +254,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
             ("import-library", self._show_import_dialog),
             ("scan-folders", self._show_scan_folders_dialog),
             ("share-format", self._show_share_format_dialog),
+            ("release-preferences", self._show_release_preferences_dialog),
             ("about", self._show_about_dialog),
         ]:
             action = Gio.SimpleAction.new(name, None)
@@ -284,6 +289,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
         primary_menu.append("Import Library", "win.import-library")
         primary_menu.append("Scan Local Folders", "win.scan-folders")
         primary_menu.append("Share Format", "win.share-format")
+        primary_menu.append("Release Preferences", "win.release-preferences")
         primary_menu.append("About Aniyori", "win.about")
         primary_menu.append("Quit", "win.quit")
         menu_button = Gtk.MenuButton()
@@ -411,6 +417,97 @@ class AniyoriWindow(Adw.ApplicationWindow):
         self._refresh_airing_schedule()
         GLib.timeout_add_seconds(60, self._update_airing_countdowns)
         GLib.timeout_add_seconds(1800, self._periodic_airing_refresh)
+
+    def _show_release_preferences_dialog(self):
+        try:
+            saved = self.release_preference_store.load()
+        except (OSError, ReleasePreferenceError) as error:
+            self.toast_overlay.add_toast(
+                Adw.Toast.new(f"Could not load release preferences: {error}")
+            )
+            saved = ()
+
+        by_attribute = {item.attribute: item for item in saved}
+        dialog = Adw.AlertDialog(
+            heading="Release Preferences",
+            body=(
+                "Set preferred and rejected release attributes. Preferred values "
+                "improve ranking; rejected values exclude a release from eligible results."
+            ),
+        )
+        content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+        help_label = Gtk.Label(
+            label="Enter comma-separated values. Lower priority numbers are evaluated first.",
+            xalign=0,
+            wrap=True,
+        )
+        help_label.add_css_class("dim-label")
+        content.append(help_label)
+
+        grid = Gtk.Grid(column_spacing=8, row_spacing=8)
+        for column, heading in enumerate(("Attribute", "Preferred", "Rejected", "Priority")):
+            label = Gtk.Label(label=heading, xalign=0)
+            label.add_css_class("heading")
+            grid.attach(label, column, 0, 1, 1)
+
+        editors = {}
+        for row, attribute in enumerate(PREFERENCE_ATTRIBUTES, start=1):
+            preference = by_attribute.get(attribute)
+            name = Gtk.Label(label=attribute.replace("_", " ").title(), xalign=0)
+            preferred = Gtk.Entry()
+            preferred.set_placeholder_text("e.g. 1080p, 2160p")
+            preferred.set_hexpand(True)
+            rejected = Gtk.Entry()
+            rejected.set_placeholder_text("e.g. 480p")
+            rejected.set_hexpand(True)
+            priority = Gtk.SpinButton.new_with_range(0, 100, 1)
+            priority.set_value(preference.priority if preference else row - 1)
+            preferred.set_text(", ".join(preference.preferred) if preference else "")
+            rejected.set_text(", ".join(preference.rejected) if preference else "")
+            grid.attach(name, 0, row, 1, 1)
+            grid.attach(preferred, 1, row, 1, 1)
+            grid.attach(rejected, 2, row, 1, 1)
+            grid.attach(priority, 3, row, 1, 1)
+            editors[attribute] = (preferred, rejected, priority)
+
+        grid_scroll = Gtk.ScrolledWindow()
+        grid_scroll.set_min_content_height(230)
+        grid_scroll.set_max_content_height(340)
+        grid_scroll.set_child(grid)
+        content.append(grid_scroll)
+
+        save_button = Gtk.Button(label="Save Preferences")
+        save_button.add_css_class("suggested-action")
+        content.append(save_button)
+        dialog.set_extra_child(content)
+        dialog.add_response("close", "Close")
+        dialog.set_default_response("close")
+        dialog.present(self)
+
+        def save_preferences(_button):
+            payload = {}
+            for attribute, (preferred, rejected, priority) in editors.items():
+                payload[attribute] = {
+                    "preferred": [
+                        value.strip() for value in preferred.get_text().split(",")
+                        if value.strip()
+                    ],
+                    "rejected": [
+                        value.strip() for value in rejected.get_text().split(",")
+                        if value.strip()
+                    ],
+                    "priority": priority.get_value_as_int(),
+                }
+            try:
+                self.release_preference_store.save(payload)
+            except (OSError, ReleasePreferenceError) as error:
+                self.toast_overlay.add_toast(
+                    Adw.Toast.new(f"Could not save release preferences: {error}")
+                )
+                return
+            self.toast_overlay.add_toast(Adw.Toast.new("Release preferences saved."))
+
+        save_button.connect("clicked", save_preferences)
 
     def _show_share_format_dialog(self):
         try:
