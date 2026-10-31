@@ -44,7 +44,7 @@ def parse_anime_filename(filename: str) -> ParsedAnimeFilename | None:
     if not isinstance(filename, str) or not filename.strip():
         return None
     # Normalize Windows separators so imported paths parse on Linux too.
-    name = PurePath(filename.replace("\\\\", "/")).name
+    name = PurePath(filename.replace("\\", "/")).name
     suffix = PurePath(name).suffix
     if suffix.lower() in _VIDEO_SUFFIXES:
         name = name[:-len(suffix)]

@@ -49,7 +49,7 @@ class AnimeFilenameParserTests(unittest.TestCase):
 
     def test_windows_style_path_is_parsed_on_linux(self):
         parsed = parse_anime_filename(
-            r"C:\\Users\\Example\\Videos\\Cowboy Bebop - 03 [1080p].mkv"
+            r"C:\Users\Example\Videos\Cowboy Bebop - 03 [1080p].mkv"
         )
         self.assertEqual(parsed.title, "Cowboy Bebop")
         self.assertEqual(parsed.episode, 3)
