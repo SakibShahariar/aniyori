@@ -44,6 +44,26 @@ class AniListClientTests(unittest.TestCase):
         self.assertEqual(results[0]["id"], 21)
         self.assertEqual(results[0]["cover_image"], "large.jpg")
 
+    def test_search_rejects_malformed_page_and_media_shapes(self):
+        for payload in (
+            {"Page": None},
+            {"Page": []},
+            {"Page": {"media": {}}},
+            {"Page": {"media": [None]}},
+        ):
+            with self.subTest(payload=payload):
+                with patch.object(self.client, "_request", return_value=payload):
+                    with self.assertRaises(AniListError):
+                        self.client.search_anime("Example", refresh=True)
+
+    def test_normalise_media_handles_malformed_optional_nested_fields(self):
+        result = _normalise_media({
+            "id": 21, "title": "unexpected", "coverImage": [], "genres": "Adventure"
+        })
+        self.assertEqual(result["title"], "Untitled anime")
+        self.assertIsNone(result["cover_image"])
+        self.assertEqual(result["genres"], [])
+
     def test_blank_search_does_not_make_request(self):
         with patch("aniyori.services.anilist.urlopen") as open_url:
             self.assertEqual(AniListClient().search_anime("  "), [])

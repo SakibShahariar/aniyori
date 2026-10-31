@@ -60,8 +60,12 @@ query AnimeDetails($id: Int!) {
 
 def _normalise_media(media: dict[str, Any]) -> dict[str, Any]:
     """Return a stable, UI-friendly subset of an AniList media object."""
-    title_data = media.get("title") or {}
-    cover = media.get("coverImage") or {}
+    title_data = media.get("title")
+    if not isinstance(title_data, dict):
+        title_data = {}
+    cover = media.get("coverImage")
+    if not isinstance(cover, dict):
+        cover = {}
     title = title_data.get("english") or title_data.get("romaji") or title_data.get("native")
     if not title:
         title = "Untitled anime"
@@ -78,7 +82,11 @@ def _normalise_media(media: dict[str, Any]) -> dict[str, Any]:
         "description": media.get("description") or "",
         "cover_image": cover.get("large") or cover.get("medium"),
         "site_url": media.get("siteUrl"),
-        "genres": list(media.get("genres") or []),
+        "genres": (
+            list(media["genres"])
+            if isinstance(media.get("genres"), list)
+            else []
+        ),
     }
 
 
@@ -155,8 +163,14 @@ class AniListClient:
             return cached[0]
         try:
             data = self._request(SEARCH_QUERY, {"search": search, "perPage": per_page})
-            page = data.get("Page") or {}
-            media = page.get("media") or []
+            page = data.get("Page")
+            if not isinstance(page, dict):
+                raise AniListError("AniList search response did not contain a page")
+            media = page.get("media")
+            if not isinstance(media, list) or not all(
+                isinstance(item, dict) for item in media
+            ):
+                raise AniListError("AniList search response contained invalid media results")
             results = [_normalise_media(item) for item in media]
         except AniListError:
             if cached is not None:
