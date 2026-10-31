@@ -18,6 +18,10 @@ from .services.anilist import AniListClient, AniListError
 from .services.airing import format_airing_countdown
 from .services.scan_locations import ScanLocationStore
 from .services.scan_library import scan_configured_library
+from .services.share_templates import (
+    DEFAULT_SHARE_TEMPLATE, ShareTemplateError, ShareTemplateStore,
+    render_share_template, share_context_for_entry,
+)
 from .services.covers import get_cached_cover
 from .storage import LibraryStorage
 from .statistics import calculate_library_statistics
@@ -228,6 +232,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
         self._airing_by_id = {}
         self._airing_refresh_running = False
         self.scan_location_store = ScanLocationStore()
+        self.share_template_store = ShareTemplateStore()
         self._scan_cancel_event = None
         self.current_filter = "all"
         self._undo_entry: AnimeEntry | None = None
@@ -244,6 +249,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
             ("export-csv", lambda: self._show_export_dialog("csv")),
             ("import-library", self._show_import_dialog),
             ("scan-folders", self._show_scan_folders_dialog),
+            ("share-format", self._show_share_format_dialog),
             ("about", self._show_about_dialog),
         ]:
             action = Gio.SimpleAction.new(name, None)
@@ -277,6 +283,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
         primary_menu.append("Export Library (CSV)", "win.export-csv")
         primary_menu.append("Import Library", "win.import-library")
         primary_menu.append("Scan Local Folders", "win.scan-folders")
+        primary_menu.append("Share Format", "win.share-format")
         primary_menu.append("About Aniyori", "win.about")
         primary_menu.append("Quit", "win.quit")
         menu_button = Gtk.MenuButton()
@@ -404,6 +411,114 @@ class AniyoriWindow(Adw.ApplicationWindow):
         self._refresh_airing_schedule()
         GLib.timeout_add_seconds(60, self._update_airing_countdowns)
         GLib.timeout_add_seconds(1800, self._periodic_airing_refresh)
+
+    def _show_share_format_dialog(self):
+        try:
+            saved_template = self.share_template_store.load()
+        except (OSError, ShareTemplateError) as error:
+            self.toast_overlay.add_toast(
+                Adw.Toast.new(f"Could not load share format: {error}")
+            )
+            saved_template = DEFAULT_SHARE_TEMPLATE
+
+        dialog = Adw.AlertDialog(
+            heading="Share Message Format",
+            body="Customize the text used by future sharing actions and preview it with a library entry.",
+        )
+        content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+        help_text = Gtk.Label(
+            label=(
+                "Variables: {title}, {episode}, {total_episodes}, {progress}, "
+                "{status}, {timestamp}. Use [[if field]]…[[/if]] for optional "
+                "sections, or [[upper:title]], [[lower:status]], [[title:status]], "
+                "and [[default:total_episodes:TBA]] for basic formatting."
+            ),
+            xalign=0,
+            wrap=True,
+        )
+        help_text.add_css_class("dim-label")
+        content.append(help_text)
+
+        editor = Gtk.TextView()
+        editor.set_wrap_mode(Gtk.WrapMode.WORD_CHAR)
+        editor.get_buffer().set_text(saved_template)
+        editor_scroll = Gtk.ScrolledWindow()
+        editor_scroll.set_min_content_height(130)
+        editor_scroll.set_max_content_height(220)
+        editor_scroll.set_child(editor)
+        content.append(editor_scroll)
+
+        preview_title = Gtk.Label(label="Preview", xalign=0)
+        preview_title.add_css_class("heading")
+        content.append(preview_title)
+        preview = Gtk.Label(xalign=0, wrap=True, selectable=True)
+        preview.add_css_class("card")
+        preview.set_margin_top(6)
+        preview.set_margin_bottom(6)
+        preview.set_margin_start(8)
+        preview.set_margin_end(8)
+        content.append(preview)
+
+        actions = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        reset_button = Gtk.Button(label="Restore Default")
+        save_button = Gtk.Button(label="Save Format")
+        save_button.add_css_class("suggested-action")
+        actions.append(reset_button)
+        actions.append(save_button)
+        content.append(actions)
+        dialog.set_extra_child(content)
+        dialog.add_response("close", "Close")
+        dialog.set_default_response("close")
+        dialog.present(self)
+
+        sample_entry = (
+            self.entries[0]
+            if self.entries
+            else AnimeEntry(
+                title="Example Anime",
+                episodes_total=12,
+                episodes_watched=5,
+                status=WatchStatus.WATCHING,
+            )
+        )
+
+        def update_preview(_buffer=None):
+            buffer = editor.get_buffer()
+            start, end = buffer.get_bounds()
+            template = buffer.get_text(start, end, True)
+            try:
+                rendered = render_share_template(
+                    template, share_context_for_entry(sample_entry)
+                )
+            except ShareTemplateError as error:
+                preview.set_label(f"Invalid template: {error}")
+                preview.add_css_class("error")
+                save_button.set_sensitive(False)
+                return
+            preview.remove_css_class("error")
+            preview.set_label(rendered or "(empty output)")
+            save_button.set_sensitive(True)
+
+        def save_template(_button):
+            buffer = editor.get_buffer()
+            start, end = buffer.get_bounds()
+            template = buffer.get_text(start, end, True)
+            try:
+                self.share_template_store.save(template)
+            except (OSError, ShareTemplateError) as error:
+                self.toast_overlay.add_toast(
+                    Adw.Toast.new(f"Could not save share format: {error}")
+                )
+                return
+            self.toast_overlay.add_toast(Adw.Toast.new("Share format saved."))
+
+        def reset_template(_button):
+            editor.get_buffer().set_text(DEFAULT_SHARE_TEMPLATE)
+
+        editor.get_buffer().connect("changed", update_preview)
+        save_button.connect("clicked", save_template)
+        reset_button.connect("clicked", reset_template)
+        update_preview()
 
     def _show_scan_folders_dialog(self):
         dialog = Adw.AlertDialog(
