@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import sqlite3
 from pathlib import Path
-from typing import Iterable
+from typing import Iterable, Mapping
 
 from .models import MAX_EPISODE_COUNT, AnimeEntry, WatchStatus
 

@@ -118,6 +118,81 @@ class LibraryStorageTests(unittest.TestCase):
         self.storage.add(AnimeEntry(title="Example Anime"))
         self.assertEqual(self.storage.find_manual_title_matches("   "), [])
 
+    def test_bulk_update_entries_changes_only_selected_rows(self):
+        self.storage.add(AnimeEntry(title="First", episodes_total=12))
+        self.storage.add(AnimeEntry(title="Second", episodes_total=24))
+        first, second = self.storage.list_entries()
+        updated = AnimeEntry(
+            title=second.title, episodes_total=second.episodes_total,
+            episodes_watched=second.episodes_watched,
+            status=WatchStatus.PAUSED, provider=second.provider,
+            provider_id=second.provider_id, cover_image=second.cover_image,
+            storage_id=second.storage_id,
+        )
+
+        self.assertEqual(self.storage.update_entries([updated]), 1)
+        result = {entry.storage_id: entry for entry in self.storage.list_entries()}
+        self.assertEqual(result[first.storage_id].status, WatchStatus.PLANNING)
+        self.assertEqual(result[second.storage_id].status, WatchStatus.PAUSED)
+
+    def test_bulk_update_rolls_back_when_any_entry_is_missing(self):
+        self.storage.add(AnimeEntry(title="Existing", episodes_total=12))
+        entry = self.storage.list_entries()[0]
+        changed = AnimeEntry(
+            title="Changed", episodes_total=entry.episodes_total,
+            storage_id=entry.storage_id,
+        )
+        missing = AnimeEntry(title="Missing", storage_id=9999)
+
+        with self.assertRaisesRegex(ValueError, "no longer exists"):
+            self.storage.update_entries([changed, missing])
+
+        self.assertEqual(self.storage.list_entries()[0].title, "Existing")
+
+    def test_bulk_progress_updates_are_atomic_and_preserve_status_rules(self):
+        self.storage.add(AnimeEntry(title="Planning", episodes_total=2))
+        self.storage.add(AnimeEntry(title="Paused", episodes_total=12, status=WatchStatus.PAUSED))
+        first, second = self.storage.list_entries()
+
+        self.assertEqual(
+            self.storage.update_progress_many({
+                first.storage_id: 2, second.storage_id: 3,
+            }),
+            2,
+        )
+        updated = {entry.storage_id: entry for entry in self.storage.list_entries()}
+        self.assertEqual(updated[first.storage_id].status, WatchStatus.COMPLETED)
+        self.assertEqual(updated[second.storage_id].status, WatchStatus.PAUSED)
+
+    def test_bulk_progress_rejects_invalid_value_without_partial_updates(self):
+        self.storage.add(AnimeEntry(title="First", episodes_total=12))
+        self.storage.add(AnimeEntry(title="Second", episodes_total=2))
+        first, second = self.storage.list_entries()
+
+        with self.assertRaisesRegex(ValueError, "cannot exceed"):
+            self.storage.update_progress_many({
+                first.storage_id: 1, second.storage_id: 3,
+            })
+
+        updated = {entry.storage_id: entry for entry in self.storage.list_entries()}
+        self.assertEqual(updated[first.storage_id].episodes_watched, 0)
+        self.assertEqual(updated[second.storage_id].episodes_watched, 0)
+
+    def test_bulk_remove_deletes_only_requested_entries(self):
+        self.storage.add(AnimeEntry(title="First"))
+        self.storage.add(AnimeEntry(title="Second"))
+        self.storage.add(AnimeEntry(title="Third"))
+        first, second, third = self.storage.list_entries()
+
+        self.assertEqual(
+            self.storage.remove_many([first.storage_id, third.storage_id, first.storage_id]),
+            2,
+        )
+        self.assertEqual(
+            [entry.title for entry in self.storage.list_entries()],
+            [second.title],
+        )
+
     def test_remove(self):
         self.storage.add(AnimeEntry(title="Example Anime"))
         entry = self.storage.list_entries()[0]
