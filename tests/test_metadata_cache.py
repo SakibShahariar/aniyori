@@ -38,6 +38,22 @@ class MetadataCacheTests(unittest.TestCase):
         self.assertEqual(result[0]["id"], 21)
         self.assertFalse(result[1])
 
+    def test_corrupt_timestamps_are_discarded(self):
+        invalid_timestamps = (True, -1, 10**400, float("inf"), float("nan"))
+        for index, timestamp in enumerate(invalid_timestamps):
+            with self.subTest(timestamp=repr(timestamp)):
+                key = f"invalid-{index}"
+                path = self.cache._path("details", key)
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text(
+                    __import__("json").dumps(
+                        {"stored_at": timestamp, "value": {"id": index}}
+                    ),
+                    encoding="utf-8",
+                )
+                self.assertIsNone(self.cache.get("details", key))
+                self.assertFalse(path.exists())
+
     def test_namespaces_and_keys_do_not_collide(self):
         self.cache.set("search", "21", {"kind": "search"})
         self.cache.set("details", "21", {"kind": "details"})

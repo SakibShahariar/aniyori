@@ -59,11 +59,22 @@ class MetadataCache:
                 path.unlink(missing_ok=True)
                 return None
             timestamp = payload.get("stored_at")
-            if not isinstance(timestamp, (int, float)):
+            now = time.time()
+            invalid_timestamp = (
+                isinstance(timestamp, bool)
+                or not isinstance(timestamp, (int, float))
+            )
+            if not invalid_timestamp:
+                invalid_timestamp = timestamp < 0 or timestamp > now
+                if isinstance(timestamp, float):
+                    import math
+
+                    invalid_timestamp = invalid_timestamp or not math.isfinite(timestamp)
+            if invalid_timestamp:
                 path.unlink(missing_ok=True)
                 return None
             os.utime(path, None)
-            return payload["value"], (time.time() - timestamp) <= self.ttl
+            return payload["value"], (now - timestamp) <= self.ttl
         except (OSError, UnicodeDecodeError, json.JSONDecodeError):
             return None
 
