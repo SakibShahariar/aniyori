@@ -63,7 +63,7 @@ class ConfiguredLibraryScanTests(unittest.TestCase):
         result = scan_configured_library(
             self.store, [{"id": 99, "title": "Other Anime"}], [self.entry]
         )
-        self.assertEqual(result.matches[0].result.status, "unmatched")
+        self.assertEqual(result.matches[0].result.status, "no_match")
         self.assertEqual(result.inventory[0].available_episodes, ())
 
 
