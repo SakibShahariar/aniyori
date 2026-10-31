@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Iterable, Mapping
+import re
 from dataclasses import dataclass
 from typing import Any
 from urllib.error import HTTPError, URLError
@@ -34,6 +35,7 @@ class MonitoredRelease:
     episode: int | None
     season: int | None
     score: ReleaseScore
+    metadata: Mapping[str, Any]
 
 
 @dataclass(frozen=True, slots=True)
@@ -92,6 +94,62 @@ def fetch_feed_content(
     return content
 
 
+def _release_metadata(entry: FeedEntry, parsed) -> dict[str, Any]:
+    """Extract only explicit, recognizable release facts from feed text."""
+    metadata: dict[str, Any] = {}
+    if parsed is not None:
+        if parsed.resolution:
+            metadata["resolution"] = parsed.resolution
+        if parsed.source:
+            metadata["source"] = parsed.source
+        if parsed.release_group:
+            metadata["release_group"] = parsed.release_group
+
+    text = " ".join((entry.title, entry.summary, *entry.categories))
+    audio_patterns = (
+        (r"(?i)\bDTS[- .]?HD\b", "DTS-HD"),
+        (r"(?i)\bTrueHD\b", "TrueHD"),
+        (r"(?i)\bFLAC\b", "FLAC"),
+        (r"(?i)\bDTS\b", "DTS"),
+        (r"(?i)\bAAC\b", "AAC"),
+        (r"(?i)\bOpus\b", "Opus"),
+        (r"(?i)\bAC-?3\b", "AC3"),
+        (r"(?i)\bMP3\b", "MP3"),
+    )
+    for pattern, value in audio_patterns:
+        if re.search(pattern, text):
+            metadata["audio"] = value
+            break
+
+    subtitle_patterns = (
+        (r"(?i)\b(?:multi[- ]?sub|multi[- ]?subtitle)\b", "Multi-Sub"),
+        (r"(?i)\b(?:soft[- ]?sub|soft[- ]?subs)\b", "SoftSub"),
+        (r"(?i)\b(?:hard[- ]?sub|hard[- ]?subs)\b", "HardSub"),
+        (r"(?i)\b(?:eng(?:lish)?[- ]?subs?|english subtitles?)\b", "English"),
+        (r"(?i)\b(?:no subs?|no subtitles?)\b", "None"),
+    )
+    for pattern, value in subtitle_patterns:
+        if re.search(pattern, text):
+            metadata["subtitles"] = value
+            break
+
+    size_match = re.search(
+        r"(?i)\b(\d+(?:\.\d+)?)\s*(GiB|GB|MiB|MB)\b", text
+    )
+    if size_match:
+        amount = float(size_match.group(1))
+        unit = size_match.group(2).casefold()
+        multiplier = 1024 if unit == "gib" else 1000 if unit == "gb" else 1
+        metadata["file_size_mb"] = round(amount * multiplier, 2)
+
+    seeder_match = re.search(
+        r"(?i)\bseeders?\s*[:=]\s*(\d+)\b|\b(\d+)\s+seeders?\b", text
+    )
+    if seeder_match:
+        metadata["seeders"] = int(seeder_match.group(1) or seeder_match.group(2))
+    return metadata
+
+
 def _enrich_entry(
     feed: RSSFeed,
     entry: FeedEntry,
@@ -103,14 +161,9 @@ def _enrich_entry(
     parsed = parse_anime_filename(entry.title)
     if parsed is None:
         decision = AnimeMatchDecision("unparsed", ())
-        release_metadata = {}
     else:
         decision = match_anime_title(parsed.title, candidates)
-        release_metadata = {
-            "resolution": parsed.resolution,
-            "source": parsed.source,
-            "release_group": parsed.release_group,
-        }
+    release_metadata = _release_metadata(entry, parsed)
 
     quality = score_release(
         release_metadata,
@@ -128,6 +181,7 @@ def _enrich_entry(
         episode=parsed.episode if parsed else None,
         season=parsed.season if parsed else None,
         score=quality,
+        metadata=release_metadata,
     )
 
 

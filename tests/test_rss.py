@@ -152,6 +152,27 @@ class ReleaseFeedParserTests(unittest.TestCase):
         self.assertEqual(results[0].releases[1].match_status, "unparsed")
         self.assertIn("temporary network failure", results[1].error)
 
+    def test_refresh_extracts_all_supported_quality_metadata_when_present(self):
+        feed = RSSFeed("Metadata", "https://example.org/feed.xml")
+        payload = b"""<rss><channel><item>
+          <title>[GoodGroup] Frieren - 01 (1080p) [WEB-DL] [FLAC] [ENG SUB] [1.4 GB]</title>
+          <description>Seeders: 75</description>
+        </item></channel></rss>"""
+        result = refresh_release_feeds(
+            [feed], CATALOGUE, fetcher=lambda _url: payload,
+        )[0].releases[0]
+        self.assertEqual(result.metadata["resolution"], "1080p")
+        self.assertEqual(result.metadata["source"], "WEB-DL")
+        self.assertEqual(result.metadata["release_group"], "GoodGroup")
+        self.assertEqual(result.metadata["audio"], "FLAC")
+        self.assertEqual(result.metadata["subtitles"], "English")
+        self.assertEqual(result.metadata["file_size_mb"], 1400.0)
+        self.assertEqual(result.metadata["seeders"], 75)
+        self.assertEqual({factor.name for factor in result.score.factors}, {
+            "resolution", "source", "audio", "subtitles",
+            "release_group", "file_size", "seeders",
+        })
+
     def test_refresh_rejected_preferences_are_visible_in_score_decision(self):
         feed = RSSFeed("Quality", "https://example.org/feed.xml")
         payload = b"""<rss><channel><item>
