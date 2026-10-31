@@ -69,6 +69,16 @@ class AniListClientTests(unittest.TestCase):
             with self.assertRaisesRegex(AniListError, "Rate limited"):
                 AniListClient().search_anime("Naruto")
 
+    def test_non_object_json_responses_raise_client_error(self):
+        for payload in ([], "unexpected", 42, None):
+            with self.subTest(payload=payload):
+                with patch(
+                    "aniyori.services.anilist.urlopen",
+                    return_value=response_for(payload),
+                ):
+                    with self.assertRaisesRegex(AniListError, "must be a JSON object"):
+                        AniListClient().search_anime("Naruto")
+
     def test_missing_detail_is_reported(self):
         with patch("aniyori.services.anilist.urlopen", return_value=response_for({"data": {"Media": None}})):
             with self.assertRaisesRegex(AniListError, "was not found"):

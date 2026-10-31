@@ -118,6 +118,8 @@ class AniListClient:
         except (UnicodeDecodeError, json.JSONDecodeError) as error:
             raise AniListError("AniList returned invalid JSON") from error
 
+        if not isinstance(payload, dict):
+            raise AniListError("AniList response must be a JSON object")
         if payload.get("errors"):
             messages = [
                 item.get("message", "Unknown GraphQL error")
