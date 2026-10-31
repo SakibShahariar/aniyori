@@ -14,6 +14,7 @@ from gi.repository import Adw, Gdk, Gio, GLib, Gtk
 from .models import AnimeEntry, WatchStatus, parse_episode_count
 from .library_io import export_csv, export_json, import_csv, import_json
 from .search import SearchGeneration
+from .services.search_history import SearchHistoryError, SearchHistoryStore
 from .services.anilist import AniListClient, AniListError
 from .services.airing import format_airing_countdown
 from .services.scan_locations import ScanLocationStore
@@ -257,6 +258,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
         self.scan_location_store = ScanLocationStore()
         self.share_template_store = ShareTemplateStore()
         self.release_preference_store = ReleasePreferenceStore()
+        self.search_history_store = SearchHistoryStore()
         self._scan_cancel_event = None
         self.current_filter = "all"
         self._undo_entry: AnimeEntry | None = None
@@ -1588,6 +1590,23 @@ class AniyoriWindow(Adw.ApplicationWindow):
         )
         catalogue_dropdown.set_sensitive(False)
         search_page.append(catalogue_dropdown)
+
+        history_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        history_dropdown = Gtk.DropDown(
+            model=Gtk.StringList.new(["No recent or saved searches"])
+        )
+        history_dropdown.set_hexpand(True)
+        history_dropdown.set_sensitive(False)
+        history_row.append(history_dropdown)
+        use_history_button = Gtk.Button(label="Use")
+        history_row.append(use_history_button)
+        save_history_button = Gtk.Button(label="Save")
+        history_row.append(save_history_button)
+        remove_history_button = Gtk.Button(label="Remove")
+        history_row.append(remove_history_button)
+        clear_history_button = Gtk.Button(label="Clear")
+        history_row.append(clear_history_button)
+        search_page.append(history_row)
         next_button = Gtk.Button(label="Review details")
         next_button.add_css_class("suggested-action")
         next_button.set_halign(Gtk.Align.END)
@@ -1626,6 +1645,28 @@ class AniyoriWindow(Adw.ApplicationWindow):
 
         catalogue_state = {"results": [], "selected": None, "pending": False}
         search_generation = SearchGeneration()
+        history_items = []
+
+        def refresh_search_history():
+            history_items.clear()
+            try:
+                for query in self.search_history_store.list_history("anilist"):
+                    history_items.append(("history", query, query))
+                for item in self.search_history_store.list_saved_searches("anilist"):
+                    history_items.append(("saved", item["name"], item["query"]))
+            except (OSError, SearchHistoryError) as error:
+                LOGGER.warning("Could not load search history", exc_info=True)
+                self.toast_overlay.add_toast(Adw.Toast.new(f"Search history unavailable: {error}"))
+            labels = [
+                ("Recent · " if kind == "history" else "Saved · ") + name
+                for kind, name, _query in history_items
+            ] or ["No recent or saved searches"]
+            history_dropdown.set_model(Gtk.StringList.new(labels))
+            history_dropdown.set_sensitive(bool(history_items))
+            if history_items:
+                history_dropdown.set_selected(0)
+
+        refresh_search_history()
 
         def invalidate_pending_search():
             if not catalogue_state["pending"]:
@@ -1705,6 +1746,12 @@ class AniyoriWindow(Adw.ApplicationWindow):
                     Adw.Toast.new("Enter a title to search AniList.")
                 )
                 return
+            try:
+                self.search_history_store.record_query("anilist", query)
+                refresh_search_history()
+            except (OSError, SearchHistoryError) as error:
+                LOGGER.warning("Could not record AniList search", exc_info=True)
+                self.toast_overlay.add_toast(Adw.Toast.new(f"Could not save search history: {error}"))
             request_id = search_generation.begin()
             catalogue_state["pending"] = True
             catalogue_state["results"] = []
@@ -1731,6 +1778,60 @@ class AniyoriWindow(Adw.ApplicationWindow):
                     )
 
             threading.Thread(target=worker, daemon=True).start()
+
+        def use_history_search(_button):
+            index = history_dropdown.get_selected()
+            if index >= len(history_items):
+                return
+            catalogue_search.set_text(history_items[index][2])
+            start_catalogue_search(None)
+
+        def save_current_search(_button):
+            query = catalogue_search.get_text().strip()
+            if not query:
+                self.toast_overlay.add_toast(Adw.Toast.new("Enter a query to save first."))
+                return
+            try:
+                saved = self.search_history_store.save_search("anilist", query, query)
+            except (OSError, SearchHistoryError) as error:
+                self.toast_overlay.add_toast(Adw.Toast.new(f"Could not save search: {error}"))
+                return
+            refresh_search_history()
+            self.toast_overlay.add_toast(
+                Adw.Toast.new("Search saved." if saved else "That search is already saved.")
+            )
+
+        def remove_selected_search(_button):
+            index = history_dropdown.get_selected()
+            if index >= len(history_items):
+                return
+            kind, name, query = history_items[index]
+            try:
+                removed = (
+                    self.search_history_store.remove_history("anilist", query)
+                    if kind == "history"
+                    else self.search_history_store.remove_saved_search("anilist", name)
+                )
+            except (OSError, SearchHistoryError) as error:
+                self.toast_overlay.add_toast(Adw.Toast.new(f"Could not remove search: {error}"))
+                return
+            refresh_search_history()
+            if removed:
+                self.toast_overlay.add_toast(Adw.Toast.new("Search removed."))
+
+        def clear_search_history(_button):
+            try:
+                count = self.search_history_store.clear_history("anilist")
+            except (OSError, SearchHistoryError) as error:
+                self.toast_overlay.add_toast(Adw.Toast.new(f"Could not clear history: {error}"))
+                return
+            refresh_search_history()
+            self.toast_overlay.add_toast(Adw.Toast.new(f"Cleared {count} recent searches."))
+
+        use_history_button.connect("clicked", use_history_search)
+        save_history_button.connect("clicked", save_current_search)
+        remove_history_button.connect("clicked", remove_selected_search)
+        clear_history_button.connect("clicked", clear_search_history)
 
         def show_details(_button):
             title = title_entry.get_text().strip()
