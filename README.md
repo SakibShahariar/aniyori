@@ -16,7 +16,7 @@ A native Linux anime tracker built with Python, GTK 4, PyGObject, and libadwaita
 ## Current features
 
 - **Library:** manual and AniList-backed entries, progress tracking, status filters, list/grid views, bulk status/progress/delete actions, and statistics.
-- **AniList:** cached catalogue search, recent and saved search queries, next-episode countdowns, and offline metadata fallback.
+- **AniList:** cached catalogue search, AniList recent and saved search queries, next-episode countdowns, and offline metadata fallback.
 - **Local media:** configurable folders, recursive video discovery, filename recognition, and available/missing/next episode summaries.
 - **Preferences:** saved share-format templates with live preview, release-attribute preferences, and explainable release-quality scoring helpers.
 - **Data:** local SQLite storage, JSON/CSV export, and validated library import.
