@@ -185,6 +185,21 @@ class ReleaseFeedParserTests(unittest.TestCase):
         self.assertEqual(releases[0].episode, 2)
         self.assertGreater(releases[0].score.score, releases[1].score.score)
 
+    def test_refresh_applies_minimum_score_to_release_eligibility(self):
+        feed = RSSFeed("Threshold", "https://example.org/feed.xml")
+        payload = b"""<rss><channel>
+          <item><title>[GroupA] Frieren - 01 (480p) [HDTV]</title></item>
+          <item><title>[GroupA] Frieren - 02 (1080p) [BluRay]</title></item>
+        </channel></rss>"""
+        results = refresh_release_feeds(
+            [feed], CATALOGUE,
+            fetcher=lambda _url: payload,
+            minimum_score=70,
+        )[0].releases
+        self.assertTrue(results[0].eligible)
+        self.assertFalse(results[1].eligible)
+        self.assertIn("Below minimum score 70/100", results[1].decision_explanation)
+
     def test_refresh_rejected_preferences_are_visible_in_score_decision(self):
         feed = RSSFeed("Quality", "https://example.org/feed.xml")
         payload = b"""<rss><channel><item>

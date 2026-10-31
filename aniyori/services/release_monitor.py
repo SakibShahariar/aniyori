@@ -11,7 +11,9 @@ from urllib.request import Request, urlopen
 
 from ..filename_parser import parse_anime_filename
 from .matching import AnimeMatchDecision, match_anime_title
-from .release_scoring import DEFAULT_WEIGHTS, ReleaseScore, score_release
+from .release_scoring import (
+    DEFAULT_WEIGHTS, ReleaseScore, score_release, validate_minimum_score,
+)
 from .rss import FeedEntry, FeedParseError, RSSFeed, _safe_link, parse_release_feed
 
 
@@ -36,6 +38,8 @@ class MonitoredRelease:
     season: int | None
     score: ReleaseScore
     metadata: Mapping[str, Any]
+    eligible: bool
+    decision_explanation: str
 
 
 @dataclass(frozen=True, slots=True)
@@ -157,6 +161,7 @@ def _enrich_entry(
     *,
     preferences: Mapping[str, Any] | tuple | None,
     weights: Mapping[str, float] | None,
+    minimum_score: float,
 ) -> MonitoredRelease:
     parsed = parse_anime_filename(entry.title)
     if parsed is None:
@@ -182,6 +187,12 @@ def _enrich_entry(
         season=parsed.season if parsed else None,
         score=quality,
         metadata=release_metadata,
+        eligible=quality.accepted and quality.score >= minimum_score,
+        decision_explanation=(
+            quality.explanation
+            if quality.score >= minimum_score
+            else quality.explanation + f"; Below minimum score {minimum_score:g}/100"
+        ),
     )
 
 
@@ -192,6 +203,7 @@ def refresh_release_feeds(
     fetcher: Callable[[str], bytes | str] = fetch_feed_content,
     preferences: Mapping[str, Any] | tuple | None = None,
     weights: Mapping[str, float] | None = None,
+    minimum_score: float = 0.0,
 ) -> tuple[FeedRefreshResult, ...]:
     """Refresh enabled feeds independently; one failure never aborts other feeds.
 
@@ -202,6 +214,7 @@ def refresh_release_feeds(
         raise ValueError("Feeds must be an iterable of RSSFeed values.")
     if isinstance(candidates, (str, bytes)):
         raise ValueError("Catalogue candidates must be an iterable of mappings.")
+    cutoff = validate_minimum_score(minimum_score)
     candidate_list = tuple(item for item in candidates if isinstance(item, Mapping))
     results = []
     for feed in feeds:
@@ -220,10 +233,11 @@ def refresh_release_feeds(
                         candidate_list,
                         preferences=preferences,
                         weights=weights if weights is not None else DEFAULT_WEIGHTS,
+                        minimum_score=cutoff,
                     )
                     for entry in entries
                 ),
-                key=lambda release: (not release.score.accepted, -release.score.score),
+                key=lambda release: (not release.eligible, -release.score.score),
             ))
             results.append(FeedRefreshResult(feed, releases))
         except Exception as error:
