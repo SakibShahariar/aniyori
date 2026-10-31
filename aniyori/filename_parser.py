@@ -8,7 +8,7 @@ import re
 _VIDEO_SUFFIXES = {".mkv", ".mp4", ".avi", ".webm", ".mov", ".m4v", ".ts"}
 _RESOLUTION = re.compile(r"(?i)\b(2160|1440|1080|720|576|480|360)p\b")
 _SOURCE = re.compile(r"(?i)\b(BluRay|BDRip|BRRip|WEB[- .]?DL|WEBRip|HDTV|DVD|DVDRip)\b")
-_VERSION = re.compile(r"(?i)v(\d+)\b")
+_VERSION = re.compile(r"(?i)v(\d+)(?=$|[ ._\-\[])")
 _QUALITY_SUFFIX = re.compile(
     r"(?i)(?:^|[ ._\-])(?:2160p|1440p|1080p|720p|576p|480p|360p|"
     r"WEB[- .]?DL|WEBRip|BluRay|BDRip|BRRip|HDTV|DVDRip|DVD)"
