@@ -20,6 +20,7 @@ from .services.scan_locations import ScanLocationStore
 from .services.scan_library import scan_configured_library
 from .services.release_preferences import (
     PREFERENCE_ATTRIBUTES, ReleasePreferenceError, ReleasePreferenceStore,
+    evaluate_release_preferences,
 )
 from .services.share_templates import (
     DEFAULT_SHARE_TEMPLATE, ShareTemplateError, ShareTemplateStore,
@@ -476,15 +477,11 @@ class AniyoriWindow(Adw.ApplicationWindow):
         grid_scroll.set_child(grid)
         content.append(grid_scroll)
 
-        save_button = Gtk.Button(label="Save Preferences")
-        save_button.add_css_class("suggested-action")
-        content.append(save_button)
-        dialog.set_extra_child(content)
-        dialog.add_response("close", "Close")
-        dialog.set_default_response("close")
-        dialog.present(self)
+        decision_preview = Gtk.Label(xalign=0, wrap=True)
+        decision_preview.add_css_class("caption")
+        content.append(decision_preview)
 
-        def save_preferences(_button):
+        def current_payload():
             payload = {}
             for attribute, (preferred, rejected, priority) in editors.items():
                 payload[attribute] = {
@@ -498,6 +495,44 @@ class AniyoriWindow(Adw.ApplicationWindow):
                     ],
                     "priority": priority.get_value_as_int(),
                 }
+            return payload
+
+        def update_decision_preview(*_args):
+            try:
+                decision = evaluate_release_preferences(
+                    {
+                        "resolution": "1080p",
+                        "source": "WEB-DL",
+                        "audio": "AAC",
+                        "subtitles": "English",
+                        "release_group": "ExampleGroup",
+                    },
+                    current_payload(),
+                )
+            except ReleasePreferenceError as error:
+                decision_preview.set_label(f"Example decision unavailable: {error}")
+                decision_preview.add_css_class("error")
+                return
+            decision_preview.remove_css_class("error")
+            state = "Eligible" if decision.accepted else "Rejected"
+            details = "; ".join(decision.explanations) or "No preference matched."
+            decision_preview.set_label(f"Example release: {state}. {details}")
+
+        for preferred, rejected, priority in editors.values():
+            preferred.connect("changed", update_decision_preview)
+            rejected.connect("changed", update_decision_preview)
+            priority.connect("value-changed", update_decision_preview)
+
+        save_button = Gtk.Button(label="Save Preferences")
+        save_button.add_css_class("suggested-action")
+        content.append(save_button)
+        dialog.set_extra_child(content)
+        dialog.add_response("close", "Close")
+        dialog.set_default_response("close")
+        dialog.present(self)
+
+        def save_preferences(_button):
+            payload = current_payload()
             try:
                 self.release_preference_store.save(payload)
             except (OSError, ReleasePreferenceError) as error:
@@ -508,6 +543,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
             self.toast_overlay.add_toast(Adw.Toast.new("Release preferences saved."))
 
         save_button.connect("clicked", save_preferences)
+        update_decision_preview()
 
     def _show_share_format_dialog(self):
         try:
