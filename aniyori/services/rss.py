@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from pathlib import Path
 from email.utils import parsedate_to_datetime
 from typing import Iterable
 from urllib.parse import urlsplit
