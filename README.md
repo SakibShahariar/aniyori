@@ -7,28 +7,21 @@ A native Linux anime tracker built with Python, GTK 4, PyGObject, and libadwaita
 - Track an anime library with AniList as the first provider.
 - Keep provider integrations behind a modular service layer.
 - Offer compact-list and grid library views.
-- Support progress updates and optional background tracking.
-- Follow the user's active GTK theme, including Matugen-generated colors.
 - Keep the application lightweight, native, accessible, and keyboard-friendly.
 
 ## Development status
 
-**Early development.** The GTK/libadwaita library UI, SQLite storage, offline unit tests, and a public AniList catalogue client are in place. The Add Anime dialog can search AniList and prefill the title and episode count. Authenticated account access and library sync are not implemented yet.
+**Early development.** The GTK/libadwaita library UI, SQLite storage, offline unit tests, and public AniList catalogue client are in place. AniList account sign-in, user-list import, and synchronization are not implemented yet.
 
-## Current library features
+## Current features
 
-- Add an anime manually with an optional episode total and watch status.
-- Search titles and filter by watch status.
-- Show AniList cover art in list and grid views, loading images asynchronously and caching them locally.
-- Cache AniList search results and details for 24 hours, use stale metadata when offline, and allow callers to force refresh or clear the metadata cache.
-- View local library statistics, including watched episodes, completion rate, status distribution, and estimated watch time (24 minutes per episode).
-- Export the library as JSON or CSV, and import validated backups after confirming full-library replacement.
-- Switch between compact list and grid views.
-- Mark one additional episode watched using the `+1` controls.
-- Automatically mark an entry Completed when progress reaches its known episode total; Paused and Dropped statuses are preserved when progress changes.
-- Store local entries in SQLite under `$XDG_DATA_HOME/aniyori/library.sqlite3`, falling back to `~/.local/share/aniyori/library.sqlite3`.
+- **Library:** manual and AniList-backed entries, progress tracking, status filters, list/grid views, bulk status/progress/delete actions, and statistics.
+- **AniList:** cached catalogue search, recent and saved search queries, next-episode countdowns, and offline metadata fallback.
+- **Local media:** configurable folders, recursive video discovery, filename recognition, and available/missing/next episode summaries.
+- **Preferences:** saved share-format templates with live preview, release-attribute preferences, and explainable release-quality scoring helpers.
+- **Data:** local SQLite storage, JSON/CSV export, and validated library import.
 
-Library entries are stored locally. Public catalogue search is available, but AniList account sign-in, user-list import, and synchronization are not implemented. The interface still needs a launch and interaction test on a Linux desktop.
+Library entries remain local. The desktop interface still needs a launch and interaction test on a Linux session.
 
 ## Requirements
 
@@ -37,10 +30,21 @@ Library entries are stored locally. Public catalogue search is available, but An
 - PyGObject
 - libadwaita
 
-On Debian/Ubuntu, system packages commonly include:
+Install system dependencies:
 
+**Debian / Ubuntu**
 ```bash
 sudo apt install python3 python3-gi gir1.2-gtk-4.0 gir1.2-adw-1
+```
+
+**Fedora**
+```bash
+sudo dnf install python3 python3-gobject gtk4 libadwaita
+```
+
+**Arch Linux**
+```bash
+sudo pacman -S python python-gobject gtk4 libadwaita
 ```
 
 Run the application:
@@ -58,11 +62,7 @@ python3 main.py
 
 ## Roadmap
 
-- [ ] Milestone 1: GTK/libadwaita application shell
-- [ ] Milestone 2: Navigation and library empty state
-- [x] Milestone 3a: Public AniList catalogue client and Add Anime search
-- [ ] Milestone 3b: AniList authentication and account access
-- [x] Milestone 4a: Local library import/export and progress updates
-- [ ] Milestone 4b: AniList user-list import and synchronization
-- [ ] Milestone 5: Settings, preferences, and background tracking
-- [ ] Milestone 6: Packaging and release workflow
+- [ ] AniList authentication and account synchronization
+- [ ] RSS feeds, torrent search, and download-client integration
+- [ ] Playback detection and watch-history integration
+- [ ] Packaging and release workflow
