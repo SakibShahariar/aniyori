@@ -18,7 +18,7 @@ DEFAULT_TIMEOUT = 12
 
 
 def _cache_directory() -> Path:
-    base = Path(os.environ.get("XDG_CACHE_HOME", Path.home() / ".cache"))
+    base = Path(os.environ.get("XDG_CACHE_HOME") or Path.home() / ".cache")
     return base / "aniyori" / "covers"
 
 

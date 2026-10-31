@@ -2,6 +2,7 @@
 
 import tempfile
 import unittest
+from unittest.mock import patch
 from pathlib import Path
 
 from aniyori.services.metadata_cache import MetadataCache
@@ -14,6 +15,12 @@ class MetadataCacheTests(unittest.TestCase):
 
     def tearDown(self):
         self.temp_dir.cleanup()
+
+    def test_empty_xdg_cache_home_uses_default_cache_directory(self):
+        with patch.dict("os.environ", {"XDG_CACHE_HOME": ""}):
+            with patch("pathlib.Path.home", return_value=Path("/home/test")):
+                cache = MetadataCache()
+        self.assertEqual(cache.directory, Path("/home/test/.cache/aniyori/metadata"))
 
     def test_round_trips_json_values_and_reports_freshness(self):
         value = [{"id": 21, "title": "Example", "genres": ["Adventure"]}]

@@ -17,7 +17,7 @@ MAX_CACHE_ENTRY_BYTES = 1024 * 1024
 
 
 def default_cache_directory() -> Path:
-    base = Path(os.environ.get("XDG_CACHE_HOME", Path.home() / ".cache"))
+    base = Path(os.environ.get("XDG_CACHE_HOME") or Path.home() / ".cache")
     return base / "aniyori" / "metadata"
 
 

@@ -4,10 +4,13 @@ import io
 import os
 import tempfile
 import unittest
+from unittest.mock import patch
 from pathlib import Path
 from unittest.mock import patch
 
-from aniyori.services.covers import MAX_COVER_BYTES, get_cached_cover, _prune_cache
+from aniyori.services.covers import (
+    MAX_COVER_BYTES, get_cached_cover, _prune_cache, _cache_directory,
+)
 
 
 class ImageResponse(io.BytesIO):
@@ -29,6 +32,13 @@ class CoverCacheTests(unittest.TestCase):
 
     def tearDown(self):
         self.temp_dir.cleanup()
+
+    def test_empty_xdg_cache_home_uses_default_cover_directory(self):
+        with patch.dict("os.environ", {"XDG_CACHE_HOME": ""}):
+            with patch("pathlib.Path.home", return_value=Path("/home/test")):
+                self.assertEqual(
+                    _cache_directory(), Path("/home/test/.cache/aniyori/covers")
+                )
 
     def test_downloads_and_caches_cover(self):
         payload = b"fake-image-data"
