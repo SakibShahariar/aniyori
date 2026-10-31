@@ -556,6 +556,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
                 )
                 return
             self.toast_overlay.add_toast(Adw.Toast.new("Release scoring weights saved."))
+            self._refresh_release_feeds()
 
         save_button.connect("clicked", save_weights)
 
@@ -681,6 +682,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
                 )
                 return
             self.toast_overlay.add_toast(Adw.Toast.new("Release preferences saved."))
+            self._refresh_release_feeds()
 
         save_button.connect("clicked", save_preferences)
         update_decision_preview()
