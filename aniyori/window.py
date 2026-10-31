@@ -20,6 +20,8 @@ from .services.airing import format_airing_countdown
 from .services.scan_locations import ScanLocationStore
 from .services.scan_library import scan_configured_library
 from .services.release_scoring import DEFAULT_WEIGHTS, ReleaseScoringSettingsStore
+from .services.release_monitor import refresh_release_feeds
+from .services.rss import FeedParseError, RSSFeedStore
 from .services.release_preferences import (
     PREFERENCE_ATTRIBUTES, ReleasePreferenceError, ReleasePreferenceStore,
     evaluate_release_preferences,
@@ -260,6 +262,9 @@ class AniyoriWindow(Adw.ApplicationWindow):
         self.share_template_store = ShareTemplateStore()
         self.release_preference_store = ReleasePreferenceStore()
         self.release_scoring_store = ReleaseScoringSettingsStore()
+        self.rss_feed_store = RSSFeedStore()
+        self.release_results = ()
+        self._release_refresh_running = False
         self.search_history_store = SearchHistoryStore()
         self._scan_cancel_event = None
         self.current_filter = "all"
@@ -280,6 +285,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
             ("share-format", self._show_share_format_dialog),
             ("release-preferences", self._show_release_preferences_dialog),
             ("release-scoring", self._show_release_scoring_dialog),
+            ("manage-release-feeds", self._show_release_feed_manager),
             ("about", self._show_about_dialog),
         ]:
             action = Gio.SimpleAction.new(name, None)
@@ -316,6 +322,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
         primary_menu.append("Share Format", "win.share-format")
         primary_menu.append("Release Preferences", "win.release-preferences")
         primary_menu.append("Release Scoring Weights", "win.release-scoring")
+        primary_menu.append("Manage Release Feeds", "win.manage-release-feeds")
         primary_menu.append("About Aniyori", "win.about")
         primary_menu.append("Quit", "win.quit")
         menu_button = Gtk.MenuButton()
@@ -408,6 +415,11 @@ class AniyoriWindow(Adw.ApplicationWindow):
             toolbar.append(button)
             self.view_switches[key] = button
 
+        releases_button = Gtk.Button(label="Releases")
+        releases_button.set_tooltip_text("Show monitored anime releases")
+        releases_button.connect("clicked", lambda _button: self._show_release_results())
+        toolbar.append(releases_button)
+
         self.toast_overlay = Adw.ToastOverlay()
         self.toast_overlay.set_vexpand(True)
         body.append(self.toast_overlay)
@@ -436,6 +448,14 @@ class AniyoriWindow(Adw.ApplicationWindow):
         self.grid_scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
         self.grid_scroll.set_child(self.grid_flow)
         self.stack.add_named(self.grid_scroll, "grid")
+
+        self.release_list_box = Gtk.ListBox()
+        self.release_list_box.set_selection_mode(Gtk.SelectionMode.NONE)
+        self.release_list_box.add_css_class("boxed-list")
+        self.release_scroll = Gtk.ScrolledWindow()
+        self.release_scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        self.release_scroll.set_child(self.release_list_box)
+        self.stack.add_named(self.release_scroll, "releases")
 
         self.empty_state = Gtk.Box(
             orientation=Gtk.Orientation.VERTICAL,
@@ -472,6 +492,8 @@ class AniyoriWindow(Adw.ApplicationWindow):
         self._refresh_airing_schedule()
         GLib.timeout_add_seconds(60, self._update_airing_countdowns)
         GLib.timeout_add_seconds(1800, self._periodic_airing_refresh)
+        self._refresh_release_feeds()
+        GLib.timeout_add_seconds(1800, self._periodic_release_refresh)
 
 
     def _show_release_scoring_dialog(self):
@@ -1152,6 +1174,245 @@ class AniyoriWindow(Adw.ApplicationWindow):
         if not button.get_active():
             return
         self.stack.set_visible_child_name(key)
+
+
+    def _show_release_results(self):
+        self.stack.set_visible_child_name("releases")
+        self._render_release_results()
+        return GLib.SOURCE_REMOVE
+
+    def _render_release_results(self):
+        child = self.release_list_box.get_first_child()
+        while child is not None:
+            next_child = child.get_next_sibling()
+            self.release_list_box.remove(child)
+            child = next_child
+
+        if not self.release_results:
+            label = Gtk.Label(
+                label="No release results yet. Add feeds and refresh to look for new episodes.",
+                wrap=True,
+                justify=Gtk.Justification.CENTER,
+            )
+            label.set_margin_top(24)
+            label.set_margin_bottom(24)
+            label.add_css_class("dim-label")
+            self.release_list_box.append(label)
+            return
+
+        for result in self.release_results:
+            if result.error:
+                row_label = Gtk.Label(
+                    label=f"{result.feed.name} — refresh failed: {result.error}",
+                    xalign=0,
+                    wrap=True,
+                )
+                row_label.add_css_class("error")
+                row_label.set_margin_top(8)
+                row_label.set_margin_bottom(8)
+                row_label.set_margin_start(12)
+                row_label.set_margin_end(12)
+                self.release_list_box.append(row_label)
+                continue
+
+            for release in result.releases:
+                row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
+                row.set_margin_top(10)
+                row.set_margin_bottom(10)
+                row.set_margin_start(12)
+                row.set_margin_end(12)
+                details = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
+                details.set_hexpand(True)
+                title = Gtk.Label(label=release.entry.title, xalign=0, wrap=True)
+                title.add_css_class("heading")
+                details.append(title)
+                if release.match_status == "matched":
+                    match_text = f"Matched: {release.matched_title}"
+                    if release.season is not None:
+                        match_text += f" · S{release.season:02d}E{release.episode:02d}"
+                    else:
+                        match_text += f" · Episode {release.episode}"
+                else:
+                    match_text = f"Catalogue match: {release.match_status.replace('_', ' ')}"
+                decision = "Accepted" if release.score.accepted else "Rejected by preferences"
+                subtitle = Gtk.Label(
+                    label=f"{match_text} · Quality {release.score.score:.1f}/100 · {decision}",
+                    xalign=0,
+                    wrap=True,
+                )
+                subtitle.add_css_class("dim-label")
+                subtitle.set_tooltip_text(release.score.explanation)
+                details.append(subtitle)
+                row.append(details)
+                if release.entry.link:
+                    link = Gtk.LinkButton.new_with_label(release.entry.link, "Open")
+                    link.set_valign(Gtk.Align.CENTER)
+                    row.append(link)
+                self.release_list_box.append(row)
+
+    def _show_release_feed_manager(self):
+        dialog = Adw.AlertDialog(
+            heading="Release Feeds",
+            body="Add, edit, enable, or remove RSS and Atom sources. Refresh runs in the background.",
+        )
+        content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
+        feed_list = Gtk.ListBox()
+        feed_list.set_selection_mode(Gtk.SelectionMode.NONE)
+        feed_list.add_css_class("boxed-list")
+        content.append(feed_list)
+        name_entry = Gtk.Entry()
+        name_entry.set_placeholder_text("Feed name")
+        content.append(name_entry)
+        url_entry = Gtk.Entry()
+        url_entry.set_placeholder_text("https://example.org/releases.xml")
+        url_entry.set_input_purpose(Gtk.InputPurpose.URL)
+        content.append(url_entry)
+        editing = {"url": None}
+        save_button = Gtk.Button(label="Add Feed")
+        save_button.add_css_class("suggested-action")
+        content.append(save_button)
+        refresh_button = Gtk.Button(label="Refresh Releases")
+        content.append(refresh_button)
+        dialog.set_extra_child(content)
+        dialog.add_response("close", "Close")
+        dialog.set_default_response("close")
+
+        def reload_feeds():
+            child = feed_list.get_first_child()
+            while child is not None:
+                next_child = child.get_next_sibling()
+                feed_list.remove(child)
+                child = next_child
+            try:
+                feeds = self.rss_feed_store.load()
+            except (OSError, FeedParseError) as error:
+                self.toast_overlay.add_toast(Adw.Toast.new(f"Could not load feeds: {error}"))
+                return
+            for feed in feeds:
+                row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+                label = Gtk.Label(label=feed.name, xalign=0)
+                label.set_hexpand(True)
+                label.set_ellipsize(3)
+                row.append(label)
+                state = Gtk.Label(label="Enabled" if feed.enabled else "Disabled")
+                state.add_css_class("dim-label")
+                row.append(state)
+                edit_button = Gtk.Button(label="Edit")
+                edit_button.connect("clicked", lambda _button, item=feed: begin_edit(item))
+                row.append(edit_button)
+                remove_button = Gtk.Button.new_from_icon_name("user-trash-symbolic")
+                remove_button.set_tooltip_text("Remove feed")
+                remove_button.connect(
+                    "clicked",
+                    lambda _button, item=feed: remove_feed(item.url),
+                )
+                row.append(remove_button)
+                feed_list.append(row)
+
+        def begin_edit(feed):
+            editing["url"] = feed.url
+            name_entry.set_text(feed.name)
+            url_entry.set_text(feed.url)
+            save_button.set_label("Save Changes")
+
+        def remove_feed(url):
+            try:
+                self.rss_feed_store.remove(url)
+            except (OSError, FeedParseError) as error:
+                self.toast_overlay.add_toast(Adw.Toast.new(f"Could not remove feed: {error}"))
+                return
+            if editing["url"] == url:
+                editing["url"] = None
+                name_entry.set_text("")
+                url_entry.set_text("")
+                save_button.set_label("Add Feed")
+            reload_feeds()
+
+        def save_feed(_button):
+            name = name_entry.get_text().strip()
+            url = url_entry.get_text().strip()
+            try:
+                if editing["url"]:
+                    self.rss_feed_store.update(editing["url"], name=name, new_url=url)
+                else:
+                    self.rss_feed_store.add(url, name)
+            except (OSError, FeedParseError) as error:
+                self.toast_overlay.add_toast(Adw.Toast.new(f"Could not save feed: {error}"))
+                return
+            editing["url"] = None
+            name_entry.set_text("")
+            url_entry.set_text("")
+            save_button.set_label("Add Feed")
+            reload_feeds()
+
+        def refresh_now(_button):
+            dialog.response("close")
+            self._show_release_results()
+            self._refresh_release_feeds()
+
+        save_button.connect("clicked", save_feed)
+        refresh_button.connect("clicked", refresh_now)
+        reload_feeds()
+        dialog.present(self)
+
+    def _refresh_release_feeds(self):
+        if self._release_refresh_running:
+            return GLib.SOURCE_REMOVE
+        try:
+            feeds = self.rss_feed_store.load()
+            if not feeds:
+                return GLib.SOURCE_REMOVE
+            preferences = self.release_preference_store.load()
+            weights = self.release_scoring_store.load()
+        except (OSError, ValueError) as error:
+            LOGGER.warning("Could not prepare release feed refresh: %s", error)
+            self.toast_overlay.add_toast(Adw.Toast.new(f"Release refresh unavailable: {error}"))
+            return GLib.SOURCE_REMOVE
+
+        candidates = []
+        for index, entry in enumerate(self.entries):
+            candidates.append({
+                "id": entry.storage_id if entry.storage_id is not None else f"library-{index}",
+                "title": entry.title,
+            })
+        self._release_refresh_running = True
+
+        def worker():
+            try:
+                results = refresh_release_feeds(
+                    feeds,
+                    candidates,
+                    preferences=preferences,
+                    weights=weights,
+                )
+                error = None
+            except Exception as refresh_error:
+                LOGGER.exception("Release feed refresh failed")
+                results = ()
+                error = str(refresh_error)
+            GLib.idle_add(self._finish_release_feed_refresh, results, error)
+
+        threading.Thread(target=worker, daemon=True).start()
+        return GLib.SOURCE_REMOVE
+
+    def _finish_release_feed_refresh(self, results, error):
+        self._release_refresh_running = False
+        if error:
+            self.toast_overlay.add_toast(Adw.Toast.new(f"Release refresh failed: {error}"))
+            return GLib.SOURCE_REMOVE
+        self.release_results = results
+        self._render_release_results()
+        failed = sum(1 for result in results if result.error)
+        count = sum(len(result.releases) for result in results)
+        message = f"Found {count} release entries"
+        if failed:
+            message += f"; {failed} feed(s) failed"
+        self.toast_overlay.add_toast(Adw.Toast.new(message + "."))
+        return GLib.SOURCE_REMOVE
+
+    def _periodic_release_refresh(self):
+        self._refresh_release_feeds()
+        return GLib.SOURCE_CONTINUE
 
     def _refresh_airing_schedule(self):
         """Fetch next-airing metadata in a worker; never block GTK."""
