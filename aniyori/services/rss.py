@@ -286,7 +286,7 @@ class RSSFeedStore:
                 for feed in normalized
             ],
         }
-        content = json.dumps(payload, ensure_ascii=False, indent=2) + "\\n"
+        content = json.dumps(payload, ensure_ascii=False, indent=2) + "\n"
         self.path.parent.mkdir(parents=True, exist_ok=True)
         temporary_path = None
         try:
