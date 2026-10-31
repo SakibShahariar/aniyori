@@ -19,6 +19,15 @@ class SearchHistoryError(ValueError):
     """Raised when saved search data is invalid."""
 
 
+def _reject_duplicate_keys(pairs):
+    result = {}
+    for key, value in pairs:
+        if key in result:
+            raise SearchHistoryError(f"Duplicate saved-search key: {key}")
+        result[key] = value
+    return result
+
+
 def default_search_history_path() -> Path:
     """Return the XDG configuration path without creating it."""
     config_home = Path(os.environ.get("XDG_CONFIG_HOME") or Path.home() / ".config")
@@ -50,12 +59,14 @@ class SearchHistoryStore:
                 "saved": {domain: [] for domain in SEARCH_DOMAINS},
             }
         try:
-            payload = json.loads(content)
+            payload = json.loads(content, object_pairs_hook=_reject_duplicate_keys)
         except (UnicodeDecodeError, json.JSONDecodeError) as error:
             raise SearchHistoryError("Saved search history is invalid JSON.") from error
         if (
             not isinstance(payload, dict)
             or payload.get("format") != SEARCH_STORE_FORMAT
+            or isinstance(payload.get("version"), bool)
+            or not isinstance(payload.get("version"), int)
             or payload.get("version") != SEARCH_STORE_VERSION
             or not isinstance(payload.get("history"), dict)
             or not isinstance(payload.get("saved"), dict)

@@ -75,6 +75,30 @@ class SearchHistoryStoreTests(unittest.TestCase):
             self.store.record_query("anilist", "Naruto")
         self.assertEqual(self.path.read_text(encoding="utf-8"), "{broken")
 
+    def test_boolean_or_wrong_version_is_rejected(self):
+        self.path.parent.mkdir(parents=True)
+        payload = {
+            "format": "aniyori-search-history",
+            "version": True,
+            "history": {"anilist": [], "torrent": []},
+            "saved": {"anilist": [], "torrent": []},
+        }
+        self.path.write_text(json.dumps(payload), encoding="utf-8")
+        with self.assertRaisesRegex(SearchHistoryError, "unsupported format"):
+            self.store.list_history("anilist")
+
+    def test_duplicate_json_keys_are_rejected_without_overwriting(self):
+        self.path.parent.mkdir(parents=True)
+        content = (
+            '{"format":"aniyori-search-history","version":1,'
+            '"history":{"anilist":[],"anilist":["injected"],"torrent":[]},'
+            '"saved":{"anilist":[],"torrent":[]}}'
+        )
+        self.path.write_text(content, encoding="utf-8")
+        with self.assertRaisesRegex(SearchHistoryError, "Duplicate saved-search key"):
+            self.store.record_query("anilist", "Naruto")
+        self.assertEqual(self.path.read_text(encoding="utf-8"), content)
+
     def test_saved_history_round_trips_across_instances(self):
         self.store.record_query("anilist", "Naruto")
         self.store.save_search("anilist", "My Query", "Naruto Shippuden")
