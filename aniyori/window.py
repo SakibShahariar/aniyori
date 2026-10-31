@@ -1303,6 +1303,9 @@ class AniyoriWindow(Adw.ApplicationWindow):
             entry.storage_id if entry.storage_id is not None else ("transient", id(entry))
             for entry in self.entries
         }
+        self._selected_entry_ids.intersection_update(
+            key for key in current_keys if isinstance(key, int)
+        )
         for key in set(self._airing_by_id) - current_keys:
             self._airing_by_id.pop(key, None)
         for key in set(self._row_widgets) - current_keys:
