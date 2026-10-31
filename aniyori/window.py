@@ -19,7 +19,9 @@ from .services.anilist import AniListClient, AniListError
 from .services.airing import format_airing_countdown
 from .services.scan_locations import ScanLocationStore
 from .services.scan_library import scan_configured_library
-from .services.release_scoring import DEFAULT_WEIGHTS, ReleaseScoringSettingsStore
+from .services.release_scoring import (
+    DEFAULT_MINIMUM_SCORE, DEFAULT_WEIGHTS, ReleaseScoringSettingsStore,
+)
 from .services.release_monitor import refresh_release_feeds
 from .services.rss import FeedParseError, RSSFeedStore
 from .services.release_preferences import (
@@ -499,11 +501,13 @@ class AniyoriWindow(Adw.ApplicationWindow):
     def _show_release_scoring_dialog(self):
         try:
             saved = self.release_scoring_store.load()
+            saved_minimum = self.release_scoring_store.load_minimum_score()
         except (OSError, ValueError) as error:
             self.toast_overlay.add_toast(
                 Adw.Toast.new(f"Could not load release-scoring weights: {error}")
             )
             saved = dict(DEFAULT_WEIGHTS)
+            saved_minimum = DEFAULT_MINIMUM_SCORE
 
         dialog = Adw.AlertDialog(
             heading="Release Scoring Weights",
@@ -527,6 +531,20 @@ class AniyoriWindow(Adw.ApplicationWindow):
             editors[name] = weight
         content.append(grid)
 
+        cutoff_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
+        cutoff_label = Gtk.Label(label="Minimum acceptable score", xalign=0)
+        cutoff_label.set_hexpand(True)
+        cutoff_row.append(cutoff_label)
+        minimum_score = Gtk.SpinButton.new_with_range(0, 100, 1)
+        minimum_score.set_value(saved_minimum)
+        minimum_score.set_numeric(True)
+        minimum_score.set_tooltip_text(
+            "Releases below this score are marked ineligible in the release monitor."
+        )
+        cutoff_row.append(minimum_score)
+        cutoff_row.append(Gtk.Label(label="/ 100"))
+        content.append(cutoff_row)
+
         help_label = Gtk.Label(
             label="Weights are relative: they do not need to add up to 100%.",
             xalign=0,
@@ -549,7 +567,9 @@ class AniyoriWindow(Adw.ApplicationWindow):
                 for name, editor in editors.items()
             }
             try:
-                self.release_scoring_store.save(weights)
+                self.release_scoring_store.save(
+                    weights, minimum_score=minimum_score.get_value()
+                )
             except (OSError, ValueError) as error:
                 self.toast_overlay.add_toast(
                     Adw.Toast.new(f"Could not save scoring weights: {error}")
@@ -1236,14 +1256,18 @@ class AniyoriWindow(Adw.ApplicationWindow):
                         match_text += f" · Episode {release.episode}"
                 else:
                     match_text = f"Catalogue match: {release.match_status.replace('_', ' ')}"
-                decision = "Accepted" if release.score.accepted else "Rejected by preferences"
+                decision = (
+                    "Eligible" if release.eligible else
+                    "Rejected by preferences" if not release.score.accepted else
+                    "Below score threshold"
+                )
                 subtitle = Gtk.Label(
                     label=f"{match_text} · Quality {release.score.score:.1f}/100 · {decision}",
                     xalign=0,
                     wrap=True,
                 )
                 subtitle.add_css_class("dim-label")
-                subtitle.set_tooltip_text(release.score.explanation)
+                subtitle.set_tooltip_text(release.decision_explanation)
                 details.append(subtitle)
                 row.append(details)
                 if release.entry.link:
@@ -1380,6 +1404,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
                 return GLib.SOURCE_REMOVE
             preferences = self.release_preference_store.load()
             weights = self.release_scoring_store.load()
+            minimum_score = self.release_scoring_store.load_minimum_score()
         except (OSError, ValueError) as error:
             LOGGER.warning("Could not prepare release feed refresh: %s", error)
             self.toast_overlay.add_toast(Adw.Toast.new(f"Release refresh unavailable: {error}"))
@@ -1400,6 +1425,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
                     candidates,
                     preferences=preferences,
                     weights=weights,
+                    minimum_score=minimum_score,
                 )
                 error = None
             except Exception as refresh_error:
