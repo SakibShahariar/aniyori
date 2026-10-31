@@ -128,12 +128,20 @@ class AniListClient:
 
         if not isinstance(payload, dict):
             raise AniListError("AniList response must be a JSON object")
-        if payload.get("errors"):
-            messages = [
-                item.get("message", "Unknown GraphQL error")
-                for item in payload["errors"]
-            ]
-            raise AniListError("; ".join(messages))
+        errors = payload.get("errors")
+        if errors is not None:
+            if not isinstance(errors, list):
+                raise AniListError("AniList returned malformed GraphQL errors")
+            messages = []
+            for item in errors:
+                if not isinstance(item, dict):
+                    raise AniListError("AniList returned malformed GraphQL errors")
+                message = item.get("message")
+                if not isinstance(message, str) or not message.strip():
+                    raise AniListError("AniList returned malformed GraphQL errors")
+                messages.append(message.strip())
+            if messages:
+                raise AniListError("; ".join(messages))
         if not isinstance(payload.get("data"), dict):
             raise AniListError("AniList response did not contain data")
         return payload["data"]

@@ -89,6 +89,26 @@ class AniListClientTests(unittest.TestCase):
             with self.assertRaisesRegex(AniListError, "Rate limited"):
                 AniListClient().search_anime("Naruto")
 
+    def test_malformed_graphql_errors_raise_client_error(self):
+        malformed_errors = (
+            "unexpected",
+            {"message": "not a list"},
+            [None],
+            ["Rate limited"],
+            [{}],
+            [{"message": 42}],
+            [{"message": "   "}],
+        )
+        for errors in malformed_errors:
+            with self.subTest(errors=errors):
+                payload = {"errors": errors, "data": {}}
+                with patch(
+                    "aniyori.services.anilist.urlopen",
+                    return_value=response_for(payload),
+                ):
+                    with self.assertRaisesRegex(AniListError, "malformed GraphQL errors"):
+                        AniListClient().search_anime("Naruto")
+
     def test_non_object_json_responses_raise_client_error(self):
         for payload in ([], "unexpected", 42, None):
             with self.subTest(payload=payload):
