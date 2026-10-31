@@ -67,6 +67,32 @@ class ReleaseScoringTests(unittest.TestCase):
             with self.subTest(weights=weights), self.assertRaises(ValueError):
                 score_release({}, weights=weights)
 
+    def test_preferred_attribute_values_improve_their_score(self):
+        release = {"resolution": "1080p", "source": "HDTV"}
+        baseline = score_release(release)
+        preferred = score_release(
+            release,
+            preferences={"source": {"preferred": ["HDTV"]}},
+        )
+        self.assertTrue(preferred.accepted)
+        self.assertGreater(preferred.score, baseline.score)
+        source_factor = next(item for item in preferred.factors if item.name == "source")
+        self.assertEqual(source_factor.value, 1.0)
+        self.assertIn("Preference matched (preferred)", source_factor.explanation)
+
+    def test_rejected_attribute_is_scored_as_zero_and_excluded(self):
+        release = {"resolution": "1080p", "source": "CAM"}
+        baseline = score_release(release)
+        rejected = score_release(
+            release,
+            preferences={"source": {"rejected": ["CAM"]}},
+        )
+        self.assertFalse(rejected.accepted)
+        self.assertLess(rejected.score, baseline.score)
+        source_factor = next(item for item in rejected.factors if item.name == "source")
+        self.assertEqual(source_factor.value, 0.0)
+        self.assertIn("Preference matched (rejected)", source_factor.explanation)
+
     def test_preferences_push_rejected_releases_below_accepted_releases(self):
         accepted = {"resolution": "1080p", "source": "BluRay"}
         rejected = {"resolution": "1080p", "source": "CAM"}

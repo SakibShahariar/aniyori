@@ -7,7 +7,8 @@ import os
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Mapping
+from collections.abc import Iterable, Mapping
+from typing import Any
 
 
 PREFERENCE_FORMAT = "aniyori-release-preferences"

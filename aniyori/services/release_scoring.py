@@ -188,6 +188,20 @@ def score_release(
     else:
         raw["release_group"] = None
 
+    if preference_decision is not None:
+        preferred_attributes = set(preference_decision.matched_preferred)
+        rejected_attributes = set(preference_decision.matched_rejected)
+        for attribute in preferred_attributes | rejected_attributes:
+            item = raw.get(attribute)
+            if item is None:
+                continue
+            _value, explanation = item
+            preferred_match = attribute in preferred_attributes
+            raw[attribute] = (
+                1.0 if preferred_match else 0.0,
+                f"Preference matched ({'preferred' if preferred_match else 'rejected'}): {explanation}",
+            )
+
     factors = []
     weighted_total = 0.0
     available_weight = 0.0
