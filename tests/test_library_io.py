@@ -88,7 +88,7 @@ class LibraryIOTests(unittest.TestCase):
         self.assertEqual(imported, self.entries)
 
     def test_csv_accepts_utf8_bom_before_first_header(self):
-        content = "\\ufeff" + export_csv(self.entries)
+        content = chr(0xfeff) + export_csv(self.entries)
 
         self.assertEqual(import_csv(content), self.entries)
 
