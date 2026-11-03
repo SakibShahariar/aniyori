@@ -342,8 +342,10 @@ def filter_release_results(
         elif sort_by == "title":
             key = lambda item: item.entry.title.casefold()
         else:
+            rule_priority = {"preferred": 0, "wanted": 1, "unmatched": 2, "discarded": 3}
             key = lambda item: (
-                not item.eligible, -item.score.score, item.entry.title.casefold(),
+                not item.eligible, rule_priority.get(item.rule_status, 2),
+                -item.score.score, item.entry.title.casefold(),
             )
         releases.sort(key=key)
         filtered_results.append(FeedRefreshResult(result.feed, tuple(releases), result.error))

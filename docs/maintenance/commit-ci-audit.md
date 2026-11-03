@@ -108,3 +108,14 @@ Commits after the previous checkpoint through `bd3f6937d34fba486dd8efd1e6677e8ed
 | Date | Reviewed range / checkpoint | Result summary |
 |---|---|---|
 | 2026-11-03 | `bd3f6937d34fba486dd8efd1e6677e8ed7c6ab1f` → `f76856ba2b503ae5f443616f5a9f9597435a7b27` | Reviewed one new commit; CI green. |
+
+
+### Failure investigation: ordered release rules
+
+- Commit SHA: `c9c3e683921252a3027997c789b5e4e6593337b4`
+- Workflow / run: [Tests / 41722271367](https://github.com/SakibShahariar/aniyori/actions/runs/41722271367)
+- Failed tests: `test_store_adds_edits_reorders_removes_and_round_trips` and `test_release_rule_store_persists_edits_removals_and_order`.
+- Diagnosis: both tests incorrectly treated the result of the first `ReleaseRuleStore.add()` call as if it already contained a second rule. The store correctly returned one rule after the first add.
+- Classification: test defect introduced in the issue #43 change; production code compilation succeeded.
+- Fix: update tests to capture the result of the second add operation. Also preserve caller order for equal rule priorities, validate rule field/action types, handle absent category collections safely, and rank preferred/wanted matches ahead of unmatched releases.
+- Fix commit / rerun: pending.

@@ -64,9 +64,9 @@ def _validate_rule(rule: ReleaseRule) -> ReleaseRule:
     ):
         if not isinstance(value, str) or not value.strip() or len(value.strip()) > limit:
             raise ReleaseRuleError(f"Rule {field.replace('_', ' ')} must be non-empty text (max {limit} characters).")
-    if rule.field not in RULE_FIELDS:
+    if not isinstance(rule.field, str) or rule.field not in RULE_FIELDS:
         raise ReleaseRuleError("Unsupported release rule field.")
-    if rule.action not in RULE_ACTIONS:
+    if not isinstance(rule.action, str) or rule.action not in RULE_ACTIONS:
         raise ReleaseRuleError("Unsupported release rule action.")
     if isinstance(rule.priority, bool) or not isinstance(rule.priority, int) or rule.priority < 0:
         raise ReleaseRuleError("Rule priority must be a nonnegative integer.")
@@ -91,18 +91,21 @@ def normalize_release_rules(rules: Iterable[ReleaseRule]) -> tuple[ReleaseRule, 
     ids = [rule.rule_id for rule in normalized]
     if len(ids) != len(set(ids)):
         raise ReleaseRuleError("Release rule IDs must be unique.")
-    return tuple(sorted(normalized, key=lambda rule: (rule.priority, rule.rule_id)))
+    return tuple(sorted(normalized, key=lambda rule: rule.priority))
 
 
 def _matches(rule: ReleaseRule, release: Mapping[str, Any]) -> bool:
     if rule.field == "keywords":
+        categories = release.get("categories") or ()
+        if isinstance(categories, str):
+            categories = (categories,)
         values = (
             release.get("title", ""),
             release.get("release_group", ""),
             release.get("resolution", ""),
             release.get("source", ""),
             release.get("summary", ""),
-            *release.get("categories", ()),
+            *categories,
         )
         haystack = " ".join(str(value) for value in values if value is not None).casefold()
         return rule.value.casefold() in haystack

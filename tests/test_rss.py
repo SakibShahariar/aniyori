@@ -319,9 +319,10 @@ class ReleaseFeedParserTests(unittest.TestCase):
             store = ReleaseRuleStore(Path(directory) / "rules.json")
             added = store.add("Prefer group", "release_group", "GroupA", "prefer")
             first_id = added[0].rule_id
-            store.add("Exclude 480p", "resolution", "480p", "exclude")
+            second_added = store.add("Exclude 480p", "resolution", "480p", "exclude")
+            second_id = second_added[-1].rule_id
             store.update(first_id, name="Prefer trusted group", enabled=False)
-            reordered = store.reorder([added[1].rule_id, first_id])
+            reordered = store.reorder([second_id, first_id])
             self.assertEqual(reordered[0].name, "Exclude 480p")
             self.assertEqual(reordered[1].name, "Prefer trusted group")
             self.assertFalse(reordered[1].enabled)
