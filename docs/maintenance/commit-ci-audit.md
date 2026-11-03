@@ -24,10 +24,10 @@ Persistent repository-specific record of commit-level CI checks and red-cross in
 
 - Repository: `SakibShahariar/aniyori`
 - Default branch: `main`
-- Checkpoint SHA: `2a39e57eec14278e5282f5ee80368d5d181b7b4c`
+- Checkpoint SHA: `8ccf10a227851f2fdd9bbcca32e2b4e8fa31d397`
 - Initialized: 2026-11-02
 - Baseline: latest branch tip queried through combined commit-status endpoint; empty status list recorded as **unavailable**, not green/red. Older history was not retroactively audited during setup.
-- Next session: review commits after `2a39e57eec14278e5282f5ee80368d5d181b7b4c`; carry forward any red or unresolved entries.
+- Next session: review commits after `8ccf10a227851f2fdd9bbcca32e2b4e8fa31d397`; carry forward any red or unresolved entries.
 
 ## Initial baseline
 
@@ -154,3 +154,25 @@ Commits after the previous checkpoint through `bd3f6937d34fba486dd8efd1e6677e8ed
 | Date | Reviewed range / checkpoint | Result summary |
 |---|---|---|
 | 2026-11-03 | `0a1f18b5bd22cb37c51b9dea424c9aa624a88b13` → `2a39e57eec14278e5282f5ee80368d5d181b7b4c` | Reviewed two UI commits; both CI green. |
+
+
+## Reviewed range: 2026-11-04
+
+| Commit SHA | Subject | CI result | Run |
+|---|---|---|---|
+| `ebbd976f956360ed25a5661c5a829abbb1fdcc71` | feat(download): open selected Nyaa releases via magnet (#45) | green | [41722953410](https://github.com/SakibShahariar/aniyori/actions/runs/41722953410) |
+| `f01f92e99a6e29dc79e18e246a3277a2c030d875` | feat(download): add qBittorrent Web API client (#45) | green | [41724280859](https://github.com/SakibShahariar/aniyori/actions/runs/41724280859) |
+| `31bbff8a20990c7066202cb68daa066f39bc9c42` | fix(download): set qBittorrent multipart content type (#45) | green | [41724360774](https://github.com/SakibShahariar/aniyori/actions/runs/41724360774) |
+| `8ccf10a227851f2fdd9bbcca32e2b4e8fa31d397` | fix(download): handle modern qBittorrent add responses (#45) | green | [41724467821](https://github.com/SakibShahariar/aniyori/actions/runs/41724467821) |
+
+### qBittorrent client implementation notes
+
+- Added a standard-library-only Web API client with cookie-based login, explicit torrent submission, category and paused options, and logout.
+- Validates magnet v1 info hashes and server URLs. Cleartext HTTP is limited to loopback; remote WebUI endpoints require HTTPS. Redirects are rejected so credentials/cookies are not forwarded to another origin.
+- Handles the legacy `Ok.` response and newer JSON success/pending counters.
+- Passwords are supplied only to the client instance and are not persisted. The GTK configuration UI and secure credential integration are still outstanding.
+- Every commit in this reviewed range completed its Tests workflow successfully. No red runs were observed for these commits.
+
+| Date | Reviewed range / checkpoint | Result summary |
+|---|---|---|
+| 2026-11-04 | `2a39e57eec14278e5282f5ee80368d5d181b7b4c` → `8ccf10a227851f2fdd9bbcca32e2b4e8fa31d397` | Reviewed three commits; all three Tests workflows green. |
