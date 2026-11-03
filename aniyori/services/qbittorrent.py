@@ -119,16 +119,21 @@ class QBittorrentClient:
             HTTPCookieProcessor(CookieJar()), _RejectRedirects()
         )
 
-    def _request(self, path: str, data: bytes | None = None):
+    def _request(
+        self, path: str, data: bytes | None = None, *, content_type: str | None = None
+    ):
         url = self.server_url + path
+        headers = {
+            "Accept": "text/plain, application/json",
+            "Referer": self.server_url + "/",
+            "User-Agent": "Aniyori/0.1.0",
+        }
+        if content_type:
+            headers["Content-Type"] = content_type
         request = Request(
             url,
             data=data,
-            headers={
-                "Accept": "text/plain, application/json",
-                "Referer": self.server_url + "/",
-                "User-Agent": "Aniyori/0.1.0",
-            },
+            headers=headers,
             method="POST" if data is not None else "GET",
         )
         try:
@@ -203,6 +208,7 @@ class QBittorrentClient:
             result = self._request(
                 "/api/v2/torrents/add",
                 payload,
+                content_type=f"multipart/form-data; boundary={boundary}",
             )
             if result.casefold() not in {"ok.", "ok"}:
                 raise QBittorrentError(
