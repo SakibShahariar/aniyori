@@ -266,3 +266,62 @@ def refresh_release_feeds(
             # the whole refresh operation.
             results.append(FeedRefreshResult(feed, (), str(error) or error.__class__.__name__))
     return tuple(results)
+
+
+def filter_release_results(
+    results: Iterable[FeedRefreshResult],
+    *,
+    query: str = "",
+    eligible_only: bool = False,
+    sort_by: str = "quality",
+) -> tuple[FeedRefreshResult, ...]:
+    """Filter and sort refreshed releases without mutating cached feed results."""
+    if not isinstance(query, str):
+        raise ValueError("Release search query must be text.")
+    if not isinstance(eligible_only, bool):
+        raise ValueError("Eligible-only filter must be a boolean.")
+    sort_keys = {"quality", "newest", "seeders", "title"}
+    if sort_by not in sort_keys:
+        raise ValueError("Unsupported release sort order.")
+
+    needle = query.strip().casefold()
+    filtered_results = []
+    for result in results:
+        if result.error:
+            filtered_results.append(result)
+            continue
+        releases = []
+        for release in result.releases:
+            if eligible_only and not release.eligible:
+                continue
+            if needle:
+                searchable = " ".join((
+                    release.entry.title,
+                    release.feed_name,
+                    release.matched_title or "",
+                    str(release.metadata.get("release_group", "")),
+                    *release.entry.categories,
+                )).casefold()
+                if needle not in searchable:
+                    continue
+            releases.append(release)
+
+        if sort_by == "newest":
+            key = lambda item: (
+                item.entry.published_at is None,
+                -(item.entry.published_at.timestamp() if item.entry.published_at else 0),
+            )
+        elif sort_by == "seeders":
+            key = lambda item: (
+                item.metadata.get("seeders") is None,
+                -(item.metadata.get("seeders") or 0),
+            )
+        elif sort_by == "title":
+            key = lambda item: item.entry.title.casefold()
+        else:
+            key = lambda item: (
+                not item.eligible, -item.score.score, item.entry.title.casefold(),
+            )
+        releases.sort(key=key)
+        filtered_results.append(FeedRefreshResult(result.feed, tuple(releases), result.error))
+    return tuple(filtered_results)

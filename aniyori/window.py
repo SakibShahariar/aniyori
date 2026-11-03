@@ -22,7 +22,7 @@ from .services.scan_library import scan_configured_library
 from .services.release_scoring import (
     DEFAULT_MINIMUM_SCORE, DEFAULT_WEIGHTS, ReleaseScoringSettingsStore,
 )
-from .services.release_monitor import refresh_release_feeds
+from .services.release_monitor import filter_release_results, refresh_release_feeds
 from .services.rss import FeedParseError, RSSFeedStore, build_nyaa_search_url
 from .services.release_preferences import (
     PREFERENCE_ATTRIBUTES, ReleasePreferenceError, ReleasePreferenceStore,
@@ -453,6 +453,21 @@ class AniyoriWindow(Adw.ApplicationWindow):
 
         self.release_page = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
         release_controls = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        self.release_search_entry = Gtk.SearchEntry()
+        self.release_search_entry.set_placeholder_text("Filter releases…")
+        self.release_search_entry.set_hexpand(True)
+        self.release_search_entry.connect(
+            "search-changed", lambda _entry: self._render_release_results()
+        )
+        release_controls.append(self.release_search_entry)
+        self.release_sort_dropdown = Gtk.DropDown.new_from_strings(
+            ["Best match", "Newest", "Most seeders", "Title"]
+        )
+        self.release_sort_dropdown.set_tooltip_text("Sort release results")
+        self.release_sort_dropdown.connect(
+            "notify::selected", lambda *_args: self._render_release_results()
+        )
+        release_controls.append(self.release_sort_dropdown)
         self.release_eligible_only_check = Gtk.CheckButton(label="Eligible only")
         self.release_eligible_only_check.set_tooltip_text(
             "Hide releases rejected by preferences or below the minimum score."
@@ -1248,7 +1263,16 @@ class AniyoriWindow(Adw.ApplicationWindow):
             return
 
         rendered = 0
-        for result in self.release_results:
+        sort_modes = ("quality", "newest", "seeders", "title")
+        selected_sort = self.release_sort_dropdown.get_selected()
+        sort_by = sort_modes[selected_sort] if selected_sort < len(sort_modes) else "quality"
+        visible_results = filter_release_results(
+            self.release_results,
+            query=self.release_search_entry.get_text(),
+            eligible_only=self.release_eligible_only_check.get_active(),
+            sort_by=sort_by,
+        )
+        for result in visible_results:
             if result.error:
                 row_label = Gtk.Label(
                     label=f"{result.feed.name} — refresh failed: {result.error}",
@@ -1265,8 +1289,6 @@ class AniyoriWindow(Adw.ApplicationWindow):
                 continue
 
             for release in result.releases:
-                if self.release_eligible_only_check.get_active() and not release.eligible:
-                    continue
                 row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
                 row.set_margin_top(10)
                 row.set_margin_bottom(10)

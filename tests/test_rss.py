@@ -9,7 +9,7 @@ from aniyori.services.rss import (
     FeedParseError, RSSFeed, RSSFeedStore, build_nyaa_search_url, parse_release_feed,
 )
 from aniyori.services.release_monitor import (
-    FeedFetchError, fetch_feed_content, refresh_release_feeds,
+    FeedFetchError, fetch_feed_content, filter_release_results, refresh_release_feeds,
 )
 
 
@@ -248,6 +248,31 @@ class ReleaseFeedParserTests(unittest.TestCase):
         )[0].releases
         self.assertEqual(releases[0].episode, 2)
         self.assertGreater(releases[0].score.score, releases[1].score.score)
+
+    def test_release_results_can_be_filtered_and_sorted_without_mutation(self):
+        feed = RSSFeed("Nyaa", "https://example.org/feed.xml")
+        payload = b"""<rss xmlns:nyaa="https://nyaa.si/xmlns/nyaa"><channel>
+          <item><title>[GroupA] Frieren - 01 (480p) [HDTV]</title>
+            <pubDate>Sat, 31 Oct 2026 05:00:00 +0000</pubDate>
+            <nyaa:seeders>5</nyaa:seeders></item>
+          <item><title>[GroupB] Frieren - 02 (1080p) [BluRay]</title>
+            <pubDate>Sun, 01 Nov 2026 05:00:00 +0000</pubDate>
+            <nyaa:seeders>50</nyaa:seeders></item>
+          <item><title>[GroupC] Spy x Family - 01 (1080p) [BluRay]</title>
+            <pubDate>Mon, 02 Nov 2026 05:00:00 +0000</pubDate>
+            <nyaa:seeders>20</nyaa:seeders></item>
+        </channel></rss>"""
+        original = refresh_release_feeds([feed], CATALOGUE, fetcher=lambda _url: payload)
+        newest = filter_release_results(original, sort_by="newest")
+        self.assertEqual(newest[0].releases[0].entry.title, "[GroupC] Spy x Family - 01 (1080p) [BluRay]")
+        most_seeders = filter_release_results(original, sort_by="seeders")
+        self.assertEqual(most_seeders[0].releases[0].metadata["seeders"], 50)
+        frieren = filter_release_results(original, query="frieren")
+        self.assertEqual(len(frieren[0].releases), 2)
+        self.assertTrue(all("Frieren" in item.entry.title for item in frieren[0].releases))
+        self.assertEqual(len(original[0].releases), 3)
+        with self.assertRaisesRegex(ValueError, "sort order"):
+            filter_release_results(original, sort_by="random")
 
     def test_refresh_rejects_invalid_minimum_score(self):
         feed = RSSFeed("Invalid", "https://example.org/feed.xml")
