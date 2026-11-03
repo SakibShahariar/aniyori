@@ -16,6 +16,7 @@ from urllib.request import Request, urlopen
 
 ANILIST_GRAPHQL_URL = "https://graphql.anilist.co"
 DEFAULT_TIMEOUT = 15
+MAX_ANILIST_RESPONSE_BYTES = 2_000_000
 
 
 class AniListError(RuntimeError):
@@ -134,7 +135,10 @@ class AniListClient:
         )
         try:
             with urlopen(request, timeout=self.timeout) as response:
-                payload = json.loads(response.read().decode("utf-8"))
+                raw_payload = response.read(MAX_ANILIST_RESPONSE_BYTES + 1)
+            if len(raw_payload) > MAX_ANILIST_RESPONSE_BYTES:
+                raise AniListError("AniList response exceeds the maximum allowed size.")
+            payload = json.loads(raw_payload.decode("utf-8"))
         except HTTPError as error:
             raise AniListError(f"AniList returned HTTP {error.code}") from error
         except (URLError, TimeoutError, OSError) as error:

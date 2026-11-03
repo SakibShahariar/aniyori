@@ -6,7 +6,11 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from aniyori.services.anilist import AniListClient, AniListError, _normalise_media
+from urllib.error import HTTPError, URLError
+
+from aniyori.services.anilist import (
+    MAX_ANILIST_RESPONSE_BYTES, AniListClient, AniListError, _normalise_media,
+)
 from aniyori.services.metadata_cache import MetadataCache
 
 
@@ -21,6 +25,36 @@ class AniListClientTests(unittest.TestCase):
 
     def tearDown(self):
         self.temp_dir.cleanup()
+
+    def test_request_rejects_oversized_response(self):
+        response = io.BytesIO(b" " * (MAX_ANILIST_RESPONSE_BYTES + 1))
+        with patch("aniyori.services.anilist.urlopen", return_value=response):
+            with self.assertRaisesRegex(AniListError, "exceeds the maximum allowed size"):
+                self.client.search_anime("Naruto")
+
+    def test_request_rejects_truncated_json_response(self):
+        with patch(
+            "aniyori.services.anilist.urlopen",
+            return_value=io.BytesIO(b'{"data":'),
+        ):
+            with self.assertRaisesRegex(AniListError, "invalid JSON"):
+                self.client.search_anime("Naruto")
+
+    def test_request_reports_http_rate_limits_and_network_timeouts(self):
+        rate_limited = HTTPError(
+            "https://graphql.anilist.co", 429, "Too Many Requests", None, None
+        )
+        for error, message in (
+            (rate_limited, "HTTP 429"),
+            (TimeoutError("timed out"), "Could not reach AniList"),
+            (URLError("offline"), "Could not reach AniList"),
+        ):
+            with self.subTest(error=error):
+                with patch(
+                    "aniyori.services.anilist.urlopen", side_effect=error
+                ):
+                    with self.assertRaisesRegex(AniListError, message):
+                        self.client.search_anime("Naruto")
 
     def test_search_normalises_results(self):
         payload = {
