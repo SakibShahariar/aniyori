@@ -12,11 +12,9 @@ from aniyori.services.credentials import (
 
 class SecretServiceCredentialStoreTests(unittest.TestCase):
     def setUp(self):
-        self.runner = Mock()
         self.store = SecretServiceCredentialStore(
             binary="/usr/bin/secret-tool",
         )
-        self.store_runner = self.store._run
         self.store._run = Mock()
 
     def test_store_passes_secret_via_stdin_not_command_arguments(self):
@@ -39,6 +37,20 @@ class SecretServiceCredentialStoreTests(unittest.TestCase):
     def test_lookup_returns_none_when_item_does_not_exist(self):
         self.store._run.return_value = subprocess.CompletedProcess([], 1, "", "")
         self.assertIsNone(self.store.lookup("aniyori", "missing"))
+
+    def test_lookup_reports_keyring_errors_instead_of_treating_them_as_missing(self):
+        self.store._run.return_value = subprocess.CompletedProcess(
+            [], 1, "", "Secret Service is unavailable"
+        )
+        with self.assertRaises(CredentialStoreUnavailable):
+            self.store.lookup("aniyori", "account")
+
+    def test_remove_reports_keyring_errors_instead_of_treating_them_as_missing(self):
+        self.store._run.return_value = subprocess.CompletedProcess(
+            [], 1, "", "Secret Service is unavailable"
+        )
+        with self.assertRaises(CredentialStoreUnavailable):
+            self.store.remove("aniyori", "account")
 
     def test_remove_reports_whether_an_item_was_removed(self):
         self.store._run.return_value = subprocess.CompletedProcess([], 0, "", "")

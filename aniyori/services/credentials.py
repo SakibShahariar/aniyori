@@ -22,7 +22,7 @@ class SecretServiceCredentialStore:
     """
 
     def __init__(self, *, binary: str | None = None, timeout: float = 5):
-        self.binary = binary or shutil.which("secret-tool")
+        self.binary = shutil.which("secret-tool") if binary is None else binary
         if not self.binary:
             raise CredentialStoreUnavailable(
                 "The desktop Secret Service is unavailable; install libsecret-tools "
@@ -92,7 +92,7 @@ class SecretServiceCredentialStore:
             account,
         ])
         if result.returncode != 0:
-            if not result.stdout and result.returncode == 1:
+            if not result.stdout and not result.stderr and result.returncode == 1:
                 return None
             raise CredentialStoreUnavailable(
                 "The desktop keyring could not retrieve this credential."
@@ -113,7 +113,7 @@ class SecretServiceCredentialStore:
         ])
         if result.returncode == 0:
             return True
-        if result.returncode == 1 and not result.stdout:
+        if result.returncode == 1 and not result.stdout and not result.stderr:
             return False
         raise CredentialStoreUnavailable(
             "The desktop keyring could not remove this credential."
