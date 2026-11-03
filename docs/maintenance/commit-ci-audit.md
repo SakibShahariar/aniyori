@@ -118,7 +118,7 @@ Commits after the previous checkpoint through `bd3f6937d34fba486dd8efd1e6677e8ed
 - Diagnosis: both tests incorrectly treated the result of the first `ReleaseRuleStore.add()` call as if it already contained a second rule. The store correctly returned one rule after the first add.
 - Classification: test defect introduced in the issue #43 change; production code compilation succeeded.
 - Fix: update tests to capture the result of the second add operation. Also preserve caller order for equal rule priorities, validate rule field/action types, handle absent category collections safely, and rank preferred/wanted matches ahead of unmatched releases.
-- Fix commit / rerun: pending.
+- Fix commit: `0a1f18b5bd22cb37c51b9dea424c9aa624a88b13`. The complete Tests workflow passed on that commit (run [41722392894](https://github.com/SakibShahariar/aniyori/actions/runs/41722392894)).
 
 
 ## Reviewed range: 2026-11-03 (continued)

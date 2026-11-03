@@ -1491,7 +1491,11 @@ class AniyoriWindow(Adw.ApplicationWindow):
             save_button.set_label("Save Changes")
 
         def move_rule(rule_id, offset):
-            rules = self.release_rule_store.load()
+            try:
+                rules = self.release_rule_store.load()
+            except (OSError, ValueError) as error:
+                self.toast_overlay.add_toast(Adw.Toast.new(f"Could not load rules: {error}"))
+                return
             identifiers = [rule.rule_id for rule in rules]
             index = identifiers.index(rule_id)
             target = index + offset
