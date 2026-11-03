@@ -146,11 +146,31 @@ def _release_metadata(entry: FeedEntry, parsed) -> dict[str, Any]:
         multiplier = 1024 if unit == "gib" else 1000 if unit == "gb" else 1
         metadata["file_size_mb"] = round(amount * multiplier, 2)
 
-    seeder_match = re.search(
-        r"(?i)\bseeders?\s*[:=]\s*(\d+)\b|\b(\d+)\s+seeders?\b", text
+    for key in ("seeders", "leechers", "downloads"):
+        value = getattr(entry, key, None)
+        if value is not None:
+            metadata[key] = value
+    if getattr(entry, "size", None):
+        metadata["size"] = entry.size
+    if getattr(entry, "info_hash", None):
+        metadata["info_hash"] = entry.info_hash
+
+    if "seeders" not in metadata:
+        seeder_match = re.search(
+            r"(?i)\\bseeders?\\s*[:=]\\s*(\\d+)\\b|\\b(\\d+)\\s+seeders?\\b", text
+        )
+        if seeder_match:
+            metadata["seeders"] = int(seeder_match.group(1) or seeder_match.group(2))
+
+    size_text = getattr(entry, "size", None) or text
+    size_match = re.search(
+        r"(?i)\\b(\\d+(?:\\.\\d+)?)\\s*(GiB|GB|MiB|MB)\\b", size_text
     )
-    if seeder_match:
-        metadata["seeders"] = int(seeder_match.group(1) or seeder_match.group(2))
+    if size_match:
+        amount = float(size_match.group(1))
+        unit = size_match.group(2).casefold()
+        multiplier = 1024 if unit == "gib" else 1000 if unit == "gb" else 1
+        metadata["file_size_mb"] = round(amount * multiplier, 2)
     return metadata
 
 

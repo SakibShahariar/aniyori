@@ -1290,10 +1290,17 @@ class AniyoriWindow(Adw.ApplicationWindow):
                     "Rejected by preferences" if not release.score.accepted else
                     "Below score threshold"
                 )
+                facts = []
+                for key, label in (("size", "Size"), ("seeders", "Seeders"),
+                                   ("leechers", "Leechers"), ("downloads", "Downloads")):
+                    value = release.metadata.get(key)
+                    if value is not None:
+                        facts.append(f"{label}: {value}")
                 subtitle = Gtk.Label(
                     label=(
                         f"{release.feed_name} · {match_text} · "
-                        f"Quality {release.score.score:.1f}/100 · {decision}"
+                        + (" · ".join(facts) + " · " if facts else "")
+                        + f"Quality {release.score.score:.1f}/100 · {decision}"
                     ),
                     xalign=0,
                     wrap=True,

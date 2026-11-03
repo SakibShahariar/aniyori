@@ -40,6 +40,29 @@ class ReleaseFeedParserTests(unittest.TestCase):
         self.assertEqual(entry.categories, ("1080p", "English"))
         self.assertIn("<p>Episode one</p>", entry.summary)
 
+    def test_parses_nyaa_torrent_metadata_and_ignores_invalid_values(self):
+        feed = """<rss xmlns:nyaa="https://nyaa.si/xmlns/nyaa"><channel>
+          <item><title>[Group] Example - 01 (1080p)</title>
+            <link>https://nyaa.si/download/123.torrent</link>
+            <nyaa:seeders>270</nyaa:seeders><nyaa:leechers>1646</nyaa:leechers>
+            <nyaa:downloads>162</nyaa:downloads><nyaa:infoHash>ABCDEF0123456789ABCDEF0123456789ABCDEF01</nyaa:infoHash>
+            <nyaa:size>1.1 GiB</nyaa:size><nyaa:category>Anime - English-translated</nyaa:category>
+          </item>
+          <item><title>Invalid stats</title><nyaa:seeders>-1</nyaa:seeders>
+            <nyaa:downloads>many</nyaa:downloads><nyaa:infoHash>not-a-hash</nyaa:infoHash>
+          </item>
+        </channel></rss>"""
+        entries = parse_release_feed(feed)
+        self.assertEqual(entries[0].seeders, 270)
+        self.assertEqual(entries[0].leechers, 1646)
+        self.assertEqual(entries[0].downloads, 162)
+        self.assertEqual(entries[0].info_hash, "abcdef0123456789abcdef0123456789abcdef01")
+        self.assertEqual(entries[0].size, "1.1 GiB")
+        self.assertIn("Anime - English-translated", entries[0].categories)
+        self.assertIsNone(entries[1].seeders)
+        self.assertIsNone(entries[1].downloads)
+        self.assertIsNone(entries[1].info_hash)
+
     def test_parses_atom_namespaces_and_prefers_alternate_link(self):
         feed = """<feed xmlns="http://www.w3.org/2005/Atom">
           <title>Releases</title><entry><title>Example Episode 2</title>
@@ -153,6 +176,25 @@ class ReleaseFeedParserTests(unittest.TestCase):
         self.assertTrue(matched.score.accepted)
         self.assertEqual(results[0].releases[1].match_status, "unparsed")
         self.assertIn("temporary network failure", results[1].error)
+
+    def test_refresh_preserves_nyaa_torrent_stats_for_result_rows(self):
+        feed = RSSFeed("Nyaa", "https://nyaa.si/?page=rss&q=Example")
+        payload = b"""<rss xmlns:nyaa="https://nyaa.si/xmlns/nyaa"><channel><item>
+          <title>[Group] Frieren - 01 (1080p) [WEB-DL]</title>
+          <link>https://nyaa.si/download/123.torrent</link>
+          <nyaa:seeders>27</nyaa:seeders><nyaa:leechers>4</nyaa:leechers>
+          <nyaa:downloads>300</nyaa:downloads><nyaa:infoHash>abcdef0123456789abcdef0123456789abcdef01</nyaa:infoHash>
+          <nyaa:size>1.1 GiB</nyaa:size>
+        </item></channel></rss>"""
+        release = refresh_release_feeds(
+            [feed], CATALOGUE, fetcher=lambda _url: payload,
+        )[0].releases[0]
+        self.assertEqual(release.metadata["seeders"], 27)
+        self.assertEqual(release.metadata["leechers"], 4)
+        self.assertEqual(release.metadata["downloads"], 300)
+        self.assertEqual(release.metadata["info_hash"], "abcdef0123456789abcdef0123456789abcdef01")
+        self.assertEqual(release.metadata["size"], "1.1 GiB")
+        self.assertEqual(release.metadata["file_size_mb"], 1126.4)
 
     def test_refresh_extracts_all_supported_quality_metadata_when_present(self):
         feed = RSSFeed("Metadata", "https://example.org/feed.xml")

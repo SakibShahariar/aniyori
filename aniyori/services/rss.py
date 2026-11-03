@@ -30,6 +30,11 @@ class FeedEntry:
     published_at: datetime | None
     summary: str
     categories: tuple[str, ...]
+    size: str | None = None
+    seeders: int | None = None
+    leechers: int | None = None
+    downloads: int | None = None
+    info_hash: str | None = None
 
 
 def _local_name(tag: str) -> str:
@@ -94,6 +99,17 @@ def _published(value: str) -> datetime | None:
     return result.astimezone(timezone.utc)
 
 
+def _optional_count(value: str) -> int | None:
+    """Parse a nonnegative feed statistic without accepting malformed values."""
+    text = value.strip()
+    if not text or len(text) > 15 or not text.isdecimal():
+        return None
+    try:
+        return int(text)
+    except ValueError:
+        return None
+
+
 def _entry(element: ET.Element, *, atom: bool) -> FeedEntry | None:
     title = _child_text(element, "title")
     if not title:
@@ -121,6 +137,15 @@ def _entry(element: ET.Element, *, atom: bool) -> FeedEntry | None:
         published_at=_published(published),
         summary=summary,
         categories=tuple(dict.fromkeys(categories)),
+        size=_child_text(element, "size") or None,
+        seeders=_optional_count(_child_text(element, "seeders")),
+        leechers=_optional_count(_child_text(element, "leechers")),
+        downloads=_optional_count(_child_text(element, "downloads")),
+        info_hash=(
+            value.casefold()
+            if re.fullmatch(r"(?i)[0-9a-f]{40}", value := _child_text(element, "infoHash", "info_hash"))
+            else None
+        ),
     )
 
 
