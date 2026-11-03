@@ -2,6 +2,8 @@
 
 import unittest
 from datetime import timezone
+from unittest.mock import MagicMock, patch
+from urllib.error import HTTPError, URLError
 
 from aniyori.services.rss import FeedParseError, RSSFeed, RSSFeedStore, parse_release_feed
 from aniyori.services.release_monitor import (
@@ -226,6 +228,72 @@ class ReleaseFeedParserTests(unittest.TestCase):
     def test_fetcher_rejects_unsafe_urls_before_network_access(self):
         with self.assertRaisesRegex(FeedFetchError, "HTTP"):
             fetch_feed_content("file:///etc/passwd")
+
+    def test_fetch_feed_content_reports_http_rate_limit_and_network_failures(self):
+        failures = (
+            (HTTPError("https://example.org/feed.xml", 429, "Too Many Requests", None, None), "HTTP 429"),
+            (URLError("offline"), "Could not retrieve feed"),
+            (TimeoutError("timed out"), "Could not retrieve feed"),
+        )
+        for error, message in failures:
+            with self.subTest(error=error):
+                with patch(
+                    "aniyori.services.release_monitor.urlopen", side_effect=error
+                ):
+                    with self.assertRaisesRegex(FeedFetchError, message):
+                        fetch_feed_content("https://example.org/feed.xml")
+
+    def test_fetch_feed_content_rejects_declared_and_actual_oversized_bodies(self):
+        declared = MagicMock()
+        declared.__enter__.return_value = declared
+        declared.geturl.return_value = "https://example.org/feed.xml"
+        declared.headers.get.return_value = "4"
+        with patch(
+            "aniyori.services.release_monitor.urlopen", return_value=declared
+        ):
+            with self.assertRaisesRegex(FeedFetchError, "maximum allowed size"):
+                fetch_feed_content("https://example.org/feed.xml", max_bytes=3)
+        declared.read.assert_not_called()
+
+        actual = MagicMock()
+        actual.__enter__.return_value = actual
+        actual.geturl.return_value = "https://example.org/feed.xml"
+        actual.headers.get.return_value = None
+        actual.read.return_value = b"four"
+        with patch(
+            "aniyori.services.release_monitor.urlopen", return_value=actual
+        ):
+            with self.assertRaisesRegex(FeedFetchError, "maximum allowed size"):
+                fetch_feed_content("https://example.org/feed.xml", max_bytes=3)
+        actual.read.assert_called_once_with(4)
+
+    def test_fetch_feed_content_rejects_unsafe_redirect_destinations(self):
+        response = MagicMock()
+        response.__enter__.return_value = response
+        response.geturl.return_value = "file:///etc/passwd"
+        with patch(
+            "aniyori.services.release_monitor.urlopen", return_value=response
+        ):
+            with self.assertRaisesRegex(FeedFetchError, "unsafe URL"):
+                fetch_feed_content("https://example.org/feed.xml")
+        response.read.assert_not_called()
+
+    def test_refresh_keeps_valid_feeds_when_another_feed_is_malformed(self):
+        feeds = (
+            RSSFeed("Valid", "https://example.org/good.xml"),
+            RSSFeed("Malformed", "https://example.org/bad.xml"),
+        )
+        payload = b"<rss><channel><item><title>Example - 01</title></item></channel></rss>"
+
+        def fetcher(url):
+            return "<rss><channel>" if url.endswith("bad.xml") else payload
+
+        results = refresh_release_feeds(feeds, CATALOGUE, fetcher=fetcher)
+        self.assertEqual(len(results), 2)
+        self.assertIsNone(results[0].error)
+        self.assertEqual(len(results[0].releases), 1)
+        self.assertIn("invalid XML", results[1].error)
+        self.assertEqual(results[1].releases, ())
 
 
 
