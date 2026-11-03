@@ -5,7 +5,9 @@ from datetime import timezone
 from unittest.mock import MagicMock, patch
 from urllib.error import HTTPError, URLError
 
-from aniyori.services.rss import FeedParseError, RSSFeed, RSSFeedStore, parse_release_feed
+from aniyori.services.rss import (
+    FeedParseError, RSSFeed, RSSFeedStore, build_nyaa_search_url, parse_release_feed,
+)
 from aniyori.services.release_monitor import (
     FeedFetchError, fetch_feed_content, refresh_release_feeds,
 )
@@ -19,6 +21,24 @@ CATALOGUE = [
 
 
 class ReleaseFeedParserTests(unittest.TestCase):
+    def test_builds_nyaa_search_feed_urls_and_validates_queries(self):
+        from urllib.parse import parse_qs, urlsplit
+
+        url = build_nyaa_search_url("Frieren: Beyond Journey's End")
+        parsed = urlsplit(url)
+        self.assertEqual(parsed.scheme, "https")
+        self.assertEqual(parsed.netloc, "nyaa.si")
+        self.assertEqual(parse_qs(parsed.query), {
+            "page": ["rss"], "q": ["Frieren: Beyond Journey's End"],
+            "c": ["1_2"], "f": ["0"],
+        })
+        with self.assertRaisesRegex(ValueError, "must not be empty"):
+            build_nyaa_search_url("  ")
+        with self.assertRaisesRegex(ValueError, "200 characters"):
+            build_nyaa_search_url("x" * 201)
+        with self.assertRaisesRegex(ValueError, "category"):
+            build_nyaa_search_url("Frieren", category="9_9")
+
     def test_parses_rss_items_and_normalizes_dates_categories_and_links(self):
         feed = """<?xml version="1.0"?>
         <rss version="2.0"><channel><title>Anime Releases</title>

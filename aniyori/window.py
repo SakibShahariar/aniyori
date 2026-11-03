@@ -23,7 +23,7 @@ from .services.release_scoring import (
     DEFAULT_MINIMUM_SCORE, DEFAULT_WEIGHTS, ReleaseScoringSettingsStore,
 )
 from .services.release_monitor import refresh_release_feeds
-from .services.rss import FeedParseError, RSSFeedStore
+from .services.rss import FeedParseError, RSSFeedStore, build_nyaa_search_url
 from .services.release_preferences import (
     PREFERENCE_ATTRIBUTES, ReleasePreferenceError, ReleasePreferenceStore,
     evaluate_release_preferences,
@@ -1341,6 +1341,14 @@ class AniyoriWindow(Adw.ApplicationWindow):
         feed_list.set_selection_mode(Gtk.SelectionMode.NONE)
         feed_list.add_css_class("boxed-list")
         content.append(feed_list)
+        nyaa_search_entry = Gtk.Entry()
+        nyaa_search_entry.set_placeholder_text("Search Nyaa releases (e.g. Frieren)")
+        content.append(nyaa_search_entry)
+        nyaa_search_button = Gtk.Button(label="Add Nyaa Search Feed")
+        nyaa_search_button.set_tooltip_text(
+            "Add an English-translated anime RSS search from Nyaa.si."
+        )
+        content.append(nyaa_search_button)
         name_entry = Gtk.Entry()
         name_entry.set_placeholder_text("Feed name")
         content.append(name_entry)
@@ -1396,6 +1404,17 @@ class AniyoriWindow(Adw.ApplicationWindow):
                 row.append(remove_button)
                 feed_list.append(row)
 
+        def add_nyaa_search(_button):
+            query = nyaa_search_entry.get_text().strip()
+            try:
+                url = build_nyaa_search_url(query)
+                self.rss_feed_store.add(url, f"Nyaa: {query}")
+            except (OSError, ValueError, FeedParseError) as error:
+                self.toast_overlay.add_toast(Adw.Toast.new(f"Could not add Nyaa search: {error}"))
+                return
+            nyaa_search_entry.set_text("")
+            reload_feeds()
+
         def toggle_feed(feed):
             try:
                 self.rss_feed_store.update(feed.url, enabled=not feed.enabled)
@@ -1446,6 +1465,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
             self._refresh_release_feeds()
 
         save_button.connect("clicked", save_feed)
+        nyaa_search_button.connect("clicked", add_nyaa_search)
         refresh_button.connect("clicked", refresh_now)
         reload_feeds()
         dialog.present(self)

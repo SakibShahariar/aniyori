@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from email.utils import parsedate_to_datetime
 from typing import Iterable
-from urllib.parse import urlsplit
+from urllib.parse import urlencode, urlsplit
 import re
 import xml.etree.ElementTree as ET
 
@@ -205,6 +205,20 @@ def parse_release_feed(
         if item is not None:
             entries.append(item)
     return tuple(entries)
+
+
+def build_nyaa_search_url(query: str, *, category: str = "1_2") -> str:
+    """Build a Nyaa RSS search URL for a non-empty anime release query."""
+    if not isinstance(query, str) or not query.strip():
+        raise ValueError("Nyaa search terms must not be empty.")
+    search = query.strip()
+    if len(search) > 200:
+        raise ValueError("Nyaa search terms cannot exceed 200 characters.")
+    if category not in {"1_0", "1_1", "1_2", "1_3", "1_4"}:
+        raise ValueError("Unsupported Nyaa anime category.")
+    return "https://nyaa.si/?" + urlencode({
+        "page": "rss", "q": search, "c": category, "f": "0",
+    })
 
 
 RSS_FEED_FORMAT = "aniyori-rss-feeds"
