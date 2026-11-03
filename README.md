@@ -112,6 +112,15 @@ python3 main.py
 - Make features testable in small milestones.
 - Do not stream or host anime content; this is a tracking application.
 
+## License
+
+Aniyori is licensed under the GNU General Public License v3.0 or, at your option,
+any later version. The complete license text is available in [LICENSE](LICENSE).
+
+SPDX-License-Identifier: GPL-3.0-or-later
+
+Copyright (C) 2026 Sakib Shahariar
+
 ## Roadmap
 
 - [ ] AniList authentication and account synchronization
