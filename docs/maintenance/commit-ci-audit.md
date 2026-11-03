@@ -24,10 +24,10 @@ Persistent repository-specific record of commit-level CI checks and red-cross in
 
 - Repository: `SakibShahariar/aniyori`
 - Default branch: `main`
-- Checkpoint SHA: `c47b9ccfa08461693df461c8806886f93b9c1f99`
+- Checkpoint SHA: `afdd14713429707cda05001c00e1a8f600d7c25b`
 - Initialized: 2026-11-02
 - Baseline: latest branch tip queried through combined commit-status endpoint; empty status list recorded as **unavailable**, not green/red. Older history was not retroactively audited during setup.
-- Next session: review commits after `c47b9ccfa08461693df461c8806886f93b9c1f99`; carry forward any red or unresolved entries.
+- Next session: review commits after `afdd14713429707cda05001c00e1a8f600d7c25b`; carry forward any red or unresolved entries.
 
 ## Initial baseline
 
@@ -170,7 +170,7 @@ Commits after the previous checkpoint through `bd3f6937d34fba486dd8efd1e6677e8ed
 - Added a standard-library-only Web API client with cookie-based login, explicit torrent submission, category and paused options, and logout.
 - Validates magnet v1 info hashes and server URLs. Cleartext HTTP is limited to loopback; remote WebUI endpoints require HTTPS. Redirects are rejected so credentials/cookies are not forwarded to another origin.
 - Handles the legacy `Ok.` response and newer JSON success/pending counters.
-- Passwords are supplied only to the client instance and are not persisted. The GTK configuration UI and secure credential integration are still outstanding.
+- Passwords are supplied only to the client instance and are not persisted by the API client. The GTK configuration UI and Secret Service integration were completed in subsequent commits.
 - Every commit in this reviewed range completed its Tests workflow successfully. No red runs were observed for these commits.
 
 | Date | Reviewed range / checkpoint | Result summary |
@@ -201,5 +201,28 @@ Commits after the previous checkpoint through `bd3f6937d34fba486dd8efd1e6677e8ed
 - Failed test: `test_round_trip_persists_only_non_secret_preferences_with_private_mode`.
 - Diagnosis: the settings writer appended the two literal characters `\\n` instead of a newline, leaving invalid trailing data after the JSON document. Python compilation passed; the settings round-trip test caught the serialization defect.
 - Classification: implementation defect in the new settings-store change.
-- Fix: follow-up commit corrects the serialized trailing newline and asserts the file ends with a real newline before reloading.
-- Fix CI: pending at ledger update time.
+- Fix: commit `20972d73fb4f63c7a2b631ed65c9fdd4b28b2437` corrects the serialized trailing newline and asserts the file ends with a real newline before reloading.
+- Fix CI: the complete Tests workflow passed (run [41725019740](https://github.com/SakibShahariar/aniyori/actions/runs/41725019740)).
+
+
+## Reviewed range: 2026-11-04 (continued)
+
+| Commit SHA | Subject | CI result | Run |
+|---|---|---|---|
+| `1c94b662579efebae3313ef8c1c1a8ced674e34d` | feat(download): persist qBittorrent connection settings (#45) | red | [41724885784](https://github.com/SakibShahariar/aniyori/actions/runs/41724885784) |
+| `20972d73fb4f63c7a2b631ed65c9fdd4b28b2437` | fix(download): write valid qBittorrent settings JSON (#45) | green | [41725019740](https://github.com/SakibShahariar/aniyori/actions/runs/41725019740) |
+| `afdd14713429707cda05001c00e1a8f600d7c25b` | feat(gui): configure and submit releases to qBittorrent (#45) | green | [41725336847](https://github.com/SakibShahariar/aniyori/actions/runs/41725336847) |
+
+### Failure investigation: qBittorrent settings serialization
+
+- Commit SHA: `1c94b662579efebae3313ef8c1c1a8ced674e34d`
+- Workflow / run: [Tests / 41724885784](https://github.com/SakibShahariar/aniyori/actions/runs/41724885784)
+- Failed test: `test_round_trip_persists_only_non_secret_preferences_with_private_mode`.
+- Diagnosis: the writer appended the two literal characters `\\n` instead of a newline, leaving invalid trailing data after the JSON document. Compilation passed; the settings round-trip test caught the defect.
+- Fix commit: `20972d73fb4f63c7a2b631ed65c9fdd4b28b2437`; the complete Tests workflow passed (run [41725019740](https://github.com/SakibShahariar/aniyori/actions/runs/41725019740)).
+- Follow-up UI commit: `afdd14713429707cda05001c00e1a8f600d7c25b`; the complete Tests workflow passed (run [41725336847](https://github.com/SakibShahariar/aniyori/actions/runs/41725336847)).
+- Remaining follow-up: real desktop/keyring/qBittorrent validation remains tracked in #45 and #63.
+
+| Date | Reviewed range / checkpoint | Result summary |
+|---|---|---|
+| 2026-11-04 | `c47b9ccfa08461693df461c8806886f93b9c1f99` → `afdd14713429707cda05001c00e1a8f600d7c25b` | Reviewed three commits: settings JSON regression red, serialization fix green, GTK qBittorrent integration green. |

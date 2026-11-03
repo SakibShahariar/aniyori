@@ -18,7 +18,9 @@ A native Linux anime tracker built with Python, GTK 4, PyGObject, and libadwaita
 - **Library:** manual and AniList-backed entries, progress tracking, status filters, list/grid views, bulk status/progress/delete actions, and statistics.
 - **AniList:** cached catalogue search, AniList recent and saved search queries, next-episode countdowns, and offline metadata fallback.
 - **Local media:** configurable folders, recursive video discovery, filename recognition, and available/missing/next episode summaries.
-- **Preferences:** saved share-format templates with live preview, release-attribute preferences, and explainable release-quality scoring helpers.
+- **Preferences:** saved share-format templates with live preview, release-attribute preferences, explainable release-quality scoring, and ordered smart release rules.
+- **Release discovery:** Nyaa.si search and configurable RSS/Atom feeds, release metadata, library matching, filtering, sorting, and rule-based selection.
+- **Download handoff:** validated magnet links through the desktop's default torrent application or explicit qBittorrent WebUI submission.
 - **Data:** local SQLite storage, JSON/CSV export, and validated library import.
 
 Library entries remain local. The desktop interface still needs a launch and interaction test on a Linux session.
@@ -40,10 +42,20 @@ implemented. The public AniList catalogue client does not store OAuth tokens.
   associated with an HTTP request.
 
 Aniyori does not upload the local library database as part of these catalogue or
-feed requests. Search history and feed configuration are stored locally. When you
-explicitly choose **Send to torrent client**, Aniyori opens a validated magnet URI
-with your desktop's registered torrent application; it does not start downloads on
-its own.
+feed requests. Search history and feed configuration are stored locally.
+
+- **Magnet handoff:** Aniyori opens a validated magnet URI only when you explicitly
+  choose the desktop-handler action.
+- **qBittorrent:** when you explicitly choose **Send to qBittorrent**, Aniyori sends
+  the selected magnet to the WebUI address you configured. The WebUI receives the
+  release URI and normal request metadata. Passwords are stored in the desktop
+  Secret Service through `secret-tool`, never in Aniyori's plaintext settings.
+  Non-secret connection preferences are saved in
+  `~/.config/aniyori/qbittorrent.json`. Remote WebUI connections require HTTPS.
+  If the Secret Service is unavailable, API submission is disabled; the generic
+  desktop magnet handoff remains available.
+
+Feed refresh, rule evaluation, and sorting never submit downloads automatically.
 
 ### Where data is stored
 
@@ -54,12 +66,14 @@ or points to a relative path, Aniyori uses the standard home-directory default.
 | --- | --- |
 | Library database | `~/.local/share/aniyori/library.sqlite3` |
 | Preferences and saved data | `~/.config/aniyori/` |
+| qBittorrent connection preferences (no password) | `~/.config/aniyori/qbittorrent.json` |
 | AniList metadata cache | `~/.cache/aniyori/metadata/` |
 | Cover image cache | `~/.cache/aniyori/covers/` |
 
 The configuration directory contains saved RSS feed URLs, search history, ordered
-release rules, release preferences, release-scoring settings, and the share-template
-setting. The metadata and cover directories contain cached remote data and images;
+release rules, release preferences, release-scoring settings, share-template, and
+qBittorrent connection preferences. qBittorrent passwords are kept separately in
+the desktop Secret Service. The metadata and cover directories contain cached remote data and images;
 they can be cleared
 without deleting the library database or preferences.
 
@@ -128,6 +142,6 @@ Copyright (C) 2026 Sakib Shahariar
 ## Roadmap
 
 - [ ] AniList authentication and account synchronization
-- [ ] RSS feeds, torrent search, and download-client integration
+- [x] RSS/Atom release monitoring, smart rules, and explicit qBittorrent download-client handoff (live desktop verification pending)
 - [ ] Playback detection and watch-history integration
 - [ ] Packaging and release workflow
