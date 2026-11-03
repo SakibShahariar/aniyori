@@ -23,6 +23,58 @@ A native Linux anime tracker built with Python, GTK 4, PyGObject, and libadwaita
 
 Library entries remain local. The desktop interface still needs a launch and interaction test on a Linux session.
 
+## Privacy and local data
+
+Aniyori is currently a local library tracker. The library database is stored on your
+device; AniList account sign-in and authenticated library synchronization are not
+implemented. The public AniList catalogue client does not store OAuth tokens.
+
+### Network requests
+
+- **AniList:** catalogue searches send the search text to AniList's public GraphQL
+  API. Opening or refreshing catalogue details sends the corresponding media ID.
+- **Cover images:** when a cover is not already cached, Aniyori downloads it over
+  HTTPS from an AniList-hosted image URL.
+- **RSS/Atom:** Aniyori contacts the HTTP(S) feed URLs you configure when you
+  refresh release feeds. Those feed providers receive the normal request metadata
+  associated with an HTTP request.
+
+Aniyori does not upload the local library database as part of these catalogue or
+feed requests. Search history and feed configuration are stored locally.
+
+### Where data is stored
+
+Paths follow the XDG Base Directory environment variables. If a variable is unset
+or points to a relative path, Aniyori uses the standard home-directory default.
+
+| Data | Default location |
+| --- | --- |
+| Library database | `~/.local/share/aniyori/library.sqlite3` |
+| Preferences and saved data | `~/.config/aniyori/` |
+| AniList metadata cache | `~/.cache/aniyori/metadata/` |
+| Cover image cache | `~/.cache/aniyori/covers/` |
+
+The configuration directory contains saved RSS feed URLs, search history, release
+preferences, release-scoring settings, and the share-template setting. The metadata
+and cover directories contain cached remote data and images; they can be cleared
+without deleting the library database or preferences.
+
+### Removing local data
+
+Close Aniyori first. To remove all of its local data, delete its `aniyori`
+subdirectory from each of the XDG data, config, and cache directories. With the
+default XDG locations, these are:
+
+```text
+~/.local/share/aniyori/
+~/.config/aniyori/
+~/.cache/aniyori/
+```
+
+This permanently deletes the local library, saved preferences and history, and
+cached metadata and images. Back up the library database first if you may want to
+restore it later.
+
 ## Requirements
 
 - Python 3.10+
