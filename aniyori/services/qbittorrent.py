@@ -2,8 +2,12 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from http.cookiejar import CookieJar
 import json
+import os
+from pathlib import Path
+import tempfile
 import ipaddress
 import re
 from urllib.error import HTTPError, URLError
@@ -87,6 +91,120 @@ def validate_magnet_uri(value: str) -> str:
     ):
         raise ValueError("The magnet link does not contain a valid BitTorrent v1 info hash.")
     return value
+
+
+
+QBITTORRENT_SETTINGS_FORMAT = "aniyori-qbittorrent-settings"
+QBITTORRENT_SETTINGS_VERSION = 1
+
+
+@dataclass(frozen=True, slots=True)
+class QBittorrentSettings:
+    """Non-secret qBittorrent connection preferences."""
+
+    server_url: str
+    username: str
+    category: str = ""
+    paused: bool = False
+
+
+def default_qbittorrent_settings_path() -> Path:
+    """Return the XDG path for non-secret qBittorrent settings."""
+    config_home = Path(os.environ.get("XDG_CONFIG_HOME") or Path.home() / ".config")
+    if not config_home.is_absolute():
+        config_home = Path.home() / ".config"
+    return config_home / "aniyori" / "qbittorrent.json"
+
+
+class QBittorrentSettingsStore:
+    """Atomically persist qBittorrent preferences without storing passwords."""
+
+    def __init__(self, path: str | Path | None = None):
+        self.path = Path(path) if path is not None else default_qbittorrent_settings_path()
+
+    @staticmethod
+    def normalize(settings: QBittorrentSettings) -> QBittorrentSettings:
+        if not isinstance(settings, QBittorrentSettings):
+            raise ValueError("qBittorrent settings are malformed.")
+        server_url = validate_server_url(settings.server_url)
+        if (
+            not isinstance(settings.username, str)
+            or not settings.username.strip()
+            or len(settings.username) > 256
+        ):
+            raise ValueError("A valid qBittorrent username is required.")
+        if (
+            not isinstance(settings.category, str)
+            or len(settings.category) > 128
+            or any(ord(character) < 32 for character in settings.category)
+        ):
+            raise ValueError("The qBittorrent category is invalid.")
+        if not isinstance(settings.paused, bool):
+            raise ValueError("The qBittorrent paused preference must be a boolean.")
+        return QBittorrentSettings(
+            server_url=server_url,
+            username=settings.username.strip(),
+            category=settings.category.strip(),
+            paused=settings.paused,
+        )
+
+    def load(self) -> QBittorrentSettings | None:
+        try:
+            payload = json.loads(self.path.read_text(encoding="utf-8"))
+        except FileNotFoundError:
+            return None
+        except (OSError, UnicodeDecodeError, json.JSONDecodeError) as error:
+            raise QBittorrentError("Saved qBittorrent settings are unreadable.") from error
+        if (
+            not isinstance(payload, dict)
+            or payload.get("format") != QBITTORRENT_SETTINGS_FORMAT
+            or payload.get("version") != QBITTORRENT_SETTINGS_VERSION
+            or isinstance(payload.get("version"), bool)
+        ):
+            raise QBittorrentError("Saved qBittorrent settings have an unsupported format.")
+        try:
+            settings = QBittorrentSettings(
+                server_url=payload.get("server_url"),
+                username=payload.get("username"),
+                category=payload.get("category", ""),
+                paused=payload.get("paused", False),
+            )
+            return self.normalize(settings)
+        except (TypeError, ValueError) as error:
+            raise QBittorrentError("Saved qBittorrent settings are invalid.") from error
+
+    def save(self, settings: QBittorrentSettings) -> None:
+        normalized = self.normalize(settings)
+        payload = {
+            "format": QBITTORRENT_SETTINGS_FORMAT,
+            "version": QBITTORRENT_SETTINGS_VERSION,
+            "server_url": normalized.server_url,
+            "username": normalized.username,
+            "category": normalized.category,
+            "paused": normalized.paused,
+        }
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        content = json.dumps(payload, ensure_ascii=False, indent=2) + "\\n"
+        temporary_path = None
+        try:
+            with tempfile.NamedTemporaryFile(
+                mode="w",
+                encoding="utf-8",
+                dir=self.path.parent,
+                prefix=".qbittorrent-",
+                delete=False,
+            ) as temporary:
+                temporary.write(content)
+                temporary_path = Path(temporary.name)
+            os.chmod(temporary_path, 0o600)
+            os.replace(temporary_path, self.path)
+            os.chmod(self.path, 0o600)
+        finally:
+            if temporary_path is not None:
+                temporary_path.unlink(missing_ok=True)
+
+    def clear(self) -> None:
+        self.path.unlink(missing_ok=True)
 
 
 class QBittorrentClient:

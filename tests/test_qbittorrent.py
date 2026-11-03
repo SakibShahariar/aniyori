@@ -1,5 +1,8 @@
 """Tests for the qBittorrent Web API integration."""
 
+import os
+import stat
+import tempfile
 import unittest
 from urllib.parse import parse_qs
 
@@ -7,6 +10,8 @@ from aniyori.services.qbittorrent import (
     QBittorrentAuthenticationError,
     QBittorrentClient,
     QBittorrentError,
+    QBittorrentSettings,
+    QBittorrentSettingsStore,
     validate_magnet_uri,
     validate_server_url,
 )
@@ -41,6 +46,42 @@ class _Opener:
             raise response
         return _Response(response)
 
+
+class QBittorrentSettingsStoreTests(unittest.TestCase):
+    def test_round_trip_persists_only_non_secret_preferences_with_private_mode(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = os.path.join(directory, "qbittorrent.json")
+            store = QBittorrentSettingsStore(path)
+            settings = QBittorrentSettings(
+                "http://localhost:8080/", " anime-user ", " Anime ", True
+            )
+            store.save(settings)
+            self.assertEqual(
+                store.load(),
+                QBittorrentSettings("http://localhost:8080", "anime-user", "Anime", True),
+            )
+            mode = stat.S_IMODE(os.stat(path).st_mode)
+            self.assertEqual(mode, 0o600)
+            with open(path, encoding="utf-8") as saved:
+                content = saved.read()
+            self.assertNotIn("password", content)
+            self.assertNotIn("secret", content)
+            store.clear()
+            self.assertIsNone(store.load())
+
+    def test_missing_settings_file_returns_none(self):
+        with tempfile.TemporaryDirectory() as directory:
+            self.assertIsNone(
+                QBittorrentSettingsStore(os.path.join(directory, "missing.json")).load()
+            )
+
+    def test_rejects_insecure_remote_url_and_malformed_settings(self):
+        with tempfile.TemporaryDirectory() as directory:
+            store = QBittorrentSettingsStore(os.path.join(directory, "settings.json"))
+            with self.assertRaises(ValueError):
+                store.save(QBittorrentSettings("http://seedbox.example", "user"))
+            with self.assertRaises(ValueError):
+                store.save(QBittorrentSettings("http://localhost", "", "Anime"))
 
 class QBittorrentValidationTests(unittest.TestCase):
     def test_server_url_requires_tls_except_for_loopback(self):

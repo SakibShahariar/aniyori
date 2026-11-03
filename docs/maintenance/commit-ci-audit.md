@@ -24,10 +24,10 @@ Persistent repository-specific record of commit-level CI checks and red-cross in
 
 - Repository: `SakibShahariar/aniyori`
 - Default branch: `main`
-- Checkpoint SHA: `8ccf10a227851f2fdd9bbcca32e2b4e8fa31d397`
+- Checkpoint SHA: `c47b9ccfa08461693df461c8806886f93b9c1f99`
 - Initialized: 2026-11-02
 - Baseline: latest branch tip queried through combined commit-status endpoint; empty status list recorded as **unavailable**, not green/red. Older history was not retroactively audited during setup.
-- Next session: review commits after `8ccf10a227851f2fdd9bbcca32e2b4e8fa31d397`; carry forward any red or unresolved entries.
+- Next session: review commits after `c47b9ccfa08461693df461c8806886f93b9c1f99`; carry forward any red or unresolved entries.
 
 ## Initial baseline
 
@@ -176,3 +176,19 @@ Commits after the previous checkpoint through `bd3f6937d34fba486dd8efd1e6677e8ed
 | Date | Reviewed range / checkpoint | Result summary |
 |---|---|---|
 | 2026-11-04 | `2a39e57eec14278e5282f5ee80368d5d181b7b4c` → `8ccf10a227851f2fdd9bbcca32e2b4e8fa31d397` | Reviewed three commits; all three Tests workflows green. |
+
+
+| Commit SHA | Subject | CI result | Run |
+|---|---|---|---|
+| `43c2eb0dc822857816cdb08293a7beaa96ae3846` | feat(security): add Secret Service credential storage (#63) | green | [41724618766](https://github.com/SakibShahariar/aniyori/actions/runs/41724618766) |
+| `c47b9ccfa08461693df461c8806886f93b9c1f99` | fix(security): distinguish missing secrets from keyring errors (#63) | green | [41724673662](https://github.com/SakibShahariar/aniyori/actions/runs/41724673662) |
+
+### Credential-store implementation notes
+
+- Added a Secret Service adapter using `secret-tool`; it sends secrets over stdin, supports lookup/removal, and fails closed if the helper/keyring is unavailable.
+- No plaintext or custom cryptographic fallback was added. Encrypted fallback and live desktop keyring validation remain open work under #63.
+- Both commits passed the complete Tests workflow.
+
+| Date | Reviewed range / checkpoint | Result summary |
+|---|---|---|
+| 2026-11-04 | `8ccf10a227851f2fdd9bbcca32e2b4e8fa31d397` → `c47b9ccfa08461693df461c8806886f93b9c1f99` | Reviewed two credential-storage commits; both Tests workflows green. |
