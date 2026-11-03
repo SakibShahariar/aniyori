@@ -64,6 +64,7 @@ class QBittorrentSettingsStoreTests(unittest.TestCase):
             self.assertEqual(mode, 0o600)
             with open(path, encoding="utf-8") as saved:
                 content = saved.read()
+            self.assertTrue(content.endswith("\n"))
             self.assertNotIn("password", content)
             self.assertNotIn("secret", content)
             store.clear()

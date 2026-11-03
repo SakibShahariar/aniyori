@@ -184,7 +184,7 @@ class QBittorrentSettingsStore:
             "paused": normalized.paused,
         }
         self.path.parent.mkdir(parents=True, exist_ok=True)
-        content = json.dumps(payload, ensure_ascii=False, indent=2) + "\\n"
+        content = json.dumps(payload, ensure_ascii=False, indent=2) + "\n"
         temporary_path = None
         try:
             with tempfile.NamedTemporaryFile(

@@ -192,3 +192,14 @@ Commits after the previous checkpoint through `bd3f6937d34fba486dd8efd1e6677e8ed
 | Date | Reviewed range / checkpoint | Result summary |
 |---|---|---|
 | 2026-11-04 | `8ccf10a227851f2fdd9bbcca32e2b4e8fa31d397` → `c47b9ccfa08461693df461c8806886f93b9c1f99` | Reviewed two credential-storage commits; both Tests workflows green. |
+
+
+## Failure investigation: qBittorrent settings serialization
+
+- Commit SHA: `1c94b662579efebae3313ef8c1c1a8ced674e34d`
+- Workflow / run: [Tests / 41724885784](https://github.com/SakibShahariar/aniyori/actions/runs/41724885784)
+- Failed test: `test_round_trip_persists_only_non_secret_preferences_with_private_mode`.
+- Diagnosis: the settings writer appended the two literal characters `\\n` instead of a newline, leaving invalid trailing data after the JSON document. Python compilation passed; the settings round-trip test caught the serialization defect.
+- Classification: implementation defect in the new settings-store change.
+- Fix: follow-up commit corrects the serialized trailing newline and asserts the file ends with a real newline before reloading.
+- Fix CI: pending at ledger update time.
