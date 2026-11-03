@@ -110,6 +110,19 @@ class QBittorrentClientTests(unittest.TestCase):
             client.add_magnet(MAGNET)
         self.assertEqual(len(opener.requests), 1)
 
+    def test_accepts_newer_api_json_submission_confirmation(self):
+        opener = _Opener([
+            "Ok.",
+            '{"success_count":0,"pending_count":1,"failure_count":0,"added_torrent_ids":["abc"]}',
+            "Ok.",
+        ])
+        client = QBittorrentClient(
+            "http://localhost:8080", "user", "password",
+            opener=opener,
+        )
+        client.add_magnet(MAGNET)
+        self.assertEqual(len(opener.requests), 3)
+
     def test_failed_add_is_reported_and_session_is_logged_out(self):
         opener = _Opener(["Ok.", "Fails.", "Ok."])
         client = QBittorrentClient(

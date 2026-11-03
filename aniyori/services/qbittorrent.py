@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from http.cookiejar import CookieJar
+import json
 import ipaddress
 import re
 from urllib.error import HTTPError, URLError
@@ -211,9 +212,24 @@ class QBittorrentClient:
                 content_type=f"multipart/form-data; boundary={boundary}",
             )
             if result.casefold() not in {"ok.", "ok"}:
-                raise QBittorrentError(
-                    "qBittorrent did not confirm that the release was added."
-                )
+                try:
+                    outcome = json.loads(result)
+                except (TypeError, json.JSONDecodeError):
+                    outcome = None
+                if not isinstance(outcome, dict):
+                    raise QBittorrentError(
+                        "qBittorrent did not confirm that the release was added."
+                    )
+                added = outcome.get("success_count", 0)
+                pending = outcome.get("pending_count", 0)
+                if (
+                    isinstance(added, bool) or not isinstance(added, int)
+                    or isinstance(pending, bool) or not isinstance(pending, int)
+                    or added + pending < 1
+                ):
+                    raise QBittorrentError(
+                        "qBittorrent did not confirm that the release was added."
+                    )
         finally:
             try:
                 self._request("/api/v2/auth/logout", b"")
