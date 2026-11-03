@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, patch
 from urllib.error import HTTPError, URLError
 
 from aniyori.services.rss import (
-    FeedParseError, RSSFeed, RSSFeedStore, build_nyaa_search_url, parse_release_feed,
+    FeedParseError, RSSFeed, RSSFeedStore, build_magnet_uri, build_nyaa_search_url, parse_release_feed,
 )
 from aniyori.services.release_monitor import (
     FeedFetchError, fetch_feed_content, filter_release_results, refresh_release_feeds,
@@ -21,6 +21,22 @@ CATALOGUE = [
 
 
 class ReleaseFeedParserTests(unittest.TestCase):
+    def test_builds_safe_magnet_uris_from_validated_info_hashes(self):
+        from urllib.parse import parse_qs, urlsplit
+
+        uri = build_magnet_uri(
+            "ABCDEF0123456789ABCDEF0123456789ABCDEF01", "Frieren: Beyond Journey's End"
+        )
+        parsed = urlsplit(uri)
+        self.assertEqual(parsed.scheme, "magnet")
+        self.assertEqual(parse_qs(parsed.query), {
+            "xt": ["urn:btih:abcdef0123456789abcdef0123456789abcdef01"],
+            "dn": ["Frieren: Beyond Journey's End"],
+        })
+        for invalid in ("not-a-hash", "g" * 40, "a" * 39, "a" * 41):
+            with self.subTest(invalid=invalid), self.assertRaisesRegex(ValueError, "40-character"):
+                build_magnet_uri(invalid)
+
     def test_builds_nyaa_search_feed_urls_and_validates_queries(self):
         from urllib.parse import parse_qs, urlsplit
 
@@ -77,6 +93,7 @@ class ReleaseFeedParserTests(unittest.TestCase):
         self.assertEqual(entries[0].leechers, 1646)
         self.assertEqual(entries[0].downloads, 162)
         self.assertEqual(entries[0].info_hash, "abcdef0123456789abcdef0123456789abcdef01")
+        self.assertTrue(entries[0].magnet_uri.startswith("magnet:?xt=urn%3Abtih%3A"))
         self.assertEqual(entries[0].size, "1.1 GiB")
         self.assertIn("Anime - English-translated", entries[0].categories)
         self.assertIsNone(entries[1].seeders)

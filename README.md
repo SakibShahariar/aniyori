@@ -40,7 +40,10 @@ implemented. The public AniList catalogue client does not store OAuth tokens.
   associated with an HTTP request.
 
 Aniyori does not upload the local library database as part of these catalogue or
-feed requests. Search history and feed configuration are stored locally.
+feed requests. Search history and feed configuration are stored locally. When you
+explicitly choose **Send to torrent client**, Aniyori opens a validated magnet URI
+with your desktop's registered torrent application; it does not start downloads on
+its own.
 
 ### Where data is stored
 

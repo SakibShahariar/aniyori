@@ -36,6 +36,11 @@ class FeedEntry:
     downloads: int | None = None
     info_hash: str | None = None
 
+    @property
+    def magnet_uri(self) -> str | None:
+        """Return a validated BitTorrent magnet URI when the feed provides a hash."""
+        return build_magnet_uri(self.info_hash, self.title) if self.info_hash else None
+
 
 def _local_name(tag: str) -> str:
     return tag.rsplit("}", 1)[-1].casefold()
@@ -49,6 +54,20 @@ def _child_text(element: ET.Element, *names: str) -> str:
             if value:
                 return value
     return ""
+
+
+def build_magnet_uri(info_hash: str, display_name: str | None = None) -> str:
+    """Build a magnet URI from a validated 40-character BitTorrent v1 hash."""
+    if not isinstance(info_hash, str) or not re.fullmatch(r"(?i)[0-9a-f]{40}", info_hash):
+        raise ValueError("A valid 40-character hexadecimal info hash is required.")
+    parameters = [("xt", f"urn:btih:{info_hash.casefold()}")]
+    if display_name is not None:
+        if not isinstance(display_name, str):
+            raise ValueError("Magnet display name must be text.")
+        name = display_name.strip()
+        if name:
+            parameters.append(("dn", name[:200]))
+    return "magnet:?" + urlencode(parameters)
 
 
 def _safe_link(value: str | None) -> str | None:

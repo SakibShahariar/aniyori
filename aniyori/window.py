@@ -1343,8 +1343,17 @@ class AniyoriWindow(Adw.ApplicationWindow):
                 subtitle.set_tooltip_text(release.decision_explanation)
                 details.append(subtitle)
                 row.append(details)
-                if release.entry.link:
-                    link = Gtk.LinkButton.new_with_label(release.entry.link, "Open")
+                if release.entry.magnet_uri:
+                    link = Gtk.LinkButton.new_with_label(
+                        release.entry.magnet_uri, "Send to torrent client"
+                    )
+                    link.set_tooltip_text(
+                        "Open this magnet link in your desktop's default torrent application."
+                    )
+                    link.set_valign(Gtk.Align.CENTER)
+                    row.append(link)
+                elif release.entry.link:
+                    link = Gtk.LinkButton.new_with_label(release.entry.link, "Open source")
                     link.set_valign(Gtk.Align.CENTER)
                     row.append(link)
                 self.release_list_box.append(row)
