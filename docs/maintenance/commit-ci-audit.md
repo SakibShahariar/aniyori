@@ -24,10 +24,10 @@ Persistent repository-specific record of commit-level CI checks and red-cross in
 
 - Repository: `SakibShahariar/aniyori`
 - Default branch: `main`
-- Checkpoint SHA: `afdd14713429707cda05001c00e1a8f600d7c25b`
+- Checkpoint SHA: `632b7958e1194ff0d322822920d99be60d3d250f`
 - Initialized: 2026-11-02
 - Baseline: latest branch tip queried through combined commit-status endpoint; empty status list recorded as **unavailable**, not green/red. Older history was not retroactively audited during setup.
-- Next session: review commits after `afdd14713429707cda05001c00e1a8f600d7c25b`; carry forward any red or unresolved entries.
+- Next session: review commits after `632b7958e1194ff0d322822920d99be60d3d250f`; carry forward any red or unresolved entries.
 
 ## Initial baseline
 
@@ -226,3 +226,12 @@ Commits after the previous checkpoint through `bd3f6937d34fba486dd8efd1e6677e8ed
 | Date | Reviewed range / checkpoint | Result summary |
 |---|---|---|
 | 2026-11-04 | `c47b9ccfa08461693df461c8806886f93b9c1f99` → `afdd14713429707cda05001c00e1a8f600d7c25b` | Reviewed three commits: settings JSON regression red, serialization fix green, GTK qBittorrent integration green. |
+
+
+| Commit SHA | Subject | CI result | Run |
+|---|---|---|---|
+| `632b7958e1194ff0d322822920d99be60d3d250f` | docs: document qBittorrent release handoff (#45) | green | [41725508709](https://github.com/SakibShahariar/aniyori/actions/runs/41725508709) |
+
+| Date | Reviewed range / checkpoint | Result summary |
+|---|---|---|
+| 2026-11-04 | `afdd14713429707cda05001c00e1a8f600d7c25b` → `632b7958e1194ff0d322822920d99be60d3d250f` | README now documents the qBittorrent API flow, Secret Service requirement, local settings path, and credential-removal behavior; CI green. |

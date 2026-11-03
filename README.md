@@ -71,11 +71,11 @@ or points to a relative path, Aniyori uses the standard home-directory default.
 | Cover image cache | `~/.cache/aniyori/covers/` |
 
 The configuration directory contains saved RSS feed URLs, search history, ordered
-release rules, release preferences, release-scoring settings, share-template, and
-qBittorrent connection preferences. qBittorrent passwords are kept separately in
-the desktop Secret Service. The metadata and cover directories contain cached remote data and images;
-they can be cleared
-without deleting the library database or preferences.
+release rules, release preferences, release-scoring settings, share-template
+settings, and qBittorrent connection preferences. qBittorrent passwords are kept
+separately in the desktop Secret Service. The metadata and cover directories contain
+cached remote data and images; they can be cleared without deleting the library
+database or preferences.
 
 ### Removing local data
 
@@ -91,7 +91,9 @@ default XDG locations, these are:
 
 This permanently deletes the local library, saved preferences and history, and
 cached metadata and images. Back up the library database first if you may want to
-restore it later.
+restore it later. To remove a saved qBittorrent password too, use **Configure
+qBittorrent → Remove connection** before deleting these directories; removing the
+configuration directory alone does not remove the keyring entry.
 
 ## Requirements
 
@@ -99,6 +101,9 @@ restore it later.
 - GTK 4
 - PyGObject
 - libadwaita
+- Optional for qBittorrent WebUI integration: `secret-tool` and an unlocked
+  freedesktop Secret Service provider (for example, GNOME Keyring or a compatible
+  KWallet setup). Without these, use the desktop magnet-link handoff.
 
 Install system dependencies:
 
