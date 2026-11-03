@@ -23,7 +23,7 @@ from .services.release_scoring import (
     DEFAULT_MINIMUM_SCORE, DEFAULT_WEIGHTS, ReleaseScoringSettingsStore,
 )
 from .services.release_monitor import filter_release_results, refresh_release_feeds
-from .services.release_rules import ReleaseRuleStore
+from .services.release_rules import ReleaseRuleStore, evaluate_release_rules
 from .services.rss import FeedParseError, RSSFeedStore, build_nyaa_search_url
 from .services.release_preferences import (
     PREFERENCE_ATTRIBUTES, ReleasePreferenceError, ReleasePreferenceStore,
@@ -290,6 +290,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
             ("release-preferences", self._show_release_preferences_dialog),
             ("release-scoring", self._show_release_scoring_dialog),
             ("manage-release-feeds", self._show_release_feed_manager),
+            ("manage-release-rules", self._show_release_rule_manager),
             ("about", self._show_about_dialog),
         ]:
             action = Gio.SimpleAction.new(name, None)
@@ -327,6 +328,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
         primary_menu.append("Release Preferences", "win.release-preferences")
         primary_menu.append("Release Scoring Weights", "win.release-scoring")
         primary_menu.append("Manage Release Feeds", "win.manage-release-feeds")
+        primary_menu.append("Manage Smart Release Rules", "win.manage-release-rules")
         primary_menu.append("About Aniyori", "win.about")
         primary_menu.append("Quit", "win.quit")
         menu_button = Gtk.MenuButton()
@@ -491,6 +493,11 @@ class AniyoriWindow(Adw.ApplicationWindow):
             "clicked", lambda _button: self._show_release_feed_manager()
         )
         release_controls.append(manage_releases_button)
+        manage_rules_button = Gtk.Button(label="Manage Rules")
+        manage_rules_button.connect(
+            "clicked", lambda _button: self._show_release_rule_manager()
+        )
+        release_controls.append(manage_rules_button)
         self.release_page.append(release_controls)
         self.release_list_box = Gtk.ListBox()
         self.release_list_box.set_selection_mode(Gtk.SelectionMode.NONE)
@@ -1357,6 +1364,218 @@ class AniyoriWindow(Adw.ApplicationWindow):
             label.set_margin_bottom(24)
             label.add_css_class("dim-label")
             self.release_list_box.append(label)
+
+    def _show_release_rule_manager(self):
+        dialog = Adw.AlertDialog(
+            heading="Smart Release Rules",
+            body=(
+                "Rules are checked from top to bottom. The first matching enabled rule "
+                "classifies a release as preferred, wanted, or discarded. Rules never "
+                "start downloads automatically."
+            ),
+        )
+        content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
+        rule_list = Gtk.ListBox()
+        rule_list.set_selection_mode(Gtk.SelectionMode.NONE)
+        rule_list.add_css_class("boxed-list")
+        rule_scroll = Gtk.ScrolledWindow()
+        rule_scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        rule_scroll.set_min_content_height(180)
+        rule_scroll.set_max_content_height(280)
+        rule_scroll.set_child(rule_list)
+        content.append(rule_scroll)
+        name_entry = Gtk.Entry()
+        name_entry.set_placeholder_text("Rule name")
+        content.append(name_entry)
+        field_names = ("Anime title", "Release group", "Resolution", "Source", "Episode", "Keywords")
+        field_values = ("title", "release_group", "resolution", "source", "episode", "keywords")
+        field_dropdown = Gtk.DropDown.new_from_strings(list(field_names))
+        field_dropdown.set_tooltip_text("Release attribute to match")
+        content.append(field_dropdown)
+        value_entry = Gtk.Entry()
+        value_entry.set_placeholder_text("Match value (case-insensitive)")
+        content.append(value_entry)
+        action_names = ("Prefer", "Include / wanted", "Exclude / discard")
+        action_values = ("prefer", "include", "exclude")
+        action_dropdown = Gtk.DropDown.new_from_strings(list(action_names))
+        action_dropdown.set_tooltip_text("Classification applied when this rule matches")
+        content.append(action_dropdown)
+        editing = {"id": None}
+        save_button = Gtk.Button(label="Add Rule")
+        save_button.add_css_class("suggested-action")
+        content.append(save_button)
+        test_button = Gtk.Button(label="Test Against Current Releases")
+        content.append(test_button)
+        test_result = Gtk.Label(
+            label="Refresh release feeds to test rules against current results.",
+            xalign=0, wrap=True,
+        )
+        test_result.add_css_class("dim-label")
+        content.append(test_result)
+        dialog.set_extra_child(content)
+        dialog.add_response("close", "Close")
+        dialog.set_default_response("close")
+
+        def clear_editor():
+            editing["id"] = None
+            name_entry.set_text("")
+            value_entry.set_text("")
+            field_dropdown.set_selected(0)
+            action_dropdown.set_selected(0)
+            save_button.set_label("Add Rule")
+
+        def reload_rules():
+            child = rule_list.get_first_child()
+            while child is not None:
+                next_child = child.get_next_sibling()
+                rule_list.remove(child)
+                child = next_child
+            try:
+                rules = self.release_rule_store.load()
+            except (OSError, ValueError) as error:
+                self.toast_overlay.add_toast(Adw.Toast.new(f"Could not load rules: {error}"))
+                return ()
+            for index, rule in enumerate(rules):
+                row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+                toggle = Gtk.CheckButton()
+                toggle.set_active(rule.enabled)
+                toggle.set_tooltip_text("Enable or disable this rule")
+                toggle.connect(
+                    "toggled",
+                    lambda button, item=rule: update_rule(item.rule_id, enabled=button.get_active()),
+                )
+                row.append(toggle)
+                summary = Gtk.Label(
+                    label=f"{index + 1}. {rule.name} · {rule.action.title()} · {rule.field}: {rule.value}",
+                    xalign=0, wrap=True,
+                )
+                summary.set_hexpand(True)
+                if not rule.enabled:
+                    summary.add_css_class("dim-label")
+                row.append(summary)
+                up_button = Gtk.Button.new_from_icon_name("go-up-symbolic")
+                up_button.set_tooltip_text("Move rule up")
+                up_button.set_sensitive(index > 0)
+                up_button.connect("clicked", lambda _button, item=rule: move_rule(item.rule_id, -1))
+                row.append(up_button)
+                down_button = Gtk.Button.new_from_icon_name("go-down-symbolic")
+                down_button.set_tooltip_text("Move rule down")
+                down_button.set_sensitive(index < len(rules) - 1)
+                down_button.connect("clicked", lambda _button, item=rule: move_rule(item.rule_id, 1))
+                row.append(down_button)
+                edit_button = Gtk.Button(label="Edit")
+                edit_button.connect("clicked", lambda _button, item=rule: edit_rule(item))
+                row.append(edit_button)
+                remove_button = Gtk.Button.new_from_icon_name("user-trash-symbolic")
+                remove_button.set_tooltip_text("Remove rule")
+                remove_button.connect("clicked", lambda _button, item=rule: remove_rule(item.rule_id))
+                row.append(remove_button)
+                rule_list.append(row)
+            return rules
+
+        def update_rule(rule_id, **changes):
+            try:
+                self.release_rule_store.update(rule_id, **changes)
+            except (OSError, ValueError) as error:
+                self.toast_overlay.add_toast(Adw.Toast.new(f"Could not update rule: {error}"))
+                return
+            reload_rules()
+            self._refresh_release_feeds()
+
+        def edit_rule(rule):
+            editing["id"] = rule.rule_id
+            name_entry.set_text(rule.name)
+            value_entry.set_text(rule.value)
+            field_dropdown.set_selected(field_values.index(rule.field))
+            action_dropdown.set_selected(action_values.index(rule.action))
+            save_button.set_label("Save Changes")
+
+        def move_rule(rule_id, offset):
+            rules = self.release_rule_store.load()
+            identifiers = [rule.rule_id for rule in rules]
+            index = identifiers.index(rule_id)
+            target = index + offset
+            if not 0 <= target < len(identifiers):
+                return
+            identifiers[index], identifiers[target] = identifiers[target], identifiers[index]
+            try:
+                self.release_rule_store.reorder(identifiers)
+            except (OSError, ValueError) as error:
+                self.toast_overlay.add_toast(Adw.Toast.new(f"Could not reorder rules: {error}"))
+                return
+            reload_rules()
+            self._refresh_release_feeds()
+
+        def remove_rule(rule_id):
+            try:
+                self.release_rule_store.remove(rule_id)
+            except (OSError, ValueError) as error:
+                self.toast_overlay.add_toast(Adw.Toast.new(f"Could not remove rule: {error}"))
+                return
+            if editing["id"] == rule_id:
+                clear_editor()
+            reload_rules()
+            self._refresh_release_feeds()
+
+        def save_rule(_button):
+            name = name_entry.get_text().strip()
+            value = value_entry.get_text().strip()
+            field = field_values[field_dropdown.get_selected()]
+            action = action_values[action_dropdown.get_selected()]
+            try:
+                if editing["id"]:
+                    self.release_rule_store.update(
+                        editing["id"], name=name, field=field, value=value, action=action,
+                    )
+                else:
+                    self.release_rule_store.add(name, field, value, action)
+            except (OSError, ValueError) as error:
+                self.toast_overlay.add_toast(Adw.Toast.new(f"Could not save rule: {error}"))
+                return
+            clear_editor()
+            reload_rules()
+            self._refresh_release_feeds()
+
+        def test_rules(_button):
+            try:
+                rules = self.release_rule_store.load()
+            except (OSError, ValueError) as error:
+                test_result.set_label(f"Could not load rules: {error}")
+                return
+            total = 0
+            matches = []
+            for result in self.release_results:
+                if result.error:
+                    continue
+                for release in result.releases:
+                    total += 1
+                    context = {
+                        "title": release.entry.title,
+                        "release_group": release.metadata.get("release_group"),
+                        "resolution": release.metadata.get("resolution"),
+                        "source": release.metadata.get("source"),
+                        "episode": release.episode,
+                        "summary": release.entry.summary,
+                        "categories": release.entry.categories,
+                    }
+                    decision = evaluate_release_rules(context, rules)
+                    if decision.status != "unmatched":
+                        matches.append((release.entry.title, decision.status, decision.reason))
+            if not total:
+                test_result.set_label("No current release entries. Refresh your feeds first.")
+            elif not matches:
+                test_result.set_label(f"No rules matched any of the {total} current releases.")
+            else:
+                examples = "\n".join(
+                    f"• {status.title()}: {title} — {reason}"
+                    for title, status, reason in matches[:3]
+                )
+                test_result.set_label(f"{len(matches)} of {total} releases matched rules.\n{examples}")
+
+        save_button.connect("clicked", save_rule)
+        test_button.connect("clicked", test_rules)
+        reload_rules()
+        dialog.present(self)
 
     def _show_release_feed_manager(self):
         dialog = Adw.AlertDialog(

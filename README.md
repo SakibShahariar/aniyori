@@ -54,8 +54,8 @@ or points to a relative path, Aniyori uses the standard home-directory default.
 | AniList metadata cache | `~/.cache/aniyori/metadata/` |
 | Cover image cache | `~/.cache/aniyori/covers/` |
 
-The configuration directory contains saved RSS feed URLs, search history, release
-preferences, release-scoring settings, and the share-template setting. The metadata
+The configuration directory contains saved RSS feed URLs, search history, ordered
+release rules, release preferences, release-scoring settings, and the share-template setting. The metadata
 and cover directories contain cached remote data and images; they can be cleared
 without deleting the library database or preferences.
 

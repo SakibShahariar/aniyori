@@ -24,10 +24,10 @@ Persistent repository-specific record of commit-level CI checks and red-cross in
 
 - Repository: `SakibShahariar/aniyori`
 - Default branch: `main`
-- Checkpoint SHA: `f76856ba2b503ae5f443616f5a9f9597435a7b27`
+- Checkpoint SHA: `0a1f18b5bd22cb37c51b9dea424c9aa624a88b13`
 - Initialized: 2026-11-02
 - Baseline: latest branch tip queried through combined commit-status endpoint; empty status list recorded as **unavailable**, not green/red. Older history was not retroactively audited during setup.
-- Next session: review commits after `f76856ba2b503ae5f443616f5a9f9597435a7b27`; carry forward any red or unresolved entries.
+- Next session: review commits after `0a1f18b5bd22cb37c51b9dea424c9aa624a88b13`; carry forward any red or unresolved entries.
 
 ## Initial baseline
 
@@ -119,3 +119,26 @@ Commits after the previous checkpoint through `bd3f6937d34fba486dd8efd1e6677e8ed
 - Classification: test defect introduced in the issue #43 change; production code compilation succeeded.
 - Fix: update tests to capture the result of the second add operation. Also preserve caller order for equal rule priorities, validate rule field/action types, handle absent category collections safely, and rank preferred/wanted matches ahead of unmatched releases.
 - Fix commit / rerun: pending.
+
+
+## Reviewed range: 2026-11-03 (continued)
+
+| Commit SHA | Subject | CI result | Run |
+|---|---|---|---|
+| `c9c3e683921252a3027997c789b5e4e6593337b4` | feat(rss): add ordered smart release rules (#43) | red | [41722271367](https://github.com/SakibShahariar/aniyori/actions/runs/41722271367) |
+| `0a1f18b5bd22cb37c51b9dea424c9aa624a88b13` | fix(rss): correct smart rule ordering tests (#43) | green | [41722392894](https://github.com/SakibShahariar/aniyori/actions/runs/41722392894) |
+
+### Failure investigation: ordered release rules
+
+- Commit SHA: `c9c3e683921252a3027997c789b5e4e6593337b4`
+- Workflow / run: [Tests / 41722271367](https://github.com/SakibShahariar/aniyori/actions/runs/41722271367)
+- Failed tests: `test_store_adds_edits_reorders_removes_and_round_trips` and `test_release_rule_store_persists_edits_removals_and_order`.
+- Diagnosis: both tests incorrectly treated the result of the first `ReleaseRuleStore.add()` call as if it already contained a second rule. The store correctly returned one rule after the first add.
+- Classification: test defect introduced in the issue #43 change; production code compilation succeeded.
+- Fix commit: `0a1f18b5bd22cb37c51b9dea424c9aa624a88b13` corrected both tests, preserved caller order for equal priorities, validated rule field/action types, handled absent category collections safely, and ranked preferred/wanted matches ahead of unmatched releases.
+- Rerun / final outcome: the fix commit's complete Tests workflow passed (run [41722392894](https://github.com/SakibShahariar/aniyori/actions/runs/41722392894)).
+- Remaining follow-up: none for this regression.
+
+| Date | Reviewed range / checkpoint | Result summary |
+|---|---|---|
+| 2026-11-03 | `f76856ba2b503ae5f443616f5a9f9597435a7b27` → `0a1f18b5bd22cb37c51b9dea424c9aa624a88b13` | Reviewed two commits: initial test defect red, correction green. |
