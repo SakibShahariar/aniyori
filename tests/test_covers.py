@@ -4,12 +4,12 @@ import io
 import os
 import tempfile
 import unittest
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 from pathlib import Path
-from unittest.mock import patch
 
 from aniyori.services.covers import (
     MAX_COVER_BYTES, get_cached_cover, _prune_cache, _cache_directory,
+    _AniListRedirectHandler,
 )
 
 
@@ -23,6 +23,12 @@ class ImageResponse(io.BytesIO):
 
     def __exit__(self, *_args):
         self.close()
+
+
+def mock_opener(response):
+    opener = MagicMock()
+    opener.open.return_value = response
+    return opener
 
 
 class CoverCacheTests(unittest.TestCase):
@@ -50,9 +56,9 @@ class CoverCacheTests(unittest.TestCase):
     def test_downloads_and_caches_cover(self):
         payload = b"fake-image-data"
         with patch(
-            "aniyori.services.covers.urlopen",
-            return_value=ImageResponse(payload),
-        ) as open_url:
+            "aniyori.services.covers.build_opener",
+            return_value=mock_opener(ImageResponse(payload)),
+        ) as build_opener:
             first = get_cached_cover(
                 "https://s4.anilist.co/file/cover.jpg", cache_dir=self.cache_dir
             )
@@ -62,7 +68,7 @@ class CoverCacheTests(unittest.TestCase):
 
         self.assertEqual(first, second)
         self.assertEqual(first.read_bytes(), payload)
-        open_url.assert_called_once()
+        build_opener.return_value.open.assert_called_once()
 
     def test_rejects_non_anilist_or_non_https_urls(self):
         for url in (
@@ -73,10 +79,33 @@ class CoverCacheTests(unittest.TestCase):
             with self.subTest(url=url), self.assertRaises(ValueError):
                 get_cached_cover(url, cache_dir=self.cache_dir)
 
+    def test_redirect_handler_validates_destinations_before_following(self):
+        from urllib.request import Request
+
+        handler = _AniListRedirectHandler()
+        original = Request("https://s4.anilist.co/file/cover.jpg")
+        allowed = handler.redirect_request(
+            original, None, 302, "Found", {}, "https://cdn.anilist.co/file/cover.jpg"
+        )
+        self.assertEqual(allowed.full_url, "https://cdn.anilist.co/file/cover.jpg")
+
+        for target in (
+            "http://s4.anilist.co/file/cover.jpg",
+            "https://example.com/file/cover.jpg",
+            "https://user:pass@s4.anilist.co/file/cover.jpg",
+            "https://s4.anilist.co:bad/file/cover.jpg",
+        ):
+            with self.subTest(target=target), self.assertRaisesRegex(
+                ValueError, "redirects must remain"
+            ):
+                handler.redirect_request(
+                    original, None, 302, "Found", {}, target
+                )
+
     def test_rejects_non_image_response(self):
         with patch(
-            "aniyori.services.covers.urlopen",
-            return_value=ImageResponse(b"not-an-image", "text/html"),
+            "aniyori.services.covers.build_opener",
+            return_value=mock_opener(ImageResponse(b"not-an-image", "text/html")),
         ):
             with self.assertRaisesRegex(ValueError, "did not return an image"):
                 get_cached_cover(
@@ -85,8 +114,8 @@ class CoverCacheTests(unittest.TestCase):
 
     def test_rejects_oversized_response(self):
         with patch(
-            "aniyori.services.covers.urlopen",
-            return_value=ImageResponse(b"x" * (MAX_COVER_BYTES + 1)),
+            "aniyori.services.covers.build_opener",
+            return_value=mock_opener(ImageResponse(b"x" * (MAX_COVER_BYTES + 1))),
         ):
             with self.assertRaisesRegex(ValueError, "8 MiB"):
                 get_cached_cover(
@@ -110,8 +139,8 @@ class CoverCacheTests(unittest.TestCase):
 
     def test_failed_download_does_not_leave_cache_file(self):
         with patch(
-            "aniyori.services.covers.urlopen",
-            return_value=ImageResponse(b"", "image/jpeg"),
+            "aniyori.services.covers.build_opener",
+            return_value=mock_opener(ImageResponse(b"", "image/jpeg")),
         ):
             with self.assertRaisesRegex(ValueError, "empty cover"):
                 get_cached_cover(

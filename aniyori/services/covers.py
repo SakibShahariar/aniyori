@@ -8,13 +8,41 @@ import tempfile
 from pathlib import Path
 from urllib.error import URLError
 from urllib.parse import urlparse
-from urllib.request import Request, urlopen
+from urllib.request import HTTPRedirectHandler, Request, build_opener
 
 
 MAX_COVER_BYTES = 8 * 1024 * 1024
 MAX_COVER_CACHE_BYTES = 256 * 1024 * 1024
 MAX_COVER_CACHE_ENTRIES = 250
 DEFAULT_TIMEOUT = 12
+
+
+def _is_allowed_cover_url(url: str) -> bool:
+    """Accept only HTTPS URLs on the AniList image host family."""
+    try:
+        parsed = urlparse(url)
+        host = (parsed.hostname or "").casefold()
+        port = parsed.port
+    except ValueError:
+        return False
+    return (
+        parsed.scheme.casefold() == "https"
+        and (host == "anilist.co" or host.endswith(".anilist.co"))
+        and parsed.username is None
+        and parsed.password is None
+        and port in (None, 443)
+    )
+
+
+class _AniListRedirectHandler(HTTPRedirectHandler):
+    """Reject unsafe redirect destinations before urllib sends a request."""
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        if not _is_allowed_cover_url(newurl):
+            raise ValueError(
+                "Cover redirects must remain on HTTPS AniList hosts."
+            )
+        return super().redirect_request(req, fp, code, msg, headers, newurl)
 
 
 def _cache_directory() -> Path:
@@ -60,15 +88,7 @@ def get_cached_cover(
     timeout: int = DEFAULT_TIMEOUT,
 ) -> Path:
     """Return a cached cover path, downloading a bounded HTTPS image if needed."""
-    parsed = urlparse(url)
-    host = (parsed.hostname or "").lower()
-    if (
-        parsed.scheme != "https"
-        or not host
-        or not (host == "anilist.co" or host.endswith(".anilist.co"))
-        or parsed.username is not None
-        or parsed.password is not None
-    ):
+    if not _is_allowed_cover_url(url):
         raise ValueError("Cover URL must be an HTTPS URL hosted by AniList.")
 
     destination = _cache_path(url, cache_dir)
@@ -83,7 +103,8 @@ def get_cached_cover(
         headers={"Accept": "image/*", "User-Agent": "Aniyori/0.1.0"},
     )
     try:
-        with urlopen(request, timeout=timeout) as response:
+        opener = build_opener(_AniListRedirectHandler())
+        with opener.open(request, timeout=timeout) as response:
             content_type = response.headers.get("Content-Type", "").split(";", 1)[0]
             if not content_type.startswith("image/"):
                 raise ValueError("AniList did not return an image.")
