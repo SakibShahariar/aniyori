@@ -24,6 +24,10 @@ from .services.release_scoring import (
 )
 from .services.release_monitor import filter_release_results, refresh_release_feeds
 from .services.release_rules import ReleaseRuleStore, evaluate_release_rules
+from .services.credentials import CredentialStoreError, SecretServiceCredentialStore
+from .services.qbittorrent import (
+    QBittorrentClient, QBittorrentError, QBittorrentSettings, QBittorrentSettingsStore,
+)
 from .services.rss import FeedParseError, RSSFeedStore, build_nyaa_search_url
 from .services.release_preferences import (
     PREFERENCE_ATTRIBUTES, ReleasePreferenceError, ReleasePreferenceStore,
@@ -267,6 +271,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
         self.release_scoring_store = ReleaseScoringSettingsStore()
         self.release_rule_store = ReleaseRuleStore()
         self.rss_feed_store = RSSFeedStore()
+        self.qbittorrent_settings_store = QBittorrentSettingsStore()
         self.release_results = ()
         self._release_refresh_running = False
         self.search_history_store = SearchHistoryStore()
@@ -291,6 +296,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
             ("release-scoring", self._show_release_scoring_dialog),
             ("manage-release-feeds", self._show_release_feed_manager),
             ("manage-release-rules", self._show_release_rule_manager),
+            ("configure-qbittorrent", self._show_qbittorrent_settings_dialog),
             ("about", self._show_about_dialog),
         ]:
             action = Gio.SimpleAction.new(name, None)
@@ -329,6 +335,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
         primary_menu.append("Release Scoring Weights", "win.release-scoring")
         primary_menu.append("Manage Release Feeds", "win.manage-release-feeds")
         primary_menu.append("Manage Smart Release Rules", "win.manage-release-rules")
+        primary_menu.append("Configure qBittorrent", "win.configure-qbittorrent")
         primary_menu.append("About Aniyori", "win.about")
         primary_menu.append("Quit", "win.quit")
         menu_button = Gtk.MenuButton()
@@ -498,6 +505,12 @@ class AniyoriWindow(Adw.ApplicationWindow):
             "clicked", lambda _button: self._show_release_rule_manager()
         )
         release_controls.append(manage_rules_button)
+        configure_qbittorrent_button = Gtk.Button(label="qBittorrent")
+        configure_qbittorrent_button.set_tooltip_text("Configure your qBittorrent WebUI connection")
+        configure_qbittorrent_button.connect(
+            "clicked", lambda _button: self._show_qbittorrent_settings_dialog()
+        )
+        release_controls.append(configure_qbittorrent_button)
         self.release_page.append(release_controls)
         self.release_list_box = Gtk.ListBox()
         self.release_list_box.set_selection_mode(Gtk.SelectionMode.NONE)
@@ -1344,11 +1357,22 @@ class AniyoriWindow(Adw.ApplicationWindow):
                 details.append(subtitle)
                 row.append(details)
                 if release.entry.magnet_uri:
+                    send_button = Gtk.Button(label="Send to qBittorrent")
+                    send_button.set_tooltip_text(
+                        "Explicitly submit this release to your configured qBittorrent WebUI."
+                    )
+                    send_button.set_valign(Gtk.Align.CENTER)
+                    send_button.connect(
+                        "clicked",
+                        lambda _button, magnet=release.entry.magnet_uri:
+                            self._send_release_to_qbittorrent(magnet),
+                    )
+                    row.append(send_button)
                     link = Gtk.LinkButton.new_with_label(
-                        release.entry.magnet_uri, "Send to torrent client"
+                        release.entry.magnet_uri, "Open in default app"
                     )
                     link.set_tooltip_text(
-                        "Open this magnet link in your desktop's default torrent application."
+                        "Open this magnet link in your desktop's registered torrent application."
                     )
                     link.set_valign(Gtk.Align.CENTER)
                     row.append(link)
@@ -1373,6 +1397,159 @@ class AniyoriWindow(Adw.ApplicationWindow):
             label.set_margin_bottom(24)
             label.add_css_class("dim-label")
             self.release_list_box.append(label)
+
+    def _show_qbittorrent_settings_dialog(self):
+        try:
+            settings = self.qbittorrent_settings_store.load()
+        except QBittorrentError as error:
+            self.toast_overlay.add_toast(Adw.Toast.new(str(error)))
+            settings = None
+        dialog = Adw.AlertDialog(
+            heading="qBittorrent WebUI",
+            body=(
+                "Configure a secure qBittorrent connection. Passwords are stored only "
+                "in the desktop Secret Service, never in Aniyori's settings file. "
+                "Remote WebUI servers must use HTTPS."
+            ),
+        )
+        content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
+        server = Gtk.Entry()
+        server.set_placeholder_text("http://localhost:8080")
+        server.set_input_purpose(Gtk.InputPurpose.URL)
+        server.set_text(settings.server_url if settings else "http://localhost:8080")
+        username = Gtk.Entry()
+        username.set_placeholder_text("WebUI username")
+        if settings:
+            username.set_text(settings.username)
+        password = Gtk.PasswordEntry()
+        password.set_placeholder_text("Password (blank keeps saved password)")
+        password.set_show_peek_icon(True)
+        category = Gtk.Entry()
+        category.set_placeholder_text("Category (optional)")
+        if settings:
+            category.set_text(settings.category)
+        paused = Gtk.CheckButton(label="Add releases paused")
+        paused.set_active(settings.paused if settings else False)
+        for widget in (server, username, password, category, paused):
+            content.append(widget)
+        dialog.set_extra_child(content)
+        dialog.add_response("cancel", "Cancel")
+        dialog.add_response("remove", "Remove connection")
+        dialog.set_response_appearance("remove", Adw.ResponseAppearance.DESTRUCTIVE)
+        dialog.add_response("save", "Test & Save")
+        dialog.set_response_appearance("save", Adw.ResponseAppearance.SUGGESTED)
+        dialog.set_default_response("save")
+        dialog.set_close_response("cancel")
+        dialog.choose(self, None, self._on_qbittorrent_settings_response,
+                      (server, username, password, category, paused, settings))
+
+    def _on_qbittorrent_settings_response(self, dialog, result, widgets):
+        try:
+            response = dialog.choose_finish(result)
+        except GLib.Error:
+            LOGGER.warning("Could not finish qBittorrent settings dialog", exc_info=True)
+            return
+        server, username, password_entry, category, paused, previous = widgets
+        if response == "remove":
+            def remove_worker():
+                try:
+                    if previous:
+                        SecretServiceCredentialStore().remove(
+                            "aniyori", self._qbittorrent_credential_account(previous)
+                        )
+                    self.qbittorrent_settings_store.clear()
+                    GLib.idle_add(self._finish_qbittorrent_settings, "removed")
+                except (CredentialStoreError, OSError) as error:
+                    GLib.idle_add(self._finish_qbittorrent_settings, str(error))
+            threading.Thread(target=remove_worker, daemon=True).start()
+            return
+        if response != "save":
+            return
+        try:
+            settings = self.qbittorrent_settings_store.normalize(QBittorrentSettings(
+                server.get_text(), username.get_text(), category.get_text(), paused.get_active()
+            ))
+            credentials = SecretServiceCredentialStore()
+            account = self._qbittorrent_credential_account(settings)
+            entered_password = password_entry.get_text()
+        except (ValueError, CredentialStoreError) as error:
+            self.toast_overlay.add_toast(Adw.Toast.new(str(error)))
+            return
+
+        def worker():
+            try:
+                secret = entered_password or credentials.lookup("aniyori", account)
+                if not secret:
+                    raise CredentialStoreError("Enter the qBittorrent WebUI password.")
+                QBittorrentClient(settings.server_url, settings.username, secret).test_connection()
+                if entered_password:
+                    credentials.store("aniyori", account, secret)
+                self.qbittorrent_settings_store.save(settings)
+                GLib.idle_add(self._finish_qbittorrent_settings, None)
+            except (QBittorrentError, CredentialStoreError, OSError, ValueError) as error:
+                GLib.idle_add(self._finish_qbittorrent_settings, str(error))
+
+        threading.Thread(target=worker, daemon=True).start()
+        self.toast_overlay.add_toast(Adw.Toast.new("Testing qBittorrent connection…"))
+
+    def _finish_qbittorrent_settings(self, error):
+        if error == "removed":
+            message = "qBittorrent connection removed."
+        elif error:
+            message = f"qBittorrent setup failed: {error}"
+        else:
+            message = "qBittorrent connection verified and settings saved."
+        self.toast_overlay.add_toast(Adw.Toast.new(message))
+        return GLib.SOURCE_REMOVE
+
+    @staticmethod
+    def _qbittorrent_credential_account(settings):
+        return f"qbittorrent:{settings.server_url}:{settings.username}"
+
+    def _send_release_to_qbittorrent(self, magnet_uri):
+        try:
+            settings = self.qbittorrent_settings_store.load()
+            if settings is None:
+                self.toast_overlay.add_toast(Adw.Toast.new("Configure qBittorrent first."))
+                self._show_qbittorrent_settings_dialog()
+                return
+            credentials = SecretServiceCredentialStore()
+        except (QBittorrentError, CredentialStoreError) as error:
+            self.toast_overlay.add_toast(Adw.Toast.new(str(error)))
+            return
+
+        def worker():
+            try:
+                password = credentials.lookup(
+                    "aniyori", self._qbittorrent_credential_account(settings)
+                )
+                if not password:
+                    GLib.idle_add(self._prompt_qbittorrent_reconfiguration)
+                    return
+                QBittorrentClient(settings.server_url, settings.username, password).add_magnet(
+                    magnet_uri, category=settings.category or None, paused=settings.paused
+                )
+                GLib.idle_add(self._finish_qbittorrent_submission, None)
+            except (QBittorrentError, CredentialStoreError, ValueError) as error:
+                GLib.idle_add(self._finish_qbittorrent_submission, str(error))
+
+        threading.Thread(target=worker, daemon=True).start()
+        self.toast_overlay.add_toast(Adw.Toast.new("Sending release to qBittorrent…"))
+
+    def _prompt_qbittorrent_reconfiguration(self):
+        self.toast_overlay.add_toast(
+            Adw.Toast.new("Saved qBittorrent credentials are missing; configure the connection again.")
+        )
+        self._show_qbittorrent_settings_dialog()
+        return GLib.SOURCE_REMOVE
+
+    def _finish_qbittorrent_submission(self, error):
+        message = (
+            f"qBittorrent submission failed: {error}"
+            if error else "Release submitted to qBittorrent."
+        )
+        self.toast_overlay.add_toast(Adw.Toast.new(message))
+        return GLib.SOURCE_REMOVE
 
     def _show_release_rule_manager(self):
         dialog = Adw.AlertDialog(

@@ -117,6 +117,17 @@ class QBittorrentValidationTests(unittest.TestCase):
 
 
 class QBittorrentClientTests(unittest.TestCase):
+    def test_connection_authenticates_and_logs_out_without_submitting(self):
+        opener = _Opener(["Ok.", "Ok."])
+        client = QBittorrentClient(
+            "http://localhost:8080", "user", "password",
+            opener=opener,
+        )
+        client.test_connection()
+        self.assertEqual(len(opener.requests), 2)
+        self.assertTrue(opener.requests[0][0].full_url.endswith("/api/v2/auth/login"))
+        self.assertTrue(opener.requests[1][0].full_url.endswith("/api/v2/auth/logout"))
+
     def test_add_magnet_authenticates_submits_category_and_logs_out(self):
         opener = _Opener(["Ok.", "Ok.", "Ok."])
         client = QBittorrentClient(

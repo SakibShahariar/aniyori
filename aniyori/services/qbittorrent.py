@@ -287,6 +287,14 @@ class QBittorrentClient:
                 "qBittorrent did not accept the WebUI credentials."
             )
 
+    def test_connection(self) -> None:
+        """Verify credentials and the WebUI endpoint without changing torrent state."""
+        self._login()
+        try:
+            self._request("/api/v2/auth/logout", b"")
+        except QBittorrentError:
+            pass
+
     def add_magnet(
         self,
         magnet_uri: str,
