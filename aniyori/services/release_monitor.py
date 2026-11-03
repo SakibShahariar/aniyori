@@ -157,14 +157,14 @@ def _release_metadata(entry: FeedEntry, parsed) -> dict[str, Any]:
 
     if "seeders" not in metadata:
         seeder_match = re.search(
-            r"(?i)\\bseeders?\\s*[:=]\\s*(\\d+)\\b|\\b(\\d+)\\s+seeders?\\b", text
+            r"(?i)\bseeders?\s*[:=]\s*(\d+)\b|\b(\d+)\s+seeders?\b", text
         )
         if seeder_match:
             metadata["seeders"] = int(seeder_match.group(1) or seeder_match.group(2))
 
     size_text = getattr(entry, "size", None) or text
     size_match = re.search(
-        r"(?i)\\b(\\d+(?:\\.\\d+)?)\\s*(GiB|GB|MiB|MB)\\b", size_text
+        r"(?i)\b(\d+(?:\.\d+)?)\s*(GiB|GB|MiB|MB)\b", size_text
     )
     if size_match:
         amount = float(size_match.group(1))
