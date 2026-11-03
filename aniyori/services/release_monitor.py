@@ -15,6 +15,7 @@ from .release_scoring import (
     DEFAULT_WEIGHTS, ReleaseScore, score_release, validate_minimum_score,
 )
 from .rss import FeedEntry, FeedParseError, RSSFeed, _safe_link, parse_release_feed
+from .release_rules import ReleaseRule, evaluate_release_rules, normalize_release_rules
 
 
 DEFAULT_FEED_TIMEOUT = 15
@@ -40,6 +41,8 @@ class MonitoredRelease:
     metadata: Mapping[str, Any]
     eligible: bool
     decision_explanation: str
+    rule_status: str = "unmatched"
+    rule_reason: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -182,6 +185,7 @@ def _enrich_entry(
     preferences: Mapping[str, Any] | tuple | None,
     weights: Mapping[str, float] | None,
     minimum_score: float,
+    rules: tuple[ReleaseRule, ...],
 ) -> MonitoredRelease:
     parsed = parse_anime_filename(entry.title)
     if parsed is None:
@@ -195,6 +199,15 @@ def _enrich_entry(
         weights=weights,
         preferences=preferences,
     )
+    rule_decision = evaluate_release_rules({
+        "title": entry.title,
+        "release_group": release_metadata.get("release_group"),
+        "resolution": release_metadata.get("resolution"),
+        "source": release_metadata.get("source"),
+        "episode": parsed.episode if parsed else None,
+        "summary": entry.summary,
+        "categories": entry.categories,
+    }, rules)
     best = decision.best_match
     return MonitoredRelease(
         feed_name=feed.name,
@@ -207,12 +220,19 @@ def _enrich_entry(
         season=parsed.season if parsed else None,
         score=quality,
         metadata=release_metadata,
-        eligible=quality.accepted and quality.score >= minimum_score,
-        decision_explanation=(
-            quality.explanation
-            if quality.score >= minimum_score
-            else quality.explanation + f"; Below minimum score {minimum_score:g}/100"
+        eligible=(
+            quality.accepted
+            and quality.score >= minimum_score
+            and rule_decision.status != "discarded"
         ),
+        decision_explanation=(
+            (quality.explanation
+             if quality.score >= minimum_score
+             else quality.explanation + f"; Below minimum score {minimum_score:g}/100")
+            + (f"; {rule_decision.reason}" if rule_decision.reason else "")
+        ),
+        rule_status=rule_decision.status,
+        rule_reason=rule_decision.reason,
     )
 
 
@@ -224,6 +244,7 @@ def refresh_release_feeds(
     preferences: Mapping[str, Any] | tuple | None = None,
     weights: Mapping[str, float] | None = None,
     minimum_score: float = 0.0,
+    rules: Iterable[ReleaseRule] = (),
 ) -> tuple[FeedRefreshResult, ...]:
     """Refresh enabled feeds independently; one failure never aborts other feeds.
 
@@ -235,6 +256,7 @@ def refresh_release_feeds(
     if isinstance(candidates, (str, bytes)):
         raise ValueError("Catalogue candidates must be an iterable of mappings.")
     cutoff = validate_minimum_score(minimum_score)
+    normalized_rules = normalize_release_rules(rules)
     candidate_list = tuple(item for item in candidates if isinstance(item, Mapping))
     results = []
     for feed in feeds:
@@ -254,6 +276,7 @@ def refresh_release_feeds(
                         preferences=preferences,
                         weights=weights if weights is not None else DEFAULT_WEIGHTS,
                         minimum_score=cutoff,
+                        rules=normalized_rules,
                     )
                     for entry in entries
                 ),

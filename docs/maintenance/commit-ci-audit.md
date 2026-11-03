@@ -24,10 +24,10 @@ Persistent repository-specific record of commit-level CI checks and red-cross in
 
 - Repository: `SakibShahariar/aniyori`
 - Default branch: `main`
-- Checkpoint SHA: `bd3f6937d34fba486dd8efd1e6677e8ed7c6ab1f`
+- Checkpoint SHA: `f76856ba2b503ae5f443616f5a9f9597435a7b27`
 - Initialized: 2026-11-02
 - Baseline: latest branch tip queried through combined commit-status endpoint; empty status list recorded as **unavailable**, not green/red. Older history was not retroactively audited during setup.
-- Next session: review commits after `bd3f6937d34fba486dd8efd1e6677e8ed7c6ab1f`; carry forward any red or unresolved entries.
+- Next session: review commits after `f76856ba2b503ae5f443616f5a9f9597435a7b27`; carry forward any red or unresolved entries.
 
 ## Initial baseline
 
@@ -97,3 +97,14 @@ Commits after the previous checkpoint through `bd3f6937d34fba486dd8efd1e6677e8ed
 |---|---|---|
 | 2026-11-02 | Initial checkpoint: `e7728683fc28eae13e7af798377a9b90bcbbd769` | Latest commit queried; empty status response recorded as unavailable. Earlier history not retroactively audited. |
 | 2026-11-03 | `e7728683fc28eae13e7af798377a9b90bcbbd769` → `bd3f6937d34fba486dd8efd1e6677e8ed7c6ab1f` | Reviewed 13 commits individually: 12 green, 1 red regression fixed by a green follow-up. |
+
+
+## Reviewed range: 2026-11-03 (continued)
+
+| Commit SHA | Subject | CI result | Run |
+|---|---|---|---|
+| `f76856ba2b503ae5f443616f5a9f9597435a7b27` | feat(rss): filter and sort monitored releases (#54) | green | [41722027622](https://github.com/SakibShahariar/aniyori/actions/runs/41722027622) |
+
+| Date | Reviewed range / checkpoint | Result summary |
+|---|---|---|
+| 2026-11-03 | `bd3f6937d34fba486dd8efd1e6677e8ed7c6ab1f` → `f76856ba2b503ae5f443616f5a9f9597435a7b27` | Reviewed one new commit; CI green. |

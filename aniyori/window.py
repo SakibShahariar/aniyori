@@ -23,6 +23,7 @@ from .services.release_scoring import (
     DEFAULT_MINIMUM_SCORE, DEFAULT_WEIGHTS, ReleaseScoringSettingsStore,
 )
 from .services.release_monitor import filter_release_results, refresh_release_feeds
+from .services.release_rules import ReleaseRuleStore
 from .services.rss import FeedParseError, RSSFeedStore, build_nyaa_search_url
 from .services.release_preferences import (
     PREFERENCE_ATTRIBUTES, ReleasePreferenceError, ReleasePreferenceStore,
@@ -264,6 +265,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
         self.share_template_store = ShareTemplateStore()
         self.release_preference_store = ReleasePreferenceStore()
         self.release_scoring_store = ReleaseScoringSettingsStore()
+        self.release_rule_store = ReleaseRuleStore()
         self.rss_feed_store = RSSFeedStore()
         self.release_results = ()
         self._release_refresh_running = False
@@ -1308,10 +1310,13 @@ class AniyoriWindow(Adw.ApplicationWindow):
                 else:
                     match_text = f"Catalogue match: {release.match_status.replace('_', ' ')}"
                 decision = (
+                    "Discarded by rule" if release.rule_status == "discarded" else
                     "Eligible" if release.eligible else
                     "Rejected by preferences" if not release.score.accepted else
                     "Below score threshold"
                 )
+                if release.rule_status in {"wanted", "preferred"}:
+                    decision += f" · {release.rule_status.title()} rule"
                 facts = []
                 for key, label in (("size", "Size"), ("seeders", "Seeders"),
                                    ("leechers", "Leechers"), ("downloads", "Downloads")):
@@ -1502,6 +1507,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
             preferences = self.release_preference_store.load()
             weights = self.release_scoring_store.load()
             minimum_score = self.release_scoring_store.load_minimum_score()
+            rules = self.release_rule_store.load()
         except (OSError, ValueError) as error:
             LOGGER.warning("Could not prepare release feed refresh: %s", error)
             self.toast_overlay.add_toast(Adw.Toast.new(f"Release refresh unavailable: {error}"))
@@ -1523,6 +1529,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
                     preferences=preferences,
                     weights=weights,
                     minimum_score=minimum_score,
+                    rules=rules,
                 )
                 error = None
             except Exception as refresh_error:

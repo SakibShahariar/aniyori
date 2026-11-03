@@ -274,6 +274,108 @@ class ReleaseFeedParserTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "sort order"):
             filter_release_results(original, sort_by="random")
 
+
+    def test_release_rules_apply_in_order_and_explain_classification(self):
+        from aniyori.services.release_rules import ReleaseRule, evaluate_release_rules
+
+        rules = (
+            ReleaseRule("first", "Prefer Group", "release_group", "GroupA", "prefer", 0),
+            ReleaseRule("second", "Discard low resolution", "resolution", "480p", "exclude", 1),
+            ReleaseRule("third", "Include show", "title", "Frieren", "include", 2),
+        )
+        preferred = evaluate_release_rules(
+            {"title": "Frieren - 01", "release_group": "GroupA", "resolution": "480p"}, rules
+        )
+        self.assertEqual(preferred.status, "preferred")
+        self.assertEqual(preferred.rule_id, "first")
+        self.assertIn("Prefer Group", preferred.reason)
+        discarded = evaluate_release_rules(
+            {"title": "Frieren - 01", "release_group": "Other", "resolution": "480p"}, rules
+        )
+        self.assertEqual(discarded.status, "discarded")
+        wanted = evaluate_release_rules({"title": "Frieren - 02"}, rules[2:])
+        self.assertEqual(wanted.status, "wanted")
+        unmatched = evaluate_release_rules({"title": "Other"}, rules)
+        self.assertEqual(unmatched.status, "unmatched")
+
+    def test_release_rules_match_episode_and_keywords_and_skip_disabled_rules(self):
+        from aniyori.services.release_rules import ReleaseRule, evaluate_release_rules
+
+        rules = (
+            ReleaseRule("disabled", "Disabled", "keywords", "Frieren", "exclude", 0, False),
+            ReleaseRule("episode", "Episode two", "episode", "2", "include", 1),
+        )
+        decision = evaluate_release_rules(
+            {"title": "Example release", "episode": 2, "summary": "Frieren"}, rules
+        )
+        self.assertEqual(decision.status, "wanted")
+
+    def test_release_rule_store_persists_edits_removals_and_order(self):
+        import tempfile
+        from pathlib import Path
+        from aniyori.services.release_rules import ReleaseRuleStore
+
+        with tempfile.TemporaryDirectory() as directory:
+            store = ReleaseRuleStore(Path(directory) / "rules.json")
+            added = store.add("Prefer group", "release_group", "GroupA", "prefer")
+            first_id = added[0].rule_id
+            store.add("Exclude 480p", "resolution", "480p", "exclude")
+            store.update(first_id, name="Prefer trusted group", enabled=False)
+            reordered = store.reorder([added[1].rule_id, first_id])
+            self.assertEqual(reordered[0].name, "Exclude 480p")
+            self.assertEqual(reordered[1].name, "Prefer trusted group")
+            self.assertFalse(reordered[1].enabled)
+            self.assertEqual(ReleaseRuleStore(store.path).load(), reordered)
+            self.assertEqual(len(store.remove(first_id)), 1)
+
+    def test_release_rule_store_rejects_invalid_rules_and_duplicate_ids(self):
+        import tempfile
+        from pathlib import Path
+        from aniyori.services.release_rules import (
+            ReleaseRule, ReleaseRuleError, ReleaseRuleStore, normalize_release_rules,
+        )
+
+        invalid = (
+            ReleaseRule("x", "Bad episode", "episode", "0", "include"),
+            ReleaseRule("x", "Bad action", "title", "Frieren", "download"),
+            ReleaseRule("x", "Bad field", "uploader", "GroupA", "prefer"),
+        )
+        for rule in invalid:
+            with self.subTest(rule=rule), self.assertRaises(ReleaseRuleError):
+                normalize_release_rules([rule])
+        with self.assertRaisesRegex(ReleaseRuleError, "unique"):
+            normalize_release_rules([
+                ReleaseRule("same", "One", "title", "A", "include"),
+                ReleaseRule("same", "Two", "title", "B", "exclude"),
+            ])
+        with tempfile.TemporaryDirectory() as directory:
+            store = ReleaseRuleStore(Path(directory) / "rules.json")
+            store.add("Rule", "title", "Frieren", "include")
+            with self.assertRaisesRegex(ReleaseRuleError, "every configured rule"):
+                store.reorder([])
+
+    def test_refresh_applies_smart_release_rules_without_starting_downloads(self):
+        from aniyori.services.release_rules import ReleaseRule
+
+        feed = RSSFeed("Rules", "https://example.org/feed.xml")
+        payload = b"""<rss><channel>
+          <item><title>[GroupA] Frieren - 01 (1080p) [WEB-DL]</title></item>
+          <item><title>[GroupB] Frieren - 02 (480p) [HDTV]</title></item>
+        </channel></rss>"""
+        results = refresh_release_feeds(
+            [feed], CATALOGUE, fetcher=lambda _url: payload,
+            rules=(
+                ReleaseRule("prefer", "Prefer GroupA", "release_group", "GroupA", "prefer", 0),
+                ReleaseRule("discard", "Discard 480p", "resolution", "480p", "exclude", 1),
+            ),
+        )
+        self.assertEqual(results[0].releases[0].rule_status, "preferred")
+        discarded = next(item for item in results[0].releases if item.episode == 2)
+        self.assertEqual(discarded.rule_status, "discarded")
+        self.assertFalse(discarded.eligible)
+        self.assertIn("Discard 480p", discarded.decision_explanation)
+        self.assertTrue(all(not hasattr(item, "download_started") for item in results[0].releases))
+
     def test_refresh_rejects_invalid_minimum_score(self):
         feed = RSSFeed("Invalid", "https://example.org/feed.xml")
         for value in (-1, 101, True, float("inf")):
