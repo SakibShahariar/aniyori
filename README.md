@@ -35,6 +35,9 @@ implemented. The public AniList catalogue client does not store OAuth tokens.
 
 - **AniList:** catalogue searches send the search text to AniList's public GraphQL
   API. Opening or refreshing catalogue details sends the corresponding media ID.
+- **External links:** MyAnimeList and Kitsu search links send the anime title to the
+  selected website through your default browser. AniList links use the stored ID;
+  custom link templates open only when explicitly selected.
 - **Cover images:** when a cover is not already cached, Aniyori downloads it over
   HTTPS from an AniList-hosted image URL.
 - **RSS/Atom:** Aniyori contacts the HTTP(S) feed URLs you configure when you
@@ -67,6 +70,7 @@ or points to a relative path, Aniyori uses the standard home-directory default.
 | Library database | `~/.local/share/aniyori/library.sqlite3` |
 | Preferences and saved data | `~/.config/aniyori/` |
 | qBittorrent connection preferences (no password) | `~/.config/aniyori/qbittorrent.json` |
+| Custom external-link templates | `~/.config/aniyori/external-links.json` |
 | AniList metadata cache | `~/.cache/aniyori/metadata/` |
 | Cover image cache | `~/.cache/aniyori/covers/` |
 

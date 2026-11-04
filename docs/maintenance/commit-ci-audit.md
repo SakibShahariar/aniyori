@@ -24,7 +24,7 @@ Persistent repository-specific record of commit-level CI checks and red-cross in
 
 - Repository: `SakibShahariar/aniyori`
 - Default branch: `main`
-- Checkpoint SHA: `632b7958e1194ff0d322822920d99be60d3d250f`
+- Checkpoint SHA: `92bb1f608b391b944c7a212d2de75ca0c9fcbe6b`
 - Initialized: 2026-11-02
 - Baseline: latest branch tip queried through combined commit-status endpoint; empty status list recorded as **unavailable**, not green/red. Older history was not retroactively audited during setup.
 - Next session: review commits after `632b7958e1194ff0d322822920d99be60d3d250f`; carry forward any red or unresolved entries.
@@ -260,3 +260,17 @@ The search-history regression test confirms that the persisted history file is c
 
 - Reviewed checkpoint: `da530187558d73b1418eef684955021e29aef333`
 - Commits after the previous checkpoint through this SHA: `cbdc9294150ea517cad3e4e546a48232733cefbd`, `da530187558d73b1418eef684955021e29aef333`; both completed green.
+
+
+## Reviewed range: 2026-11-04 (continued)
+
+| Commit SHA | Subject | CI result | Run |
+|---|---|---|---|
+| `1f0323743e46753f6df04429d7ce13a7a0e0f957` | docs: clarify qBittorrent credential handling (#63) | green | [41725603725](https://github.com/SakibShahariar/aniyori/actions/runs/41725603725) |
+| `92bb1f608b391b944c7a212d2de75ca0c9fcbe6b` | fix(security): remove superseded qBittorrent credentials (#63) | green | [41765630641](https://github.com/SakibShahariar/aniyori/actions/runs/41765630641) |
+
+Both runs completed successfully. The unit-tests job passed Python source compilation and the complete unittest suite.
+
+| Date | Reviewed range / checkpoint | Result summary |
+|---|---|---|
+| 2026-11-04 | `da530187558d73b1418eef684955021e29aef333` → `92bb1f608b391b944c7a212d2de75ca0c9fcbe6b` | Reviewed the two omitted commits; both completed green. Checkpoint advanced to the current branch tip. |

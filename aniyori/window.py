@@ -40,6 +40,7 @@ from .services.share_templates import (
 from .services.covers import get_cached_cover
 from .storage import LibraryStorage
 from .statistics import calculate_library_statistics
+from .services.external_links import ExternalLinkError, ExternalLinkStore, links_for_entry
 
 LOGGER = logging.getLogger(__name__)
 
@@ -73,7 +74,7 @@ def _apply_cover_texture(picture: Gtk.Picture, path: str):
 
 
 class AnimeRow(Gtk.Box):
-    def __init__(self, entry: AnimeEntry, on_progress, on_remove, on_edit, airing=None, selected=False, on_select=None):
+    def __init__(self, entry: AnimeEntry, on_progress, on_remove, on_edit, airing=None, selected=False, on_select=None, on_links=None):
         super().__init__(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
         self.set_margin_top(10)
         self.set_margin_bottom(10)
@@ -150,6 +151,11 @@ class AnimeRow(Gtk.Box):
         next_button.connect("clicked", lambda _button: on_progress(entry))
         self.append(next_button)
 
+        links_button = Gtk.Button(label="Links")
+        links_button.set_tooltip_text("Open external anime information links")
+        links_button.connect("clicked", lambda button: on_links(entry, button) if on_links else None)
+        self.append(links_button)
+
         edit_button = Gtk.Button.new_from_icon_name("document-edit-symbolic")
         edit_button.set_tooltip_text("Edit anime details")
         edit_button.connect("clicked", lambda _button: on_edit(entry))
@@ -162,7 +168,7 @@ class AnimeRow(Gtk.Box):
 
 
 class AnimeCard(Gtk.Box):
-    def __init__(self, entry: AnimeEntry, on_progress, on_remove, on_edit, airing=None, selected=False, on_select=None):
+    def __init__(self, entry: AnimeEntry, on_progress, on_remove, on_edit, airing=None, selected=False, on_select=None, on_links=None):
         super().__init__(orientation=Gtk.Orientation.VERTICAL, spacing=10)
         self.set_size_request(180, 180)
         self.set_margin_top(12)
@@ -243,6 +249,10 @@ class AnimeCard(Gtk.Box):
 
         actions = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         actions.set_halign(Gtk.Align.CENTER)
+        links_button = Gtk.Button.new_from_icon_name("external-link-symbolic")
+        links_button.set_tooltip_text("Open external anime information links")
+        links_button.connect("clicked", lambda button: on_links(entry, button) if on_links else None)
+        actions.append(links_button)
         edit_button = Gtk.Button.new_from_icon_name("document-edit-symbolic")
         edit_button.set_tooltip_text("Edit anime details")
         edit_button.connect("clicked", lambda _button: on_edit(entry))
@@ -267,6 +277,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
         self._selected_entry_ids = set()
         self.scan_location_store = ScanLocationStore()
         self.share_template_store = ShareTemplateStore()
+        self.external_link_store = ExternalLinkStore()
         self.release_preference_store = ReleasePreferenceStore()
         self.release_scoring_store = ReleaseScoringSettingsStore()
         self.release_rule_store = ReleaseRuleStore()
@@ -292,6 +303,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
             ("import-library", self._show_import_dialog),
             ("scan-folders", self._show_scan_folders_dialog),
             ("share-format", self._show_share_format_dialog),
+            ("manage-external-links", self._show_external_links_manager),
             ("release-preferences", self._show_release_preferences_dialog),
             ("release-scoring", self._show_release_scoring_dialog),
             ("manage-release-feeds", self._show_release_feed_manager),
@@ -331,6 +343,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
         primary_menu.append("Import Library", "win.import-library")
         primary_menu.append("Scan Local Folders", "win.scan-folders")
         primary_menu.append("Share Format", "win.share-format")
+        primary_menu.append("Manage External Links", "win.manage-external-links")
         primary_menu.append("Release Preferences", "win.release-preferences")
         primary_menu.append("Release Scoring Weights", "win.release-scoring")
         primary_menu.append("Manage Release Feeds", "win.manage-release-feeds")
@@ -768,6 +781,137 @@ class AniyoriWindow(Adw.ApplicationWindow):
 
         save_button.connect("clicked", save_preferences)
         update_decision_preview()
+
+    def _show_external_links(self, entry: AnimeEntry, anchor):
+        try:
+            custom_links = self.external_link_store.list_templates()
+            links = links_for_entry(entry, custom_links)
+        except (OSError, ExternalLinkError) as error:
+            self.toast_overlay.add_toast(
+                Adw.Toast.new(f"Could not load external links: {error}")
+            )
+            return
+        if not links:
+            self.toast_overlay.add_toast(Adw.Toast.new("No external links are available."))
+            return
+        popover = Gtk.Popover()
+        content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
+        content.set_margin_top(8)
+        content.set_margin_bottom(8)
+        content.set_margin_start(8)
+        content.set_margin_end(8)
+        for label, url in links:
+            link = Gtk.LinkButton.new_with_label(url, label)
+            link.set_halign(Gtk.Align.FILL)
+            content.append(link)
+        popover.set_child(content)
+        popover.set_parent(anchor)
+        popover.connect("closed", lambda current: current.unparent())
+        popover.popup()
+
+    def _show_external_links_manager(self):
+        try:
+            templates = list(self.external_link_store.list_templates())
+        except (OSError, ExternalLinkError) as error:
+            self.toast_overlay.add_toast(
+                Adw.Toast.new(f"Could not load external links: {error}")
+            )
+            templates = []
+
+        dialog = Adw.AlertDialog(
+            heading="Manage External Links",
+            body=(
+                "Built-in AniList, MyAnimeList, and Kitsu links are available automatically. "
+                "Add optional HTTP(S) URL templates using {title}, {provider}, or {provider_id}."
+            ),
+        )
+        content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+        link_list = Gtk.ListBox()
+        link_list.set_selection_mode(Gtk.SelectionMode.NONE)
+        link_list.add_css_class("boxed-list")
+        content.append(link_list)
+
+        name_entry = Gtk.Entry()
+        name_entry.set_placeholder_text("Link name (e.g. Official site)")
+        content.append(name_entry)
+        url_entry = Gtk.Entry()
+        url_entry.set_placeholder_text("https://example.com/anime/{provider_id}")
+        url_entry.set_input_purpose(Gtk.InputPurpose.URL)
+        content.append(url_entry)
+        add_button = Gtk.Button(label="Save Custom Link")
+        editing_index = [None]
+        add_button.add_css_class("suggested-action")
+        content.append(add_button)
+        dialog.set_extra_child(content)
+        dialog.add_response("close", "Close")
+        dialog.set_default_response("close")
+        dialog.present(self)
+
+        def refresh():
+            child = link_list.get_first_child()
+            while child is not None:
+                following = child.get_next_sibling()
+                link_list.remove(child)
+                child = following
+            for index, item in enumerate(templates):
+                row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+                label = Gtk.Label(label=f"{item['name']} — {item['url']}", xalign=0)
+                label.set_ellipsize(3)
+                label.set_hexpand(True)
+                row.append(label)
+                edit = Gtk.Button.new_from_icon_name("document-edit-symbolic")
+                edit.set_tooltip_text(f"Edit {item['name']}")
+                edit.connect("clicked", lambda _button, position=index: edit_template(position))
+                row.append(edit)
+                remove = Gtk.Button.new_from_icon_name("user-trash-symbolic")
+                remove.set_tooltip_text(f"Remove {item['name']}")
+                remove.connect("clicked", lambda _button, position=index: remove_template(position))
+                row.append(remove)
+                link_list.append(row)
+
+        def edit_template(index):
+            if index < 0 or index >= len(templates):
+                return
+            item = templates[index]
+            name_entry.set_text(item["name"])
+            url_entry.set_text(item["url"])
+            editing_index[0] = index
+            add_button.set_label("Update Custom Link")
+
+        def remove_template(index):
+            if index < 0 or index >= len(templates):
+                return
+            templates.pop(index)
+            try:
+                self.external_link_store.save_templates(templates)
+            except (OSError, ExternalLinkError) as error:
+                self.toast_overlay.add_toast(Adw.Toast.new(f"Could not save links: {error}"))
+                return
+            refresh()
+            self.toast_overlay.add_toast(Adw.Toast.new("Custom link removed."))
+
+        def add_template(_button):
+            item = {"name": name_entry.get_text().strip(), "url": url_entry.get_text().strip()}
+            candidate = list(templates)
+            if editing_index[0] is None:
+                candidate.append(item)
+            else:
+                candidate[editing_index[0]] = item
+            try:
+                self.external_link_store.save_templates(candidate)
+            except (OSError, ExternalLinkError) as error:
+                self.toast_overlay.add_toast(Adw.Toast.new(f"Could not save link: {error}"))
+                return
+            templates[:] = candidate
+            editing_index[0] = None
+            add_button.set_label("Save Custom Link")
+            name_entry.set_text("")
+            url_entry.set_text("")
+            refresh()
+            self.toast_overlay.add_toast(Adw.Toast.new("Custom link saved."))
+
+        add_button.connect("clicked", add_template)
+        refresh()
 
     def _show_share_format_dialog(self):
         try:
@@ -2356,6 +2500,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
                     airing,
                     selected,
                     self._toggle_entry_selection,
+                    self._show_external_links,
                 )
                 card = AnimeCard(
                     entry,
@@ -2365,6 +2510,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
                     airing,
                     selected,
                     self._toggle_entry_selection,
+                    self._show_external_links,
                 )
                 self.list_box.insert(row, position)
                 self.grid_flow.insert(card, position)
