@@ -496,3 +496,19 @@ The initial notification service commit `a6a7b3c321b6331d7734ac356910d1bbc915979
 - Classification: inconsistent test expectation, not a product-code regression.
 - Correction: restore the event-filter test's default `info` threshold; the separate severity-threshold test covers filtering.
 
+
+
+## Reviewed range: 2026-11-04 (continued)
+
+| Commit SHA | Subject | CI result | Run |
+|---|---|---|---|
+| `e4d72e64c9993a9707c45cb9bfaae8ba54a14616` | feat(network): add shared proxy and request settings (#62) | green | [41774614134](https://github.com/SakibShahariar/aniyori/actions/runs/41774614134) |
+| `e4be1a144e0455fe9d08acd4f477ca0d1cc4603e` | feat(network): apply proxy and retry settings to service clients (#62) | red | [41774848525](https://github.com/SakibShahariar/aniyori/actions/runs/41774848525) |
+
+### Failure investigation: cover-cache test patch target
+
+- Four cover-cache tests failed during mock setup because the service now constructs its opener through `build_network_opener`, while the tests still patched the removed `build_opener` symbol.
+- Source compilation passed; the failures were stale test patch targets caused by the integration refactor.
+- Correction: update the cover-cache tests to patch the shared network-opener factory. The same integration batch also routes webhook requests through configured proxy/TLS/timeout settings.
+- Retry and final outcome will be recorded after the next CI run.
+

@@ -56,7 +56,7 @@ class CoverCacheTests(unittest.TestCase):
     def test_downloads_and_caches_cover(self):
         payload = b"fake-image-data"
         with patch(
-            "aniyori.services.covers.build_opener",
+            "aniyori.services.covers.build_network_opener",
             return_value=mock_opener(ImageResponse(payload)),
         ) as build_opener:
             first = get_cached_cover(
@@ -104,7 +104,7 @@ class CoverCacheTests(unittest.TestCase):
 
     def test_rejects_non_image_response(self):
         with patch(
-            "aniyori.services.covers.build_opener",
+            "aniyori.services.covers.build_network_opener",
             return_value=mock_opener(ImageResponse(b"not-an-image", "text/html")),
         ):
             with self.assertRaisesRegex(ValueError, "did not return an image"):
@@ -114,7 +114,7 @@ class CoverCacheTests(unittest.TestCase):
 
     def test_rejects_oversized_response(self):
         with patch(
-            "aniyori.services.covers.build_opener",
+            "aniyori.services.covers.build_network_opener",
             return_value=mock_opener(ImageResponse(b"x" * (MAX_COVER_BYTES + 1))),
         ):
             with self.assertRaisesRegex(ValueError, "8 MiB"):
@@ -139,7 +139,7 @@ class CoverCacheTests(unittest.TestCase):
 
     def test_failed_download_does_not_leave_cache_file(self):
         with patch(
-            "aniyori.services.covers.build_opener",
+            "aniyori.services.covers.build_network_opener",
             return_value=mock_opener(ImageResponse(b"", "image/jpeg")),
         ):
             with self.assertRaisesRegex(ValueError, "empty cover"):

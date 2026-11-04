@@ -11,7 +11,8 @@ import tempfile
 from typing import Iterable, Mapping
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlsplit
-from urllib.request import HTTPRedirectHandler, Request, build_opener
+from urllib.request import HTTPRedirectHandler, Request
+from .network import build_network_opener, open_request
 
 
 WEBHOOK_FORMAT = "aniyori-webhooks"
@@ -222,18 +223,20 @@ def deliver_webhooks(
     webhooks: Iterable[Webhook],
     event: Mapping[str, object],
     *,
-    timeout: float = DEFAULT_TIMEOUT,
+    timeout: float | None = None,
     opener=None,
 ) -> tuple[WebhookDelivery, ...]:
     """Deliver one event to enabled endpoints; isolate all endpoint failures."""
-    if isinstance(timeout, bool) or not isinstance(timeout, (int, float)) or timeout <= 0:
+    if timeout is not None and (
+        isinstance(timeout, bool) or not isinstance(timeout, (int, float)) or timeout <= 0
+    ):
         raise ValueError("Webhook timeout must be greater than zero.")
     if not isinstance(event, Mapping):
         raise WebhookError("Webhook event must be an object.")
     payload = json.dumps(dict(event), ensure_ascii=False, separators=(",", ":")).encode("utf-8")
     if len(payload) > 64 * 1024:
         raise WebhookError("Webhook event payload exceeds 64 KiB.")
-    client = opener or build_opener(_NoRedirect())
+    client = opener or build_network_opener(_NoRedirect())
     results = []
     for raw in webhooks:
         try:
@@ -244,7 +247,7 @@ def deliver_webhooks(
                        "Accept": "application/json", "User-Agent": "Aniyori/0.1"}
             headers.update(dict(webhook.headers or {}))
             request = Request(webhook.url, data=payload, headers=headers, method="POST")
-            with client.open(request, timeout=timeout) as response:
+            with open_request(request, timeout=timeout, opener=client) as response:
                 status = getattr(response, "status", response.getcode())
                 response.read(MAX_RESPONSE_BYTES)
             if not 200 <= status < 300:
