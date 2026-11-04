@@ -54,6 +54,35 @@ class WatchHistoryTests(unittest.TestCase):
         self.assertEqual(event["source"], "player")
         self.assertEqual(event["details"], "Playback reached the end.")
 
+
+    def test_episode_state_migrates_legacy_count_and_derives_progress(self):
+        self.storage.update_progress(self.entry.storage_id, 2)
+        progress = self.storage.set_episode_watched(self.entry.storage_id, 4)
+        self.assertEqual(progress, 3)
+        self.assertEqual(
+            self.storage.list_episode_progress(self.entry.storage_id),
+            {1: True, 2: True, 4: True},
+        )
+        self.assertEqual(self.storage.list_entries()[0].episodes_watched, 3)
+
+    def test_episode_can_be_unwatched_and_rewatched_without_losing_history(self):
+        self.storage.set_episode_watched(self.entry.storage_id, 1)
+        self.storage.set_episode_watched(self.entry.storage_id, 1, False)
+        self.storage.set_episode_watched(self.entry.storage_id, 1, True)
+        self.assertEqual(self.storage.list_entries()[0].episodes_watched, 1)
+        events = self.storage.list_watch_history(action="episode")
+        self.assertEqual(len(events), 2)
+        self.assertEqual(events[0]["details"], "Rewatched episode")
+
+    def test_episode_tracking_rejects_invalid_or_out_of_range_values(self):
+        for episode in (0, -1, 13, True):
+            with self.subTest(episode=episode), self.assertRaises(ValueError):
+                self.storage.set_episode_watched(self.entry.storage_id, episode)
+        with self.assertRaises(ValueError):
+            self.storage.set_episode_watched(self.entry.storage_id, 1, "yes")
+        with self.assertRaises(ValueError):
+            self.storage.list_episode_progress(999)
+
     def test_history_can_be_filtered_by_anime_action_and_date(self):
         self.storage.update_progress(self.entry.storage_id, 1)
         all_events = self.storage.list_watch_history()

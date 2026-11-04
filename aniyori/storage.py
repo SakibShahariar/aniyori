@@ -23,7 +23,7 @@ def default_database_path() -> Path:
 class LibraryStorage:
     """Store the local library in a small SQLite database."""
 
-    LATEST_SCHEMA_VERSION = 3
+    LATEST_SCHEMA_VERSION = 4
 
     @staticmethod
     def _is_duplicate_catalogue_error(error: sqlite3.IntegrityError) -> bool:
@@ -96,8 +96,27 @@ class LibraryStorage:
             "CREATE INDEX IF NOT EXISTS watch_history_anime_idx ON watch_history(anime_title COLLATE NOCASE)"
         )
 
+    @staticmethod
+    def _migration_4(connection: sqlite3.Connection) -> None:
+        """Add explicit per-episode watched state without rewriting legacy progress."""
+        connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS episode_progress (
+                anime_id INTEGER NOT NULL REFERENCES anime(id) ON DELETE CASCADE,
+                episode INTEGER NOT NULL CHECK(episode > 0),
+                watched INTEGER NOT NULL CHECK(watched IN (0, 1)),
+                updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY(anime_id, episode)
+            )
+            """
+        )
+        connection.execute(
+            "CREATE INDEX IF NOT EXISTS episode_progress_watched_idx "
+            "ON episode_progress(anime_id, watched, episode)"
+        )
+
     def _initialize(self) -> None:
-        migrations = {1: self._migration_1, 2: self._migration_2, 3: self._migration_3}
+        migrations = {1: self._migration_1, 2: self._migration_2, 3: self._migration_3, 4: self._migration_4}
         with self._connect() as connection:
             version = connection.execute("PRAGMA user_version").fetchone()[0]
             if version > self.LATEST_SCHEMA_VERSION:
@@ -421,6 +440,105 @@ class LibraryStorage:
                         details=f"{current_status} → {status}",
                     )
         return len(prepared)
+
+    def list_episode_progress(self, storage_id: int) -> dict[int, bool]:
+        """Return explicit watched state keyed by episode number."""
+        if isinstance(storage_id, bool) or not isinstance(storage_id, int) or storage_id <= 0:
+            raise ValueError("A valid storage ID is required.")
+        with self._connect() as connection:
+            if connection.execute("SELECT 1 FROM anime WHERE id = ?", (storage_id,)).fetchone() is None:
+                raise ValueError(f"Library entry {storage_id} no longer exists.")
+            rows = connection.execute(
+                "SELECT episode, watched FROM episode_progress WHERE anime_id = ? ORDER BY episode",
+                (storage_id,),
+            ).fetchall()
+        return {int(row["episode"]): bool(row["watched"]) for row in rows}
+
+    def set_episode_watched(
+        self, storage_id: int, episode: int, watched: bool = True, *, source: str = "manual"
+    ) -> int:
+        """Set one episode's watched state and derive aggregate progress transactionally.
+
+        On first use, legacy aggregate progress is represented as episodes 1..N watched.
+        This preserves the existing count while making the unavoidable legacy assumption
+        explicit and editable (including skipped episodes).
+        """
+        if isinstance(storage_id, bool) or not isinstance(storage_id, int) or storage_id <= 0:
+            raise ValueError("A valid storage ID is required.")
+        if isinstance(episode, bool) or not isinstance(episode, int) or not 1 <= episode <= MAX_EPISODE_COUNT:
+            raise ValueError(f"Episode number must be between 1 and {MAX_EPISODE_COUNT:,}.")
+        if not isinstance(watched, bool):
+            raise ValueError("Watched state must be a boolean.")
+        if not isinstance(source, str) or not source.strip() or len(source) > 64:
+            raise ValueError("Watch-history source must contain 1–64 characters.")
+        with self._connect() as connection:
+            row = connection.execute(
+                "SELECT title, episodes_total, episodes_watched, status FROM anime WHERE id = ?",
+                (storage_id,),
+            ).fetchone()
+            if row is None:
+                raise ValueError(f"Library entry {storage_id} no longer exists.")
+            if row["episodes_total"] is not None and episode > row["episodes_total"]:
+                raise ValueError("Episode number cannot exceed the known episode total.")
+            existing_count = connection.execute(
+                "SELECT COUNT(*) FROM episode_progress WHERE anime_id = ?", (storage_id,)
+            ).fetchone()[0]
+            if not existing_count and row["episodes_watched"]:
+                connection.executemany(
+                    "INSERT INTO episode_progress(anime_id, episode, watched) VALUES (?, ?, 1)",
+                    ((storage_id, number) for number in range(1, row["episodes_watched"] + 1)),
+                )
+            previous = connection.execute(
+                "SELECT watched FROM episode_progress WHERE anime_id = ? AND episode = ?",
+                (storage_id, episode),
+            ).fetchone()
+            was_watched = bool(previous["watched"]) if previous is not None else False
+            connection.execute(
+                """
+                INSERT INTO episode_progress(anime_id, episode, watched)
+                VALUES (?, ?, ?)
+                ON CONFLICT(anime_id, episode) DO UPDATE SET
+                    watched = excluded.watched, updated_at = CURRENT_TIMESTAMP
+                """,
+                (storage_id, episode, int(watched)),
+            )
+            progress = int(connection.execute(
+                "SELECT COUNT(*) FROM episode_progress WHERE anime_id = ? AND watched = 1",
+                (storage_id,),
+            ).fetchone()[0])
+            total = row["episodes_total"]
+            current_status = row["status"]
+            if total is not None and total > 0 and progress == total:
+                status = "completed"
+            elif current_status in ("paused", "dropped"):
+                status = current_status
+            elif current_status == "completed" and total is None:
+                status = current_status
+            else:
+                status = "watching" if progress else "planning"
+            connection.execute(
+                "UPDATE anime SET episodes_watched = ?, status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+                (progress, status, storage_id),
+            )
+            if watched and (not was_watched or previous is not None):
+                detail = "Rewatched episode" if was_watched else "Marked episode watched"
+                self._insert_history_event(
+                    connection, anime_id=storage_id, anime_title=row["title"],
+                    episode=episode, action="episode", source=source.strip(), details=detail,
+                )
+            elif was_watched and not watched:
+                self._insert_history_event(
+                    connection, anime_id=storage_id, anime_title=row["title"],
+                    episode=episode, action="progress", source=source.strip(),
+                    details="Marked episode unwatched",
+                )
+            if current_status != status:
+                self._insert_history_event(
+                    connection, anime_id=storage_id, anime_title=row["title"],
+                    episode=None, action="status", source=source.strip(),
+                    details=f"{current_status} → {status}",
+                )
+            return progress
 
     def remove_many(self, storage_ids: Iterable[int]) -> int:
         """Remove multiple entries atomically, ignoring repeated IDs."""
