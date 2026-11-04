@@ -43,6 +43,7 @@ from .services.share_templates import (
 from .services.covers import get_cached_cover
 from .storage import LibraryStorage
 from .statistics import calculate_library_statistics
+from .services.library_sort import SORT_MODES, sort_library_entries
 from .services.external_links import ExternalLinkError, ExternalLinkStore, links_for_entry
 
 LOGGER = logging.getLogger(__name__)
@@ -293,6 +294,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
         self.search_history_store = SearchHistoryStore()
         self._scan_cancel_event = None
         self.current_filter = "all"
+        self.library_sort_mode = "title"
         self._undo_entry: AnimeEntry | None = None
         self._undo_toast = None
         undo_action = Gio.SimpleAction.new("undo-delete", None)
@@ -436,6 +438,15 @@ class AniyoriWindow(Adw.ApplicationWindow):
             button.connect("toggled", self._on_filter_toggled, key)
             toolbar.append(button)
             self.filter_buttons[key] = button
+        sort_label = Gtk.Label(label="Sort:")
+        sort_label.add_css_class("dim-label")
+        toolbar.append(sort_label)
+        self.library_sort_dropdown = Gtk.DropDown.new_from_strings(
+            ["Title", "Progress", "Recently Updated", "Next Airing"]
+        )
+        self.library_sort_dropdown.set_selected(0)
+        self.library_sort_dropdown.connect("notify::selected", self._on_library_sort_changed)
+        toolbar.append(self.library_sort_dropdown)
         spacer = Gtk.Box()
         spacer.set_hexpand(True)
         toolbar.append(spacer)
@@ -1713,6 +1724,12 @@ class AniyoriWindow(Adw.ApplicationWindow):
                 other_button.set_active(False)
         self._render_library()
 
+    def _on_library_sort_changed(self, dropdown, _property):
+        selected = dropdown.get_selected()
+        if selected < len(SORT_MODES):
+            self.library_sort_mode = SORT_MODES[selected]
+            self._render_library()
+
     def _on_view_toggled(self, button, key):
         if not button.get_active():
             return
@@ -2803,7 +2820,13 @@ class AniyoriWindow(Adw.ApplicationWindow):
 
         query = self.search.get_text().strip().casefold() if hasattr(self, "search") else ""
         visible_count = 0
-        for position, entry in enumerate(self.entries):
+        ordered_entries = sort_library_entries(
+            self.entries,
+            sort_by=self.library_sort_mode,
+            airing_by_id=self._airing_by_id,
+            updated_at_by_id=self.storage.get_updated_at_map(),
+        )
+        for position, entry in enumerate(ordered_entries):
             key = entry.storage_id if entry.storage_id is not None else ("transient", id(entry))
             row = self._row_widgets.get(key)
             card = self._card_widgets.get(key)

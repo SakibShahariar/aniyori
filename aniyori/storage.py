@@ -147,6 +147,12 @@ class LibraryStorage:
             (anime_id, anime_title, episode, action, source, details),
         )
 
+    def get_updated_at_map(self) -> dict[int, str]:
+        """Return last-edit timestamps for stable library IDs."""
+        with self._connect() as connection:
+            rows = connection.execute("SELECT id, updated_at FROM anime").fetchall()
+        return {int(row["id"]): str(row["updated_at"]) for row in rows if row["updated_at"]}
+
     def list_entries(self) -> list[AnimeEntry]:
         with self._connect() as connection:
             rows = connection.execute(

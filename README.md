@@ -21,7 +21,7 @@ A native Linux anime tracker built with Python, GTK 4, PyGObject, and libadwaita
 - **Preferences:** saved share-format templates with live preview, release-attribute preferences, explainable release-quality scoring, and ordered smart release rules.
 - **Release discovery:** Nyaa.si search and configurable RSS/Atom feeds, release metadata, library matching, filtering, sorting, and rule-based selection.
 - **Download handoff:** validated magnet links through the desktop's default torrent application or explicit qBittorrent WebUI submission.
-- **Data:** local SQLite library and watch history, JSON/CSV export, validated library import, and full database/configuration backups.
+- **Library:** sortable list/grid views with status filters, local SQLite watch history, JSON/CSV export, and full database/configuration backups.
 
 Library entries remain local. The desktop interface still needs a launch and interaction test on a Linux session.
 

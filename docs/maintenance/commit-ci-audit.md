@@ -24,10 +24,10 @@ Persistent repository-specific record of commit-level CI checks and red-cross in
 
 - Repository: `SakibShahariar/aniyori`
 - Default branch: `main`
-- Checkpoint SHA: `427f5ad1952d4490cce07cc3e72624a2712cdb4f`
+- Checkpoint SHA: `4e38f61fc67320c432852801b2dd39dbbc0f0220`
 - Initialized: 2026-11-02
 - Baseline: latest branch tip queried through combined commit-status endpoint; empty status list recorded as **unavailable**, not green/red. Older history was not retroactively audited during setup.
-- Next session: review commits after `427f5ad1952d4490cce07cc3e72624a2712cdb4f`; carry forward any red or unresolved entries.
+- Next session: review commits after `4e38f61fc67320c432852801b2dd39dbbc0f0220`; carry forward any red or unresolved entries.
 
 ## Initial baseline
 
@@ -404,3 +404,16 @@ The complete Tests workflow passed, including source compilation and the full un
 | Date | Reviewed range / checkpoint | Result summary |
 |---|---|---|
 | 2026-11-04 | `f72b7b89df607a68d2e2b112166b3ba4dc14e794` → `427f5ad1952d4490cce07cc3e72624a2712cdb4f` | Reviewed the release-refresh load placement correction; CI green after the recorded red run. |
+
+
+## Reviewed range: 2026-11-04 (continued)
+
+| Commit SHA | Subject | CI result | Run |
+|---|---|---|---|
+| `4e38f61fc67320c432852801b2dd39dbbc0f0220` | fix(download): enforce per-anime download eligibility (#57) | green | [41768256283](https://github.com/SakibShahariar/aniyori/actions/runs/41768256283) |
+
+The complete Tests workflow passed, including source compilation and the full unittest suite.
+
+| Date | Reviewed range / checkpoint | Result summary |
+|---|---|---|
+| 2026-11-04 | `427f5ad1952d4490cce07cc3e72624a2712cdb4f` → `4e38f61fc67320c432852801b2dd39dbbc0f0220` | Reviewed per-anime eligibility enforcement; CI green. Checkpoint advanced to this commit. |

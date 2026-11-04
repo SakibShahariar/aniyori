@@ -195,6 +195,13 @@ class LibraryStorageTests(unittest.TestCase):
             [second.title],
         )
 
+    def test_get_updated_at_map_returns_timestamps_by_storage_id(self):
+        self.storage.add(AnimeEntry(title="Recently edited"))
+        entry = self.storage.list_entries()[0]
+        timestamps = self.storage.get_updated_at_map()
+        self.assertIn(entry.storage_id, timestamps)
+        self.assertRegex(timestamps[entry.storage_id], r"^\\d{4}-\\d{2}-\\d{2} ")
+
     def test_remove(self):
         self.storage.add(AnimeEntry(title="Example Anime"))
         entry = self.storage.list_entries()[0]
