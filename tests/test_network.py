@@ -88,7 +88,7 @@ class NetworkSettingsTests(unittest.TestCase):
             "http": "http://proxy.example:8080",
             "https": "http://proxy.example:8080",
         })
-        self.assertIs(handlers[1].context, context)
+        self.assertIs(handlers[1]._context, context)
 
     def test_configured_timeout_is_used_by_service_opener(self):
         opener = MagicMock()

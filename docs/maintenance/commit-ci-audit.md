@@ -528,3 +528,18 @@ The cover-cache test patch-target failure in `e4be1a1` was corrected in `a142818
 | Date | Reviewed range / checkpoint | Result summary |
 |---|---|---|
 | 2026-11-04 | `c457791cbea723506b5246865bfe9b4c3d4cbbea` → `a14281850f9f77266a92cf65ab7f0dda15a0598c` | Reviewed notification severity fix and all network-settings commits, including the red cover-test run and green correction. Checkpoint advanced to the verified green commit. |
+
+
+## Reviewed range: 2026-11-04 (continued)
+
+| Commit SHA | Subject | CI result | Run |
+|---|---|---|---|
+| `24b34b065fd1980d110d59199d6001bf4efe4461` | test(network): verify proxy and timeout application (#62) | red | [41775168741](https://github.com/SakibShahariar/aniyori/actions/runs/41775168741) |
+
+### Failure investigation: HTTPS handler test attribute
+
+- Failed test: `test_opener_applies_proxy_and_keeps_tls_verification_enabled`.
+- Diagnosis: the test inspected `HTTPSHandler.context`, but Python's urllib implementation stores the supplied SSL context as the private `_context` attribute. The opener construction itself succeeded.
+- Classification: test introspection used the wrong stdlib attribute.
+- Correction: assert against `HTTPSHandler._context`; TLS verification remains enabled because the implementation constructs the context with `ssl.create_default_context()`.
+
