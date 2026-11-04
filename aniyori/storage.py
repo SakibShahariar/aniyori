@@ -243,7 +243,9 @@ class LibraryStorage:
             if episodes_watched != row["episodes_watched"]:
                 self._insert_history_event(
                     connection, anime_id=storage_id, anime_title=row["title"],
-                    episode=episodes_watched, action="progress", source=source,
+                    episode=episodes_watched,
+                    action="episode" if episodes_watched == row["episodes_watched"] + 1 else "progress",
+                    source=source,
                     details=f"{row['episodes_watched']} → {episodes_watched}",
                 )
             if current_status != status:

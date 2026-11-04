@@ -21,14 +21,14 @@ class WatchHistoryTests(unittest.TestCase):
     def test_manual_progress_and_status_transitions_are_recorded(self):
         self.storage.update_progress(self.entry.storage_id, 1)
         history = self.storage.list_watch_history()
-        self.assertEqual([item["action"] for item in history], ["status", "progress"])
+        self.assertEqual([item["action"] for item in history], ["status", "episode"])
         self.assertEqual(history[0]["details"], "planning → watching")
         self.assertEqual(history[1]["episode"], 1)
         self.assertEqual(history[1]["source"], "manual")
 
     def test_progress_source_can_identify_automatic_player_updates(self):
         self.storage.update_progress(self.entry.storage_id, 1, source="player")
-        event = self.storage.list_watch_history(action="progress")[0]
+        event = self.storage.list_watch_history(action="episode")[0]
         self.assertEqual(event["source"], "player")
 
     def test_bulk_progress_and_status_changes_are_recorded(self):

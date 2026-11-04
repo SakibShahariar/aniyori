@@ -24,10 +24,10 @@ Persistent repository-specific record of commit-level CI checks and red-cross in
 
 - Repository: `SakibShahariar/aniyori`
 - Default branch: `main`
-- Checkpoint SHA: `482e3408ebce4d91ca833f8a41051c0dad079aa9`
+- Checkpoint SHA: `f025df42fb15b2b8b332ecbaed3a74832907552c`
 - Initialized: 2026-11-02
 - Baseline: latest branch tip queried through combined commit-status endpoint; empty status list recorded as **unavailable**, not green/red. Older history was not retroactively audited during setup.
-- Next session: review commits after `482e3408ebce4d91ca833f8a41051c0dad079aa9`; carry forward any red or unresolved entries.
+- Next session: review commits after `f025df42fb15b2b8b332ecbaed3a74832907552c`; carry forward any red or unresolved entries.
 
 ## Initial baseline
 
@@ -339,3 +339,16 @@ The complete Tests workflow passed. Python source compilation and the full unitt
 | Date | Reviewed range / checkpoint | Result summary |
 |---|---|---|
 | 2026-11-04 | `4addcca6b73c8aa952de0b02ea58aeefe4e01715` → `482e3408ebce4d91ca833f8a41051c0dad079aa9` | Reviewed the exclusion-management UI commit; CI green. Checkpoint advanced to this commit. |
+
+
+## Reviewed range: 2026-11-04 (continued)
+
+| Commit SHA | Subject | CI result | Run |
+|---|---|---|---|
+| `f025df42fb15b2b8b332ecbaed3a74832907552c` | feat(history): add persistent watch-history log (#51) | green | [41767460396](https://github.com/SakibShahariar/aniyori/actions/runs/41767460396) |
+
+The complete Tests workflow passed, including Python compilation and all unit tests.
+
+| Date | Reviewed range / checkpoint | Result summary |
+|---|---|---|
+| 2026-11-04 | `482e3408ebce4d91ca833f8a41051c0dad079aa9` → `f025df42fb15b2b8b332ecbaed3a74832907552c` | Reviewed the watch-history schema, storage, and UI implementation; CI green. Checkpoint advanced to this commit. |
