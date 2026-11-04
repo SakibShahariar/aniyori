@@ -2089,7 +2089,6 @@ class AniyoriWindow(Adw.ApplicationWindow):
                 child = next_child
             try:
                 rules = self.release_rule_store.load()
-            anime_preferences = self.anime_release_preference_store.load()
             except (OSError, ValueError) as error:
                 self.toast_overlay.add_toast(Adw.Toast.new(f"Could not load rules: {error}"))
                 return ()
@@ -2505,6 +2504,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
             weights = self.release_scoring_store.load()
             minimum_score = self.release_scoring_store.load_minimum_score()
             rules = self.release_rule_store.load()
+            anime_preferences = self.anime_release_preference_store.load()
         except (OSError, ValueError) as error:
             LOGGER.warning("Could not prepare release feed refresh: %s", error)
             self.toast_overlay.add_toast(Adw.Toast.new(f"Release refresh unavailable: {error}"))

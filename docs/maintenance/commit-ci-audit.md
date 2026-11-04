@@ -24,10 +24,10 @@ Persistent repository-specific record of commit-level CI checks and red-cross in
 
 - Repository: `SakibShahariar/aniyori`
 - Default branch: `main`
-- Checkpoint SHA: `be7a4856601693d0c34c54c9d6c6b0d9b142667b`
+- Checkpoint SHA: `f72b7b89df607a68d2e2b112166b3ba4dc14e794`
 - Initialized: 2026-11-02
 - Baseline: latest branch tip queried through combined commit-status endpoint; empty status list recorded as **unavailable**, not green/red. Older history was not retroactively audited during setup.
-- Next session: review commits after `be7a4856601693d0c34c54c9d6c6b0d9b142667b`; carry forward any red or unresolved entries.
+- Next session: review commits after `f72b7b89df607a68d2e2b112166b3ba4dc14e794`; carry forward any red or unresolved entries.
 
 ## Initial baseline
 
@@ -378,3 +378,16 @@ The complete Tests workflow passed, including Python source compilation and all 
 | Date | Reviewed range / checkpoint | Result summary |
 |---|---|---|
 | 2026-11-04 | `886c7bc3666eb0b9d40d9fe4f60112c82dda340f` → `be7a4856601693d0c34c54c9d6c6b0d9b142667b` | Reviewed the watch-history test correction; CI green after the recorded red run. Checkpoint advanced. |
+
+
+## Reviewed range: 2026-11-04 (continued)
+
+| Commit SHA | Subject | CI result | Run |
+|---|---|---|---|
+| `f72b7b89df607a68d2e2b112166b3ba4dc14e794` | feat(download): add per-anime release preferences (#57) | red | [41768024350](https://github.com/SakibShahariar/aniyori/actions/runs/41768024350) |
+
+The unit-tests job failed during Python source compilation in `aniyori/window.py`: the per-anime preference store load was accidentally inserted inside the release-rule editor's `try` block with invalid indentation. Unit tests were skipped. The next commit moves the load into the release-feed refresh setup.
+
+| Date | Reviewed range / checkpoint | Result summary |
+|---|---|---|
+| 2026-11-04 | `be7a4856601693d0c34c54c9d6c6b0d9b142667b` → `f72b7b89df607a68d2e2b112166b3ba4dc14e794` | Reviewed the initial per-anime preference integration; compile error recorded for correction. |
