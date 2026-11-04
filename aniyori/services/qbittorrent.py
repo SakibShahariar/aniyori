@@ -16,8 +16,8 @@ from urllib.request import (
     HTTPRedirectHandler,
     HTTPCookieProcessor,
     Request,
-    build_opener,
 )
+from .network import build_network_opener, open_request
 import secrets
 
 
@@ -221,7 +221,7 @@ class QBittorrentClient:
         username: str,
         password: str,
         *,
-        timeout: int = DEFAULT_TIMEOUT,
+        timeout: int | None = None,
         opener=None,
     ):
         self.server_url = validate_server_url(server_url)
@@ -229,12 +229,14 @@ class QBittorrentClient:
             raise ValueError("A qBittorrent WebUI username is required.")
         if not isinstance(password, str) or not password:
             raise ValueError("A qBittorrent WebUI password is required.")
-        if isinstance(timeout, bool) or not isinstance(timeout, (int, float)) or timeout <= 0:
+        if timeout is not None and (
+            isinstance(timeout, bool) or not isinstance(timeout, (int, float)) or timeout <= 0
+        ):
             raise ValueError("Request timeout must be greater than zero.")
         self.username = username.strip()
         self.password = password
         self.timeout = timeout
-        self._opener = opener or build_opener(
+        self._opener = opener or build_network_opener(
             HTTPCookieProcessor(CookieJar()), _RejectRedirects()
         )
 
@@ -256,7 +258,7 @@ class QBittorrentClient:
             method="POST" if data is not None else "GET",
         )
         try:
-            with self._opener.open(request, timeout=self.timeout) as response:
+            with open_request(request, timeout=self.timeout, opener=self._opener) as response:
                 return response.read().decode("utf-8", errors="replace").strip()
         except HTTPError as error:
             if error.code == 403:

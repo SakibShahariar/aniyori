@@ -13,6 +13,7 @@ from typing import Any
 from .metadata_cache import MetadataCache
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
+from .network import open_request
 
 
 ANILIST_GRAPHQL_URL = "https://graphql.anilist.co"
@@ -130,11 +131,13 @@ class AniListClient:
 
     def __init__(
         self,
-        timeout: int = DEFAULT_TIMEOUT,
+        timeout: int | None = None,
         *,
         cache: MetadataCache | None = None,
     ):
-        if timeout <= 0:
+        if timeout is not None and (
+            isinstance(timeout, bool) or not isinstance(timeout, (int, float)) or timeout <= 0
+        ):
             raise ValueError("Timeout must be greater than zero")
         self.timeout = timeout
         self.cache = cache if cache is not None else MetadataCache()
@@ -152,7 +155,9 @@ class AniListClient:
             method="POST",
         )
         try:
-            with urlopen(request, timeout=self.timeout) as response:
+            with open_request(
+                request, timeout=self.timeout, retry_safe=True, urlopen_func=urlopen
+            ) as response:
                 raw_payload = response.read(MAX_ANILIST_RESPONSE_BYTES + 1)
             if len(raw_payload) > MAX_ANILIST_RESPONSE_BYTES:
                 raise AniListError("AniList response exceeds the maximum allowed size.")

@@ -8,7 +8,8 @@ import tempfile
 from pathlib import Path
 from urllib.error import URLError
 from urllib.parse import urlparse
-from urllib.request import HTTPRedirectHandler, Request, build_opener
+from urllib.request import HTTPRedirectHandler, Request
+from .network import build_network_opener, open_request
 
 
 MAX_COVER_BYTES = 8 * 1024 * 1024
@@ -85,9 +86,11 @@ def get_cached_cover(
     url: str,
     *,
     cache_dir: Path | None = None,
-    timeout: int = DEFAULT_TIMEOUT,
+    timeout: int | None = None,
 ) -> Path:
     """Return a cached cover path, downloading a bounded HTTPS image if needed."""
+    if timeout is not None and (isinstance(timeout, bool) or not isinstance(timeout, (int, float)) or timeout <= 0):
+        raise ValueError("Cover timeout must be greater than zero.")
     if not _is_allowed_cover_url(url):
         raise ValueError("Cover URL must be an HTTPS URL hosted by AniList.")
 
@@ -103,8 +106,8 @@ def get_cached_cover(
         headers={"Accept": "image/*", "User-Agent": "Aniyori/0.1.0"},
     )
     try:
-        opener = build_opener(_AniListRedirectHandler())
-        with opener.open(request, timeout=timeout) as response:
+        opener = build_network_opener(_AniListRedirectHandler())
+        with open_request(request, timeout=timeout, retry_safe=True, opener=opener) as response:
             content_type = response.headers.get("Content-Type", "").split(";", 1)[0]
             if not content_type.startswith("image/"):
                 raise ValueError("AniList did not return an image.")

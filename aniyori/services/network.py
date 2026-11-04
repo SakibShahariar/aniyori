@@ -160,6 +160,7 @@ def open_request(
     timeout: float | None = None,
     retry_safe: bool = False,
     opener=None,
+    urlopen_func=None,
 ):
     """Open a request with configured timeout/proxy/TLS and bounded safe retries.
 
@@ -171,11 +172,18 @@ def open_request(
     if isinstance(selected_timeout, bool) or not isinstance(selected_timeout, (int, float)) or selected_timeout <= 0:
         raise ValueError("Request timeout must be greater than zero.")
     retries = settings.retries if retry_safe else 0
-    client = opener or build_network_opener()
+    client = opener
+    if client is None and (settings.proxy_url or settings.ca_bundle_path):
+        client = build_network_opener()
     attempt = 0
     while True:
         try:
-            return client.open(request, timeout=selected_timeout)
+            if client is not None:
+                return client.open(request, timeout=selected_timeout)
+            open_func = urlopen_func
+            if open_func is None:
+                from urllib.request import urlopen as open_func
+            return open_func(request, timeout=selected_timeout)
         except HTTPError as error:
             retryable = error.code == 429 or 500 <= error.code < 600
             if not retry_safe or not retryable or attempt >= retries:

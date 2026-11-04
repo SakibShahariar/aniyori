@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from typing import Any
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
+from .network import open_request
 
 from ..filename_parser import parse_anime_filename
 from .matching import AnimeMatchDecision, match_anime_title
@@ -59,14 +60,16 @@ class FeedRefreshResult:
 def fetch_feed_content(
     url: str,
     *,
-    timeout: int = DEFAULT_FEED_TIMEOUT,
+    timeout: int | None = None,
     max_bytes: int = 2_000_000,
 ) -> bytes:
     """Fetch one HTTP(S) feed with a timeout and a strict response-size bound."""
     safe_url = _safe_link(url)
     if safe_url is None:
         raise FeedFetchError("Feed URL must be a credential-free HTTP(S) URL.")
-    if isinstance(timeout, bool) or not isinstance(timeout, (int, float)) or timeout <= 0:
+    if timeout is not None and (
+        isinstance(timeout, bool) or not isinstance(timeout, (int, float)) or timeout <= 0
+    ):
         raise ValueError("Feed timeout must be greater than zero.")
     if isinstance(max_bytes, bool) or not isinstance(max_bytes, int) or max_bytes <= 0:
         raise ValueError("Feed size limit must be a positive integer.")
@@ -79,7 +82,7 @@ def fetch_feed_content(
         },
     )
     try:
-        with urlopen(request, timeout=timeout) as response:
+        with open_request(request, timeout=timeout, retry_safe=True, urlopen_func=urlopen) as response:
             final_url = _safe_link(response.geturl())
             if final_url is None:
                 raise FeedFetchError("Feed redirected to an unsafe URL.")

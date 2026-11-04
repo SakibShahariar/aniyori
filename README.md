@@ -49,6 +49,7 @@ Aniyori does not upload the local library database as part of these catalogue or
 feed requests. Search history and feed configuration are stored locally.
 
 - **Notifications:** matched releases, download failures, webhook delivery errors, and backup/restore events are saved locally in `~/.config/aniyori/notifications.json`. Event types, minimum severity, and optional desktop notifications are configurable. Repeated matched releases and identical failure reports are deduplicated.
+- **Network settings:** optional HTTP(S) proxy, request timeout, bounded retry count for read-only requests, and custom CA bundle settings are stored in `~/.config/aniyori/network.json`. TLS certificate verification is always enabled; insecure verification bypasses are not supported. Proxy credentials are not accepted.
 - **HTTP webhooks:** only when you explicitly configure and enable an endpoint, Aniyori sends JSON progress/status events to that URL. Webhook endpoints, custom headers, and their values are stored in `~/.config/aniyori/webhooks.json` with owner-only file permissions. Requests use the system's normal TLS certificate validation for HTTPS; redirects are not followed, and failed deliveries are logged without interrupting library updates.
 - **Magnet handoff:** Aniyori opens a validated magnet URI only when you explicitly
   choose the desktop-handler action.
@@ -75,6 +76,7 @@ or points to a relative path, Aniyori uses the standard home-directory default.
 | qBittorrent connection preferences (no password) | `~/.config/aniyori/qbittorrent.json` |
 | Custom external-link templates | `~/.config/aniyori/external-links.json` |
 | HTTP webhook endpoints and custom headers | `~/.config/aniyori/webhooks.json` |
+| Proxy, timeout, retry, and CA bundle preferences | `~/.config/aniyori/network.json` |
 | Local recognition exclusions | `~/.config/aniyori/recognition-exclusions.json` |
 | Per-anime release preferences | `~/.config/aniyori/anime-release-preferences.json` |
 | AniList metadata cache | `~/.cache/aniyori/metadata/` |
