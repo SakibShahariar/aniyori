@@ -1485,6 +1485,18 @@ class AniyoriWindow(Adw.ApplicationWindow):
                 if entered_password:
                     credentials.store("aniyori", account, secret)
                 self.qbittorrent_settings_store.save(settings)
+                previous_account = (
+                    self._qbittorrent_credential_account(previous)
+                    if previous is not None else None
+                )
+                if previous_account and previous_account != account:
+                    try:
+                        credentials.remove("aniyori", previous_account)
+                    except CredentialStoreError:
+                        LOGGER.warning(
+                            "Could not remove superseded qBittorrent credentials",
+                            exc_info=True,
+                        )
                 GLib.idle_add(self._finish_qbittorrent_settings, None)
             except (QBittorrentError, CredentialStoreError, OSError, ValueError) as error:
                 GLib.idle_add(self._finish_qbittorrent_settings, str(error))

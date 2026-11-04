@@ -248,3 +248,15 @@ The torrent search-history UI was added to the Nyaa feed manager. The complete T
 | Date | Reviewed range / checkpoint | Result summary |
 |---|---|---|
 | 2026-11-04 | `632b7958e1194ff0d322822920d99be60d3d250f` → `cbdc9294150ea517cad3e4e546a48232733cefbd` | Reviewed the new torrent-history UI commit; complete Tests workflow green. |
+
+
+## Reviewed range: 2026-11-04 (continued)
+
+| Commit SHA | Subject | CI result | Run |
+|---|---|---|---|
+| `da530187558d73b1418eef684955021e29aef333` | test(search): verify private history file permissions (#64) | green | [41765533987](https://github.com/SakibShahariar/aniyori/actions/runs/41765533987) |
+
+The search-history regression test confirms that the persisted history file is created with owner-only permissions (0600). The complete Tests workflow passed, including source compilation and unit tests.
+
+- Reviewed checkpoint: `da530187558d73b1418eef684955021e29aef333`
+- Commits after the previous checkpoint through this SHA: `cbdc9294150ea517cad3e4e546a48232733cefbd`, `da530187558d73b1418eef684955021e29aef333`; both completed green.
