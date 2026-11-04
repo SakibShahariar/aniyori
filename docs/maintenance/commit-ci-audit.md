@@ -24,10 +24,10 @@ Persistent repository-specific record of commit-level CI checks and red-cross in
 
 - Repository: `SakibShahariar/aniyori`
 - Default branch: `main`
-- Checkpoint SHA: `f025df42fb15b2b8b332ecbaed3a74832907552c`
+- Checkpoint SHA: `886c7bc3666eb0b9d40d9fe4f60112c82dda340f`
 - Initialized: 2026-11-02
 - Baseline: latest branch tip queried through combined commit-status endpoint; empty status list recorded as **unavailable**, not green/red. Older history was not retroactively audited during setup.
-- Next session: review commits after `f025df42fb15b2b8b332ecbaed3a74832907552c`; carry forward any red or unresolved entries.
+- Next session: review commits after `886c7bc3666eb0b9d40d9fe4f60112c82dda340f`; carry forward any red or unresolved entries.
 
 ## Initial baseline
 
@@ -352,3 +352,16 @@ The complete Tests workflow passed, including Python compilation and all unit te
 | Date | Reviewed range / checkpoint | Result summary |
 |---|---|---|
 | 2026-11-04 | `482e3408ebce4d91ca833f8a41051c0dad079aa9` → `f025df42fb15b2b8b332ecbaed3a74832907552c` | Reviewed the watch-history schema, storage, and UI implementation; CI green. Checkpoint advanced to this commit. |
+
+
+## Reviewed range: 2026-11-04 (continued)
+
+| Commit SHA | Subject | CI result | Run |
+|---|---|---|---|
+| `886c7bc3666eb0b9d40d9fe4f60112c82dda340f` | fix(history): classify single-episode progress events (#51) | red | [41767554362](https://github.com/SakibShahariar/aniyori/actions/runs/41767554362) |
+
+The unit-tests job failed one assertion in `test_history_can_be_filtered_by_anime_action_and_date`: the test inserted both the new automatic single-episode progress event and a second explicit episode event, then incorrectly expected only one result. Source compilation passed; the failing assertion is being corrected in the next commit.
+
+| Date | Reviewed range / checkpoint | Result summary |
+|---|---|---|
+| 2026-11-04 | `f025df42fb15b2b8b332ecbaed3a74832907552c` → `886c7bc3666eb0b9d40d9fe4f60112c82dda340f` | Reviewed the new single-episode event classification; CI exposed one incorrect test expectation. |

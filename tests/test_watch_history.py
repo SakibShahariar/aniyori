@@ -56,9 +56,6 @@ class WatchHistoryTests(unittest.TestCase):
 
     def test_history_can_be_filtered_by_anime_action_and_date(self):
         self.storage.update_progress(self.entry.storage_id, 1)
-        self.storage.record_watch_event(
-            self.entry.storage_id, episode=1, action="episode", source="player"
-        )
         all_events = self.storage.list_watch_history()
         day = str(all_events[0]["created_at"])[:10]
         filtered = self.storage.list_watch_history(
