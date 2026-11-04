@@ -2886,6 +2886,9 @@ class AniyoriWindow(Adw.ApplicationWindow):
             self.toast_overlay.add_toast(Adw.Toast.new(f"Bulk status update failed: {error}"))
             return
         self.entries = self.storage.list_entries()
+        for original, updated in zip(entries, updates):
+            if original.status != updated.status or original.episodes_watched != updated.episodes_watched:
+                self._dispatch_webhook_event(updated, "status")
         self._clear_bulk_selection()
         self._render_library()
         self.toast_overlay.add_toast(Adw.Toast.new(f"Updated status for {changed} anime."))
