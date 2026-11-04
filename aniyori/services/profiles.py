@@ -96,7 +96,7 @@ def configure_storage_environment(
     env["ANIYORI_BASE_CACHE_HOME"] = str(cache_home)
     env["ANIYORI_PORTABLE_MODE"] = "1" if portable else "0"
 
-    store = ProfileStore(registry_path)
+    store = ProfileStore(registry_path, environ=env)
     profiles, active_id = store._read()
     selected = next(item for item in profiles if item.profile_id == active_id)
     if active_id != "default":
@@ -115,9 +115,10 @@ def configure_storage_environment(
 class ProfileStore:
     """Manage profile names and active selection in a registry outside profile data."""
 
-    def __init__(self, path: str | Path | None = None):
+    def __init__(self, path: str | Path | None = None, *, environ=None):
+        self.environ = os.environ if environ is None else environ
         self.path = Path(path) if path is not None else Path(
-            os.environ.get("ANIYORI_PROFILE_REGISTRY") or _default_registry(os.environ)
+            self.environ.get("ANIYORI_PROFILE_REGISTRY") or _default_registry(self.environ)
         )
 
     def _read(self) -> tuple[tuple[Profile, ...], str]:
@@ -223,9 +224,9 @@ class ProfileStore:
         next_active = "default" if active == profile_id else active
         self._write(updated, next_active)
         roots = (
-            Path(os.environ.get("ANIYORI_BASE_DATA_HOME", Path.home() / ".local/share")),
-            Path(os.environ.get("ANIYORI_BASE_CONFIG_HOME", Path.home() / ".config")),
-            Path(os.environ.get("ANIYORI_BASE_CACHE_HOME", Path.home() / ".cache")),
+            Path(self.environ.get("ANIYORI_BASE_DATA_HOME", Path.home() / ".local/share")),
+            Path(self.environ.get("ANIYORI_BASE_CONFIG_HOME", Path.home() / ".config")),
+            Path(self.environ.get("ANIYORI_BASE_CACHE_HOME", Path.home() / ".cache")),
         )
         for root in roots:
             parent = root / "profiles"

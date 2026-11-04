@@ -543,3 +543,19 @@ The cover-cache test patch-target failure in `e4be1a1` was corrected in `a142818
 - Classification: test introspection used the wrong stdlib attribute.
 - Correction: assert against `HTTPSHandler._context`; TLS verification remains enabled because the implementation constructs the context with `ssl.create_default_context()`.
 
+
+
+## Reviewed range: 2026-11-04 (continued)
+
+| Commit SHA | Subject | CI result | Run |
+|---|---|---|---|
+| `b7ade8b6cb426987ee835468d8500be567d3d0a8` | test(network): inspect urllib TLS context correctly (#62) | green | [41775274127](https://github.com/SakibShahariar/aniyori/actions/runs/41775274127) |
+| `c402a39346d4a54d6597dfb606c3281db22cc5e9` | feat(profiles): add portable storage and profile registry (#60) | red | [41775659452](https://github.com/SakibShahariar/aniyori/actions/runs/41775659452) |
+
+### Failure investigation: profile context and injected environment
+
+- Failed tests: default/named profile context display and profile-directory removal.
+- Diagnosis: the tests compared the active profile ID to the display name, and `ProfileStore.remove()` read process-global `os.environ` instead of the environment mapping supplied to `configure_storage_environment()`.
+- Classification: context field expectation and environment-injection consistency bugs.
+- Correction: tests now assert `active_name`; `ProfileStore` retains the supplied environment mapping for path cleanup, and the bootstrap passes that mapping through.
+

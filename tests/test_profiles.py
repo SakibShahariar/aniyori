@@ -20,7 +20,7 @@ class ProfileStoreTests(unittest.TestCase):
             self.assertFalse(context.portable)
             self.assertEqual(Path(env["XDG_DATA_HOME"]), home / ".local/share")
             self.assertEqual(Path(env["XDG_CONFIG_HOME"]), home / ".config")
-            self.assertEqual(context.active_profile, "Default")
+            self.assertEqual(context.active_name, "Default")
 
     def test_named_profiles_are_isolated_and_switchable(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -32,7 +32,7 @@ class ProfileStoreTests(unittest.TestCase):
             self.assertEqual(created.profile_id, "work-profile")
             store.switch(created.profile_id)
             switched = configure_storage_environment(app_directory=home, environ=env)
-            self.assertEqual(switched.active_profile, "Work Profile")
+            self.assertEqual(switched.active_name, "Work Profile")
             self.assertIn("profiles/work-profile", env["XDG_DATA_HOME"])
             self.assertIn("profiles/work-profile", env["XDG_CONFIG_HOME"])
             self.assertIn("profiles/work-profile", env["XDG_CACHE_HOME"])
@@ -42,7 +42,7 @@ class ProfileStoreTests(unittest.TestCase):
             home = Path(directory)
             env = {"HOME": str(home)}
             context = configure_storage_environment(app_directory=home, environ=env)
-            store = ProfileStore(context.registry_path)
+            store = ProfileStore(context.registry_path, environ=env)
             profile = store.create("Temporary")
             for key in ("ANIYORI_BASE_DATA_HOME", "ANIYORI_BASE_CONFIG_HOME", "ANIYORI_BASE_CACHE_HOME"):
                 path = Path(env[key]) / "profiles" / profile.profile_id / "aniyori"
