@@ -18,6 +18,12 @@ class BackupTests(unittest.TestCase):
         with sqlite3.connect(self.database) as connection:
             connection.execute("CREATE TABLE anime (title TEXT NOT NULL)")
             connection.execute("INSERT INTO anime VALUES ('Frieren')")
+            connection.execute(
+                "CREATE TABLE watch_history (id INTEGER PRIMARY KEY, anime_title TEXT NOT NULL, episode INTEGER, action TEXT NOT NULL)"
+            )
+            connection.execute(
+                "INSERT INTO watch_history (anime_title, episode, action) VALUES ('Frieren', 7, 'episode')"
+            )
         self.config = self.root / "config" / "aniyori"
         self.config.mkdir(parents=True)
         (self.config / "feeds.json").write_text('{"feeds": []}', encoding="utf-8")
@@ -38,6 +44,12 @@ class BackupTests(unittest.TestCase):
 
         with sqlite3.connect(self.database) as connection:
             self.assertEqual(connection.execute("SELECT title FROM anime").fetchone()[0], "Frieren")
+            self.assertEqual(
+                connection.execute(
+                    "SELECT anime_title, episode, action FROM watch_history"
+                ).fetchone(),
+                ("Frieren", 7, "episode"),
+            )
         self.assertEqual((self.config / "feeds.json").read_text(encoding="utf-8"), '{"feeds": []}')
         self.assertFalse((self.config / "new.json").exists())
         self.assertEqual((self.config / "rules.json").read_text(encoding="utf-8"), '{"rules": []}')

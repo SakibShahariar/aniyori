@@ -585,3 +585,12 @@ The initial profile service run exposed three test failures: two compared profil
 | `0198ea4cdc3f3aaae9cbcb8779aa441c618caee0` | feat(library): add persisted per-view layout preferences (#65) | green | [41776342777](https://github.com/SakibShahariar/aniyori/actions/runs/41776342777) |
 
 The profile-removal guard and migration documentation passed the complete Tests workflow. The library-layout commit also passed compilation and unit tests; review confirmed that it adds only the persistence service and tests, not GTK integration. Issue #65 therefore remains open as Category B until the preferences are connected to the list/grid widgets and desktop usability is checked.
+
+
+## Reviewed range: 2026-11-04 (continued)
+
+| Commit SHA | Subject | CI result | Run |
+|---|---|---|---|
+| `cd22acb15db9af586f3f75989edce3bbd7fa89c5` | feat(history): add individual episode editor (#24) | green | [41789546031](https://github.com/SakibShahariar/aniyori/actions/runs/41789546031) |
+
+The episode editor is wired into both list and grid cards. The workflow compiled all Python sources and completed the unit-test suite successfully. Issue #24 remains open solely for live GTK interaction validation.
