@@ -97,7 +97,7 @@ database or preferences.
 
 By default, the **Default** profile continues to use the standard XDG data, config, and cache directories, preserving existing installations. Create named profiles from **Profiles & Portable Mode**; each named profile gets separate library, configuration, and cache roots under the corresponding XDG `aniyori/profiles/<profile-id>/` directories. Select a profile and restart Aniyori to activate it. Removing a profile deletes only that profile's isolated data; the Default profile cannot be removed.
 
-To enable portable mode, place an empty `.aniyori-portable` marker file beside `main.py` before launching Aniyori. On startup, Aniyori then uses a `portable-data/` directory beside the application for its data, config, cache, and profile registry. The application directory must be writable; if it is not, startup fails with a clear error rather than silently writing data elsewhere. An alternate portable root can be selected with `ANIYORI_PORTABLE_DIR`.
+To enable portable mode, place an empty `.aniyori-portable` marker file beside `main.py` before launching Aniyori. On startup, Aniyori then uses a `portable-data/` directory beside the application for its data, config, cache, and profile registry. The application directory must be writable; if it is not, startup fails with a clear error rather than silently writing data elsewhere. An alternate portable root can be selected with `ANIYORI_PORTABLE_DIR`. Portable mode does not automatically copy existing XDG data; create a full Aniyori backup first and restore it after the first portable-mode launch if you want to migrate your existing library and settings.
 
 ### Removing local data
 

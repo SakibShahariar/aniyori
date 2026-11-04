@@ -3,6 +3,7 @@
 import hashlib
 import json
 import logging
+import os
 import sqlite3
 import threading
 from pathlib import Path
@@ -1711,6 +1712,11 @@ class AniyoriWindow(Adw.ApplicationWindow):
             selected = profiles[index]
             if selected.profile_id == "default":
                 self.toast_overlay.add_toast(Adw.Toast.new("The Default profile cannot be removed."))
+                return
+            if selected.profile_id == self.profile_store.active_profile().profile_id:
+                self.toast_overlay.add_toast(
+                    Adw.Toast.new("Switch to another profile, restart Aniyori, then remove this profile.")
+                )
                 return
             confirm = Adw.AlertDialog(
                 heading="Remove profile?",

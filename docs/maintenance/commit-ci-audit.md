@@ -559,3 +559,19 @@ The cover-cache test patch-target failure in `e4be1a1` was corrected in `a142818
 - Classification: context field expectation and environment-injection consistency bugs.
 - Correction: tests now assert `active_name`; `ProfileStore` retains the supplied environment mapping for path cleanup, and the bootstrap passes that mapping through.
 
+
+
+## Reviewed range: 2026-11-04 (continued)
+
+| Commit SHA | Subject | CI result | Run |
+|---|---|---|---|
+| `b7ade8b6cb426987ee835468d8500be567d3d0a8` | test(network): inspect urllib TLS context correctly (#62) | green | [41775274127](https://github.com/SakibShahariar/aniyori/actions/runs/41775274127) |
+| `c402a39346d4a54d6597dfb606c3281db22cc5e9` | feat(profiles): add portable storage and profile registry (#60) | red | [41775659452](https://github.com/SakibShahariar/aniyori/actions/runs/41775659452) |
+| `e9cd189a25d03f793d905db42d0e9e64869c46d4` | fix(profiles): honor configured environment during profile cleanup (#60) | green | [41775820202](https://github.com/SakibShahariar/aniyori/actions/runs/41775820202) |
+| `2d5534c550a12c65995e131c6ff8b9bce7619546` | feat(gui): manage isolated profiles and portable mode (#60) | green | [41775934373](https://github.com/SakibShahariar/aniyori/actions/runs/41775934373) |
+
+The initial profile service run exposed three test failures: two compared profile IDs with display names, and one showed that cleanup used process-global environment values rather than the injected environment. The correction aligned the assertions and made the store retain its environment mapping. The full workflow passed after the correction and again after the GTK profile manager/bootstrap integration.
+
+| Date | Reviewed range / checkpoint | Result summary |
+|---|---|---|
+| 2026-11-04 | `a14281850f9f77266a92cf65ab7f0dda15a0598c` → `2d5534c550a12c65995e131c6ff8b9bce7619546` | Reviewed the final network test, profile storage/service, correction, and profile UI/bootstrap commits; all final outcomes green. Checkpoint advanced. |
