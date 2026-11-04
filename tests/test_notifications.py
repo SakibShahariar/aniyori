@@ -36,7 +36,7 @@ class NotificationStoreTests(unittest.TestCase):
     def test_preferences_filter_event_types_and_round_trip(self):
         with tempfile.TemporaryDirectory() as directory:
             store = NotificationStore(Path(directory) / "notifications.json")
-            prefs = NotificationPreferences(("backup", "webhook_error"), True, "warning")
+            prefs = NotificationPreferences(("backup", "webhook_error"), True)
             store.save_preferences(prefs)
             self.assertEqual(store.preferences(), prefs)
             self.assertIsNone(store.add("release_match", "info", "New", "release"))

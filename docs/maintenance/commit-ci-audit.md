@@ -481,3 +481,18 @@ The initial notification service commit `a6a7b3c321b6331d7734ac356910d1bbc915979
 | Date | Reviewed range / checkpoint | Result summary |
 |---|---|---|
 | 2026-11-04 | `a6a7b3c321b6331d7734ac356910d1bbc9159791` → `c457791cbea723506b5246865bfe9b4c3d4cbbea` | Reviewed notification service, its corrective commit, and UI/event integration. Checkpoint advanced to the green UI commit. |
+
+
+## Reviewed range: 2026-11-04 (continued)
+
+| Commit SHA | Subject | CI result | Run |
+|---|---|---|---|
+| `7f7c0ad5dbd1fcd5d81bcd3ce471cb34274c544d` | feat(notifications): configure severity and deduplicate failures (#48) | red | [41774224552](https://github.com/SakibShahariar/aniyori/actions/runs/41774224552) |
+
+### Failure investigation: notification severity test fixture
+
+- Failed test: `test_preferences_filter_event_types_and_round_trip`.
+- Diagnosis: the test fixture was changed to set the minimum severity to `warning`, while the same test still expected an `info` backup notification to be stored. The implementation correctly filtered it.
+- Classification: inconsistent test expectation, not a product-code regression.
+- Correction: restore the event-filter test's default `info` threshold; the separate severity-threshold test covers filtering.
+
