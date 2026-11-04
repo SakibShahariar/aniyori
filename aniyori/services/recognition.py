@@ -7,7 +7,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from .matching import ReleaseMatchDecision, match_release_filename
+from .matching import AnimeMatchDecision, ReleaseMatchDecision, match_release_filename
+from ..filename_parser import parse_anime_filename
 from .media_scanner import scan_video_files
 from .recognition_exclusions import exclusion_reason
 
@@ -49,6 +50,12 @@ def recognize_local_videos(
     for path in paths:
         if is_cancelled is not None and is_cancelled():
             break
+        parsed = parse_anime_filename(path.name)
+        reason = exclusion_reason(path, parsed, None, exclusion_rules)
+        if reason is not None:
+            result = ReleaseMatchDecision(parsed, AnimeMatchDecision("no_match", ()))
+            results.append(LocalVideoMatch(path=path, result=result, excluded_reason=reason))
+            continue
         result = match_release_filename(
             path.name,
             catalogue,

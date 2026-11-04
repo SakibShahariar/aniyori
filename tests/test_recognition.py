@@ -2,6 +2,7 @@
 
 import tempfile
 import unittest
+from unittest.mock import patch
 from pathlib import Path
 
 from aniyori.services.recognition import recognize_local_videos
@@ -62,6 +63,18 @@ class LocalVideoRecognitionTests(unittest.TestCase):
 
         self.assertEqual(results[0].result.decision.best_match.media_id, 20)
         self.assertTrue(results[0].result.decision.overridden)
+
+    def test_filename_exclusion_skips_catalogue_recognition(self):
+        path = self.root / "sample.mkv"
+        path.touch()
+        with patch("aniyori.services.recognition.match_release_filename") as matcher:
+            results = recognize_local_videos(
+                [self.root],
+                [{"id": 10, "title": "Frieren"}],
+                exclusions=[{"kind": "filename", "pattern": "*.mkv"}],
+            )
+        matcher.assert_not_called()
+        self.assertIn("Excluded filename", results[0].excluded_reason)
 
     def test_recognition_exclusions_mark_files(self):
         path = self.root / "[BadGroup] Frieren - 01.mkv"
