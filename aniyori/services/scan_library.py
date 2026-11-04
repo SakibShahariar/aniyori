@@ -32,6 +32,7 @@ def scan_configured_library(
     minimum_score: float = 0.84,
     ambiguity_margin: float = 0.06,
     excluded_directories: Iterable[str] | None = None,
+    exclusions: Iterable[Mapping[str, str]] = (),
     is_cancelled: Callable[[], bool] | None = None,
 ) -> LibraryScanResult:
     """Scan saved folders, recognize releases, and summarize episode coverage.
@@ -50,6 +51,7 @@ def scan_configured_library(
         minimum_score=minimum_score,
         ambiguity_margin=ambiguity_margin,
         excluded_directories=excluded_directories,
+        exclusions=exclusions,
         is_cancelled=is_cancelled,
     )
     inventory = summarize_episode_inventory(matches, library_entries)

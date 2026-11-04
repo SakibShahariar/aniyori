@@ -71,12 +71,13 @@ or points to a relative path, Aniyori uses the standard home-directory default.
 | Preferences and saved data | `~/.config/aniyori/` |
 | qBittorrent connection preferences (no password) | `~/.config/aniyori/qbittorrent.json` |
 | Custom external-link templates | `~/.config/aniyori/external-links.json` |
+| Local recognition exclusions | `~/.config/aniyori/recognition-exclusions.json` |
 | AniList metadata cache | `~/.cache/aniyori/metadata/` |
 | Cover image cache | `~/.cache/aniyori/covers/` |
 
 The configuration directory contains saved RSS feed URLs, search history, ordered
 release rules, release preferences, release-scoring settings, share-template
-settings, custom external links, and qBittorrent connection preferences. Full
+settings, custom external links, recognition exclusions, and qBittorrent connection preferences. Full
 backups include the SQLite library and regular files in this configuration directory.
 qBittorrent passwords are kept separately in the desktop Secret Service and are not
 exported; configure qBittorrent credentials again when restoring on another desktop.

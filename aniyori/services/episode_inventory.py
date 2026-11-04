@@ -46,6 +46,8 @@ def summarize_episode_inventory(
     )
 
     for item in matches:
+        if item.excluded_reason is not None:
+            continue
         decision = item.result.decision
         best = decision.best_match
         parsed = item.result.parsed

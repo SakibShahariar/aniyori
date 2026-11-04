@@ -9,6 +9,7 @@ from typing import Any
 
 from .matching import ReleaseMatchDecision, match_release_filename
 from .media_scanner import scan_video_files
+from .recognition_exclusions import exclusion_reason
 
 
 @dataclass(frozen=True, slots=True)
@@ -17,6 +18,7 @@ class LocalVideoMatch:
 
     path: Path
     result: ReleaseMatchDecision
+    excluded_reason: str | None = None
 
 
 def recognize_local_videos(
@@ -28,6 +30,7 @@ def recognize_local_videos(
     minimum_score: float = 0.84,
     ambiguity_margin: float = 0.06,
     excluded_directories: Iterable[str] | None = None,
+    exclusions: Iterable[Mapping[str, str]] = (),
     is_cancelled: Callable[[], bool] | None = None,
 ) -> list[LocalVideoMatch]:
     """Scan roots and classify files as matched, ambiguous, or unrecognized.
@@ -41,21 +44,21 @@ def recognize_local_videos(
         scan_options["excluded_directories"] = excluded_directories
     paths = scan_video_files(roots, is_cancelled=is_cancelled, **scan_options)
     catalogue = tuple(candidates)
+    exclusion_rules = tuple(exclusions)
     results = []
     for path in paths:
         if is_cancelled is not None and is_cancelled():
             break
-        results.append(
-            LocalVideoMatch(
-                path=path,
-                result=match_release_filename(
-                    path.name,
-                    catalogue,
-                    aliases=aliases,
-                    overrides=overrides,
-                    minimum_score=minimum_score,
-                    ambiguity_margin=ambiguity_margin,
-                ),
-            )
+        result = match_release_filename(
+            path.name,
+            catalogue,
+            aliases=aliases,
+            overrides=overrides,
+            minimum_score=minimum_score,
+            ambiguity_margin=ambiguity_margin,
         )
+        reason = exclusion_reason(
+            path, result.parsed, result.decision.best_match, exclusion_rules
+        )
+        results.append(LocalVideoMatch(path=path, result=result, excluded_reason=reason))
     return results

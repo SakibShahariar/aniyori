@@ -63,6 +63,17 @@ class LocalVideoRecognitionTests(unittest.TestCase):
         self.assertEqual(results[0].result.decision.best_match.media_id, 20)
         self.assertTrue(results[0].result.decision.overridden)
 
+    def test_recognition_exclusions_mark_files(self):
+        path = self.root / "[BadGroup] Frieren - 01.mkv"
+        path.touch()
+        results = recognize_local_videos(
+            [self.root],
+            [{"id": 10, "title": "Frieren"}],
+            exclusions=[{"kind": "release_group", "pattern": "BadGroup"}],
+        )
+        self.assertEqual(len(results), 1)
+        self.assertIn("Excluded release group", results[0].excluded_reason)
+
     def test_excluded_directories_are_respected(self):
         excluded = self.root / "Archive"
         excluded.mkdir()

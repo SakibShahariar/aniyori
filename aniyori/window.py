@@ -13,6 +13,7 @@ from gi.repository import Adw, Gdk, Gio, GLib, Gtk
 
 from .models import AnimeEntry, WatchStatus, parse_episode_count
 from .backup import BackupError, create_backup, default_config_dir, restore_backup
+from .services.recognition_exclusions import RecognitionExclusionError, RecognitionExclusionStore
 from .library_io import export_csv, export_json, import_csv, import_json
 from .search import SearchGeneration
 from .services.search_history import SearchHistoryError, SearchHistoryStore
@@ -277,6 +278,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
         self._airing_refresh_running = False
         self._selected_entry_ids = set()
         self.scan_location_store = ScanLocationStore()
+        self.recognition_exclusion_store = RecognitionExclusionStore()
         self.share_template_store = ShareTemplateStore()
         self.external_link_store = ExternalLinkStore()
         self.release_preference_store = ReleasePreferenceStore()
@@ -1073,6 +1075,9 @@ class AniyoriWindow(Adw.ApplicationWindow):
         cancel_button.set_sensitive(False)
         actions.append(add_button)
         actions.append(remove_button)
+        exclusions_button = Gtk.Button(label='Manage Exclusions')
+        exclusions_button.connect('clicked', lambda _button: self._show_recognition_exclusions_dialog())
+        actions.append(exclusions_button)
         actions.append(scan_button)
         actions.append(cancel_button)
         content.append(actions)
@@ -1123,6 +1128,78 @@ class AniyoriWindow(Adw.ApplicationWindow):
         )
         cancel_button.connect("clicked", self._cancel_configured_library_scan)
 
+    def _show_recognition_exclusions_dialog(self):
+        try:
+            rules = list(self.recognition_exclusion_store.list_rules())
+        except (OSError, RecognitionExclusionError) as error:
+            self.toast_overlay.add_toast(Adw.Toast.new('Could not load exclusions: ' + str(error)))
+            rules = []
+        dialog = Adw.AlertDialog(
+            heading='Recognition Exclusions',
+            body='Exclude folders, filename patterns, anime titles, or release groups. Use * and ? wildcards for text patterns.',
+        )
+        content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+        listing = Gtk.ListBox()
+        listing.set_selection_mode(Gtk.SelectionMode.SINGLE)
+        listing.add_css_class('boxed-list')
+        content.append(listing)
+        kind = Gtk.DropDown.new_from_strings(['Folder path', 'Filename pattern', 'Anime title', 'Release group'])
+        content.append(kind)
+        pattern = Gtk.Entry()
+        pattern.set_placeholder_text('/absolute/folder or *pattern*')
+        content.append(pattern)
+        actions = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        add = Gtk.Button(label='Add Exclusion')
+        remove = Gtk.Button(label='Remove Selected')
+        actions.append(add)
+        actions.append(remove)
+        content.append(actions)
+        dialog.set_extra_child(content)
+        dialog.add_response('close', 'Close')
+        dialog.set_default_response('close')
+        dialog.present(self)
+        kinds = ('folder', 'filename', 'title', 'release_group')
+        def refresh():
+            child = listing.get_first_child()
+            while child is not None:
+                following = child.get_next_sibling()
+                listing.remove(child)
+                child = following
+            for item in rules:
+                row = Gtk.ListBoxRow()
+                row.set_child(Gtk.Label(label=item['kind'].replace('_', ' ').title() + ': ' + item['pattern'], xalign=0))
+                listing.append(row)
+        def add_rule(_button):
+            selected = kind.get_selected()
+            if selected >= len(kinds):
+                return
+            updated = list(rules) + [{'kind': kinds[selected], 'pattern': pattern.get_text().strip()}]
+            try:
+                self.recognition_exclusion_store.save_rules(updated)
+            except (OSError, RecognitionExclusionError) as error:
+                self.toast_overlay.add_toast(Adw.Toast.new('Could not add exclusion: ' + str(error)))
+                return
+            rules[:] = updated
+            pattern.set_text('')
+            refresh()
+            self.toast_overlay.add_toast(Adw.Toast.new('Recognition exclusion added.'))
+        def remove_rule(_button):
+            selected = listing.get_selected_row()
+            if selected is None:
+                self.toast_overlay.add_toast(Adw.Toast.new('Select an exclusion to remove.'))
+                return
+            updated = list(rules)
+            updated.pop(selected.get_index())
+            try:
+                self.recognition_exclusion_store.save_rules(updated)
+            except (OSError, RecognitionExclusionError) as error:
+                self.toast_overlay.add_toast(Adw.Toast.new('Could not save exclusions: ' + str(error)))
+                return
+            rules[:] = updated
+            refresh()
+        add.connect('clicked', add_rule)
+        remove.connect('clicked', remove_rule)
+        refresh()
     def _on_scan_folder_selected(self, chooser, response, refresh_folders):
         if response != Gtk.ResponseType.ACCEPT:
             chooser.destroy()
@@ -1163,6 +1240,12 @@ class AniyoriWindow(Adw.ApplicationWindow):
             )
             return
 
+        try:
+            exclusions = self.recognition_exclusion_store.list_rules()
+        except (OSError, RecognitionExclusionError) as error:
+            self.toast_overlay.add_toast(Adw.Toast.new(f"Could not read exclusions: {error}"))
+            return
+
         event = threading.Event()
         self._scan_cancel_event = event
         scan_button.set_sensitive(False)
@@ -1184,6 +1267,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
                     self.scan_location_store,
                     candidates,
                     entries,
+                    exclusions=exclusions,
                     is_cancelled=event.is_set,
                 )
             except Exception as caught:
@@ -1226,6 +1310,10 @@ class AniyoriWindow(Adw.ApplicationWindow):
             lines.append("The scan was cancelled; the results below may be partial.")
         if not result.inventory:
             lines.append("No AniList-backed library entries are available to summarize.")
+        excluded = [item for item in result.matches if item.excluded_reason]
+        if excluded:
+            lines.append(f"\nExcluded files ({len(excluded)}):")
+            lines.extend(f"{item.path.name}: {item.excluded_reason}" for item in excluded)
         for item in result.inventory:
             available = ", ".join(map(str, item.available_episodes)) or "none"
             missing = ", ".join(map(str, item.missing_episodes)) or "none"
