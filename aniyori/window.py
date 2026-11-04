@@ -301,6 +301,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
             ("focus-search", lambda: self.search.grab_focus()),
             ("quit", lambda: self.get_application().quit()),
             ("statistics", self._show_statistics_dialog),
+            ("watch-history", self._show_watch_history_dialog),
             ("export-json", lambda: self._show_export_dialog("json")),
             ("export-csv", lambda: self._show_export_dialog("csv")),
             ("import-library", self._show_import_dialog),
@@ -343,6 +344,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
         primary_menu.append("Add Anime", "win.add-anime")
         primary_menu.append("Search Library", "win.focus-search")
         primary_menu.append("Library Statistics", "win.statistics")
+        primary_menu.append("Watch History", "win.watch-history")
         primary_menu.append("Export Library (JSON)", "win.export-json")
         primary_menu.append("Export Library (CSV)", "win.export-csv")
         primary_menu.append("Import Library", "win.import-library")
@@ -1563,6 +1565,106 @@ class AniyoriWindow(Adw.ApplicationWindow):
             Adw.Toast.new(f"Imported {len(entries)} anime entries.")
         )
 
+    def _show_watch_history_dialog(self):
+        dialog = Adw.AlertDialog(
+            heading='Watch History',
+            body='Review episode, progress, and status events recorded by Aniyori. Player integrations can record events with their own source label.',
+        )
+        content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+        filters = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        anime_filter = Gtk.Entry()
+        anime_filter.set_placeholder_text('Filter anime title')
+        anime_filter.set_hexpand(True)
+        filters.append(anime_filter)
+        date_filter = Gtk.Entry()
+        date_filter.set_placeholder_text('YYYY-MM-DD')
+        date_filter.set_width_chars(12)
+        filters.append(date_filter)
+        action_filter = Gtk.DropDown.new_from_strings(['All actions', 'Episode', 'Progress', 'Status'])
+        filters.append(action_filter)
+        content.append(filters)
+        listing = Gtk.ListBox()
+        listing.set_selection_mode(Gtk.SelectionMode.SINGLE)
+        listing.add_css_class('boxed-list')
+        scroll = Gtk.ScrolledWindow()
+        scroll.set_min_content_height(260)
+        scroll.set_max_content_height(420)
+        scroll.set_child(listing)
+        content.append(scroll)
+        actions = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        filter_button = Gtk.Button(label='Filter')
+        remove_button = Gtk.Button(label='Remove Selected')
+        prune_button = Gtk.Button(label='Prune Before Date')
+        actions.append(filter_button)
+        actions.append(remove_button)
+        actions.append(prune_button)
+        content.append(actions)
+        dialog.set_extra_child(content)
+        dialog.add_response('close', 'Close')
+        dialog.set_default_response('close')
+        dialog.present(self)
+        action_values = ('all', 'episode', 'progress', 'status')
+        event_ids = {}
+        def refresh():
+            event_ids.clear()
+            child = listing.get_first_child()
+            while child is not None:
+                following = child.get_next_sibling()
+                listing.remove(child)
+                child = following
+            try:
+                events = self.storage.list_watch_history(
+                    anime=anime_filter.get_text().strip() or None,
+                    date_filter=date_filter.get_text().strip() or None,
+                    action=action_values[action_filter.get_selected()],
+                )
+            except ValueError as error:
+                self.toast_overlay.add_toast(Adw.Toast.new(str(error)))
+                return
+            if not events:
+                row = Gtk.ListBoxRow()
+                row.set_child(Gtk.Label(label='No watch-history events match these filters.', xalign=0))
+                listing.append(row)
+                return
+            for event in events:
+                episode = (' · Episode ' + str(event['episode'])) if event['episode'] is not None else ''
+                details = (' · ' + event['details']) if event['details'] else ''
+                label = (
+                    str(event['created_at']) + ' · ' + str(event['anime_title']) + episode
+                    + ' · ' + str(event['action']).title() + ' (' + str(event['source']) + ')' + details
+                )
+                row = Gtk.ListBoxRow()
+                event_ids[row] = event['id']
+                row.set_child(Gtk.Label(label=label, xalign=0, wrap=True))
+                listing.append(row)
+        def remove_selected(_button):
+            selected = listing.get_selected_row()
+            event_id = event_ids.get(selected) if selected is not None else None
+            if event_id is None:
+                self.toast_overlay.add_toast(Adw.Toast.new('Select a history event to remove.'))
+                return
+            try:
+                self.storage.remove_watch_history([event_id])
+            except (ValueError, sqlite3.Error, OSError) as error:
+                self.toast_overlay.add_toast(Adw.Toast.new('Could not remove history: ' + str(error)))
+                return
+            refresh()
+        def prune_history(_button):
+            cutoff = date_filter.get_text().strip()
+            if not cutoff:
+                self.toast_overlay.add_toast(Adw.Toast.new('Enter a date to prune older events.'))
+                return
+            try:
+                removed = self.storage.prune_watch_history(cutoff)
+            except (ValueError, sqlite3.Error, OSError) as error:
+                self.toast_overlay.add_toast(Adw.Toast.new('Could not prune history: ' + str(error)))
+                return
+            refresh()
+            self.toast_overlay.add_toast(Adw.Toast.new('Pruned ' + str(removed) + ' history event(s).'))
+        filter_button.connect('clicked', lambda _button: refresh())
+        remove_button.connect('clicked', remove_selected)
+        prune_button.connect('clicked', prune_history)
+        refresh()
     def _show_statistics_dialog(self):
         stats = calculate_library_statistics(self.entries)
         statuses = stats["status_counts"]

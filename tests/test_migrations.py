@@ -5,6 +5,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from aniyori.models import AnimeEntry
 from aniyori.storage import LibraryStorage
 
 
@@ -57,6 +58,19 @@ class StorageMigrationTests(unittest.TestCase):
         self.assertEqual(entries[0].title, "Existing series")
         self.assertEqual(entries[0].episodes_watched, 7)
         self.assertIsNone(entries[0].cover_image)
+
+    def test_watch_history_migration_creates_table_without_losing_library_data(self):
+        storage = LibraryStorage(self.database)
+        storage.add(AnimeEntry(title="Existing"))
+        with sqlite3.connect(self.database) as connection:
+            columns = {
+                row[1] for row in connection.execute("PRAGMA table_info(watch_history)")
+            }
+            title = connection.execute("SELECT title FROM anime").fetchone()[0]
+        self.assertTrue(
+            {"anime_title", "episode", "action", "source", "created_at"}.issubset(columns)
+        )
+        self.assertEqual(title, "Existing")
 
     def test_migration_is_idempotent(self):
         LibraryStorage(self.database)

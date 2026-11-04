@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import sqlite3
+from datetime import date
 from pathlib import Path
 from typing import Iterable, Mapping
 
@@ -22,7 +23,7 @@ def default_database_path() -> Path:
 class LibraryStorage:
     """Store the local library in a small SQLite database."""
 
-    LATEST_SCHEMA_VERSION = 2
+    LATEST_SCHEMA_VERSION = 3
 
     @staticmethod
     def _is_duplicate_catalogue_error(error: sqlite3.IntegrityError) -> bool:
@@ -71,8 +72,32 @@ class LibraryStorage:
         if "cover_image" not in columns:
             connection.execute("ALTER TABLE anime ADD COLUMN cover_image TEXT")
 
+    @staticmethod
+    def _migration_3(connection: sqlite3.Connection) -> None:
+        """Add a durable watch-history log without changing existing library rows."""
+        connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS watch_history (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                anime_id INTEGER,
+                anime_title TEXT NOT NULL,
+                episode INTEGER,
+                action TEXT NOT NULL CHECK(action IN ('episode', 'progress', 'status')),
+                source TEXT NOT NULL,
+                details TEXT,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )
+            """
+        )
+        connection.execute(
+            "CREATE INDEX IF NOT EXISTS watch_history_created_idx ON watch_history(created_at DESC, id DESC)"
+        )
+        connection.execute(
+            "CREATE INDEX IF NOT EXISTS watch_history_anime_idx ON watch_history(anime_title COLLATE NOCASE)"
+        )
+
     def _initialize(self) -> None:
-        migrations = {1: self._migration_1, 2: self._migration_2}
+        migrations = {1: self._migration_1, 2: self._migration_2, 3: self._migration_3}
         with self._connect() as connection:
             version = connection.execute("PRAGMA user_version").fetchone()[0]
             if version > self.LATEST_SCHEMA_VERSION:
@@ -100,6 +125,26 @@ class LibraryStorage:
             provider=row["provider"],
             provider_id=row["provider_id"],
             cover_image=row["cover_image"],
+        )
+
+    @staticmethod
+    def _insert_history_event(
+        connection: sqlite3.Connection,
+        *,
+        anime_id: int,
+        anime_title: str,
+        episode: int | None,
+        action: str,
+        source: str,
+        details: str | None = None,
+    ) -> None:
+        connection.execute(
+            """
+            INSERT INTO watch_history
+                (anime_id, anime_title, episode, action, source, details)
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (anime_id, anime_title, episode, action, source, details),
         )
 
     def list_entries(self) -> list[AnimeEntry]:
@@ -154,7 +199,7 @@ class LibraryStorage:
                 raise ValueError("This catalogue entry is already in your library.") from error
             raise
 
-    def update_progress(self, storage_id: int, episodes_watched: int) -> bool:
+    def update_progress(self, storage_id: int, episodes_watched: int, *, source: str = "manual") -> bool:
         """Update progress for exactly one entry identified by its database ID."""
         if isinstance(storage_id, bool) or not isinstance(storage_id, int) or storage_id <= 0:
             raise ValueError("A valid storage ID is required.")
@@ -168,7 +213,7 @@ class LibraryStorage:
             )
         with self._connect() as connection:
             row = connection.execute(
-                "SELECT id, episodes_total, status FROM anime WHERE id = ?",
+                "SELECT id, title, episodes_total, episodes_watched, status FROM anime WHERE id = ?",
                 (storage_id,),
             ).fetchone()
             if row is None:
@@ -195,6 +240,18 @@ class LibraryStorage:
                 """,
                 (episodes_watched, status, storage_id),
             )
+            if episodes_watched != row["episodes_watched"]:
+                self._insert_history_event(
+                    connection, anime_id=storage_id, anime_title=row["title"],
+                    episode=episodes_watched, action="progress", source=source,
+                    details=f"{row['episodes_watched']} → {episodes_watched}",
+                )
+            if current_status != status:
+                self._insert_history_event(
+                    connection, anime_id=storage_id, anime_title=row["title"],
+                    episode=None, action="status", source=source,
+                    details=f"{current_status} → {status}",
+                )
             return True
 
     def update_entry(self, entry: AnimeEntry) -> bool:
@@ -203,6 +260,12 @@ class LibraryStorage:
             raise ValueError("A storage ID is required to edit an anime.")
         try:
             with self._connect() as connection:
+                previous = connection.execute(
+                    "SELECT title, episodes_watched, status FROM anime WHERE id = ?",
+                    (entry.storage_id,),
+                ).fetchone()
+                if previous is None:
+                    return False
                 cursor = connection.execute(
                     """
                     UPDATE anime
@@ -214,6 +277,18 @@ class LibraryStorage:
                      entry.status.value, entry.provider, entry.provider_id,
                      entry.cover_image, entry.storage_id),
                 )
+                if previous["episodes_watched"] != entry.episodes_watched:
+                    self._insert_history_event(
+                        connection, anime_id=entry.storage_id, anime_title=entry.title,
+                        episode=entry.episodes_watched, action="progress", source="manual",
+                        details=f"{previous['episodes_watched']} → {entry.episodes_watched}",
+                    )
+                if previous["status"] != entry.status.value:
+                    self._insert_history_event(
+                        connection, anime_id=entry.storage_id, anime_title=entry.title,
+                        episode=None, action="status", source="manual",
+                        details=f"{previous['status']} → {entry.status.value}",
+                    )
                 return cursor.rowcount > 0
         except sqlite3.IntegrityError as error:
             if self._is_duplicate_catalogue_error(error):
@@ -233,6 +308,12 @@ class LibraryStorage:
         try:
             with self._connect() as connection:
                 for entry in updates:
+                    previous = connection.execute(
+                        "SELECT title, episodes_watched, status FROM anime WHERE id = ?",
+                        (entry.storage_id,),
+                    ).fetchone()
+                    if previous is None:
+                        raise ValueError(f"Library entry {entry.storage_id} no longer exists.")
                     cursor = connection.execute(
                         """
                         UPDATE anime
@@ -249,13 +330,25 @@ class LibraryStorage:
                     )
                     if cursor.rowcount == 0:
                         raise ValueError(f"Library entry {entry.storage_id} no longer exists.")
+                    if previous["episodes_watched"] != entry.episodes_watched:
+                        self._insert_history_event(
+                            connection, anime_id=entry.storage_id, anime_title=entry.title,
+                            episode=entry.episodes_watched, action="progress", source="bulk",
+                            details=f"{previous['episodes_watched']} → {entry.episodes_watched}",
+                        )
+                    if previous["status"] != entry.status.value:
+                        self._insert_history_event(
+                            connection, anime_id=entry.storage_id, anime_title=entry.title,
+                            episode=None, action="status", source="bulk",
+                            details=f"{previous['status']} → {entry.status.value}",
+                        )
             return len(updates)
         except sqlite3.IntegrityError as error:
             if self._is_duplicate_catalogue_error(error):
                 raise ValueError("The bulk update would create a duplicate catalogue entry.") from error
             raise
 
-    def update_progress_many(self, updates: Mapping[int, int]) -> int:
+    def update_progress_many(self, updates: Mapping[int, int], *, source: str = "bulk") -> int:
         """Apply progress changes atomically, preserving paused and dropped states."""
         if not isinstance(updates, Mapping):
             raise ValueError("Bulk progress updates must be a mapping.")
@@ -276,7 +369,7 @@ class LibraryStorage:
             current_rows = {}
             for storage_id, episodes_watched in prepared:
                 row = connection.execute(
-                    "SELECT episodes_total, status FROM anime WHERE id = ?",
+                    "SELECT title, episodes_total, episodes_watched, status FROM anime WHERE id = ?",
                     (storage_id,),
                 ).fetchone()
                 if row is None:
@@ -307,6 +400,18 @@ class LibraryStorage:
                     """,
                     (episodes_watched, status, storage_id),
                 )
+                if episodes_watched != row["episodes_watched"]:
+                    self._insert_history_event(
+                        connection, anime_id=storage_id, anime_title=row["title"],
+                        episode=episodes_watched, action="progress", source=source,
+                        details=f"{row['episodes_watched']} → {episodes_watched}",
+                    )
+                if current_status != status:
+                    self._insert_history_event(
+                        connection, anime_id=storage_id, anime_title=row["title"],
+                        episode=None, action="status", source=source,
+                        details=f"{current_status} → {status}",
+                    )
         return len(prepared)
 
     def remove_many(self, storage_ids: Iterable[int]) -> int:
@@ -361,6 +466,101 @@ class LibraryStorage:
             raise ValueError(
                 "This entry could not be restored because its ID or catalogue entry is already in use."
             ) from error
+
+    def record_watch_event(
+        self, storage_id: int, *, episode: int | None = None,
+        action: str = "episode", source: str = "manual", details: str | None = None,
+    ) -> int:
+        """Record an explicit episode event (including future player integrations)."""
+        if isinstance(storage_id, bool) or not isinstance(storage_id, int) or storage_id <= 0:
+            raise ValueError("A valid storage ID is required.")
+        if action not in {"episode", "progress", "status"}:
+            raise ValueError("Watch-history action must be episode, progress, or status.")
+        if episode is not None and (
+            isinstance(episode, bool) or not isinstance(episode, int)
+            or episode < 1 or episode > MAX_EPISODE_COUNT
+        ):
+            raise ValueError("Episode number must be a positive whole number.")
+        if not isinstance(source, str) or not source.strip() or len(source) > 64:
+            raise ValueError("Watch-history source must contain 1–64 characters.")
+        if details is not None and (not isinstance(details, str) or len(details) > 500):
+            raise ValueError("Watch-history details must be text up to 500 characters.")
+        with self._connect() as connection:
+            row = connection.execute(
+                "SELECT title FROM anime WHERE id = ?", (storage_id,)
+            ).fetchone()
+            if row is None:
+                raise ValueError(f"Library entry {storage_id} no longer exists.")
+            cursor = connection.execute(
+                """
+                INSERT INTO watch_history
+                    (anime_id, anime_title, episode, action, source, details)
+                VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                (storage_id, row["title"], episode, action, source.strip(), details),
+            )
+            return int(cursor.lastrowid)
+
+    def list_watch_history(
+        self, *, anime: str | None = None, date_filter: str | None = None,
+        action: str | None = None, limit: int = 500,
+    ) -> list[dict[str, object]]:
+        if isinstance(limit, bool) or not isinstance(limit, int) or not 1 <= limit <= 5000:
+            raise ValueError("Watch-history limit must be between 1 and 5,000.")
+        clauses = []
+        parameters = []
+        if anime:
+            clauses.append("anime_title LIKE ? COLLATE NOCASE")
+            parameters.append(f"%{anime.strip()}%")
+        if date_filter:
+            try:
+                date.fromisoformat(date_filter)
+            except (TypeError, ValueError):
+                raise ValueError("History date must use YYYY-MM-DD.") from None
+            clauses.append("date(created_at) = ?")
+            parameters.append(date_filter)
+        if action and action != "all":
+            if action not in {"episode", "progress", "status"}:
+                raise ValueError("Unknown watch-history action.")
+            clauses.append("action = ?")
+            parameters.append(action)
+        where = " WHERE " + " AND ".join(clauses) if clauses else ""
+        with self._connect() as connection:
+            rows = connection.execute(
+                "SELECT id, anime_id, anime_title, episode, action, source, details, created_at "
+                "FROM watch_history" + where + " ORDER BY created_at DESC, id DESC LIMIT ?",
+                (*parameters, limit),
+            ).fetchall()
+        return [dict(row) for row in rows]
+
+    def remove_watch_history(self, event_ids: Iterable[int]) -> int:
+        ids = tuple(dict.fromkeys(event_ids))
+        if any(isinstance(value, bool) or not isinstance(value, int) or value <= 0 for value in ids):
+            raise ValueError("Every watch-history ID must be a positive integer.")
+        if not ids:
+            return 0
+        with self._connect() as connection:
+            removed = 0
+            for event_id in ids:
+                cursor = connection.execute("DELETE FROM watch_history WHERE id = ?", (event_id,))
+                removed += cursor.rowcount
+        return removed
+
+    def prune_watch_history(self, before_date: str) -> int:
+        try:
+            date.fromisoformat(before_date)
+        except (TypeError, ValueError):
+            raise ValueError("Prune date must use YYYY-MM-DD.") from None
+        with self._connect() as connection:
+            cursor = connection.execute(
+                "DELETE FROM watch_history WHERE date(created_at) < ?", (before_date,)
+            )
+            return cursor.rowcount
+
+    def clear_watch_history(self) -> int:
+        with self._connect() as connection:
+            cursor = connection.execute("DELETE FROM watch_history")
+            return cursor.rowcount
 
     def replace_all(self, entries: Iterable[AnimeEntry]) -> None:
         """Replace the stored library atomically (useful for import/sync)."""

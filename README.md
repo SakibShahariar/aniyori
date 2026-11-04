@@ -21,13 +21,13 @@ A native Linux anime tracker built with Python, GTK 4, PyGObject, and libadwaita
 - **Preferences:** saved share-format templates with live preview, release-attribute preferences, explainable release-quality scoring, and ordered smart release rules.
 - **Release discovery:** Nyaa.si search and configurable RSS/Atom feeds, release metadata, library matching, filtering, sorting, and rule-based selection.
 - **Download handoff:** validated magnet links through the desktop's default torrent application or explicit qBittorrent WebUI submission.
-- **Data:** local SQLite storage, JSON/CSV export, validated library import, and full database/configuration backups.
+- **Data:** local SQLite library and watch history, JSON/CSV export, validated library import, and full database/configuration backups.
 
 Library entries remain local. The desktop interface still needs a launch and interaction test on a Linux session.
 
 ## Privacy and local data
 
-Aniyori is currently a local library tracker. The library database is stored on your
+Aniyori is currently a local library tracker. The library database and watch history are stored on your
 device; AniList account sign-in and authenticated library synchronization are not
 implemented. The public AniList catalogue client does not store OAuth tokens.
 
