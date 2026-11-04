@@ -7,6 +7,8 @@ import zipfile
 from pathlib import Path
 
 from aniyori.backup import BackupError, create_backup, restore_backup
+from aniyori.models import AnimeEntry
+from aniyori.storage import LibraryStorage
 
 
 class BackupTests(unittest.TestCase):
@@ -15,15 +17,10 @@ class BackupTests(unittest.TestCase):
         self.root = Path(self.temp.name)
         self.database = self.root / "data" / "library.sqlite3"
         self.database.parent.mkdir()
-        with sqlite3.connect(self.database) as connection:
-            connection.execute("CREATE TABLE anime (title TEXT NOT NULL)")
-            connection.execute("INSERT INTO anime VALUES ('Frieren')")
-            connection.execute(
-                "CREATE TABLE watch_history (id INTEGER PRIMARY KEY, anime_title TEXT NOT NULL, episode INTEGER, action TEXT NOT NULL)"
-            )
-            connection.execute(
-                "INSERT INTO watch_history (anime_title, episode, action) VALUES ('Frieren', 7, 'episode')"
-            )
+        self.storage = LibraryStorage(self.database)
+        self.storage.add(AnimeEntry(title="Frieren", episodes_total=12))
+        self.entry = self.storage.list_entries()[0]
+        self.storage.record_watch_event(self.entry.storage_id, episode=7, action="episode")
         self.config = self.root / "config" / "aniyori"
         self.config.mkdir(parents=True)
         (self.config / "feeds.json").write_text('{"feeds": []}', encoding="utf-8")
@@ -35,6 +32,7 @@ class BackupTests(unittest.TestCase):
     def test_backup_restores_database_and_all_regular_config_files(self):
         archive = self.root / "backup.zip"
         create_backup(self.database, self.config, archive)
+        self.storage.record_watch_event(self.entry.storage_id, episode=8, action="episode")
         with sqlite3.connect(self.database) as connection:
             connection.execute("UPDATE anime SET title = 'Changed'")
         (self.config / "feeds.json").write_text("changed", encoding="utf-8")
@@ -42,14 +40,12 @@ class BackupTests(unittest.TestCase):
 
         restore_backup(archive, self.database, self.config)
 
-        with sqlite3.connect(self.database) as connection:
-            self.assertEqual(connection.execute("SELECT title FROM anime").fetchone()[0], "Frieren")
-            self.assertEqual(
-                connection.execute(
-                    "SELECT anime_title, episode, action FROM watch_history"
-                ).fetchone(),
-                ("Frieren", 7, "episode"),
-            )
+        restored_storage = LibraryStorage(self.database)
+        self.assertEqual(restored_storage.list_entries()[0].title, "Frieren")
+        history = restored_storage.list_watch_history()
+        self.assertEqual(len(history), 1)
+        self.assertEqual(history[0]["episode"], 7)
+        self.assertEqual(history[0]["anime_title"], "Frieren")
         self.assertEqual((self.config / "feeds.json").read_text(encoding="utf-8"), '{"feeds": []}')
         self.assertFalse((self.config / "new.json").exists())
         self.assertEqual((self.config / "rules.json").read_text(encoding="utf-8"), '{"rules": []}')

@@ -594,3 +594,12 @@ The profile-removal guard and migration documentation passed the complete Tests 
 | `cd22acb15db9af586f3f75989edce3bbd7fa89c5` | feat(history): add individual episode editor (#24) | green | [41789546031](https://github.com/SakibShahariar/aniyori/actions/runs/41789546031) |
 
 The episode editor is wired into both list and grid cards. The workflow compiled all Python sources and completed the unit-test suite successfully. Issue #24 remains open solely for live GTK interaction validation.
+
+
+## Reviewed range: 2026-11-04 (continued)
+
+| Commit SHA | Subject | CI result | Run |
+|---|---|---|---|
+| `966f82c4b65102486cc585494d2e86c5f7f83d55` | test(backup): cover watch history restoration (#46) | green | [41791140752](https://github.com/SakibShahariar/aniyori/actions/runs/41791140752) |
+
+The backup round-trip now exercises Aniyori's real `LibraryStorage` schema and watch-history API rather than a synthetic table. It records an event before backup, adds another afterward, restores, and verifies only the original event is present.
