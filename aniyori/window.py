@@ -1,5 +1,6 @@
 """Main library window for Aniyori."""
 
+import json
 import logging
 import sqlite3
 import threading
@@ -45,6 +46,7 @@ from .storage import LibraryStorage
 from .statistics import calculate_library_statistics
 from .services.library_sort import SORT_MODES, sort_library_entries
 from .services.external_links import ExternalLinkError, ExternalLinkStore, links_for_entry
+from .services.webhooks import WebhookError, WebhookStore, deliver_webhooks
 
 LOGGER = logging.getLogger(__name__)
 
@@ -283,6 +285,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
         self.recognition_exclusion_store = RecognitionExclusionStore()
         self.share_template_store = ShareTemplateStore()
         self.external_link_store = ExternalLinkStore()
+        self.webhook_store = WebhookStore()
         self.release_preference_store = ReleasePreferenceStore()
         self.anime_release_preference_store = AnimeReleasePreferenceStore()
         self.release_scoring_store = ReleaseScoringSettingsStore()
@@ -306,6 +309,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
             ("quit", lambda: self.get_application().quit()),
             ("statistics", self._show_statistics_dialog),
             ("watch-history", self._show_watch_history_dialog),
+            ("manage-webhooks", self._show_webhook_manager),
             ("export-json", lambda: self._show_export_dialog("json")),
             ("export-csv", lambda: self._show_export_dialog("csv")),
             ("import-library", self._show_import_dialog),
@@ -349,6 +353,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
         primary_menu.append("Search Library", "win.focus-search")
         primary_menu.append("Library Statistics", "win.statistics")
         primary_menu.append("Watch History", "win.watch-history")
+        primary_menu.append("Manage Webhooks", "win.manage-webhooks")
         primary_menu.append("Export Library (JSON)", "win.export-json")
         primary_menu.append("Export Library (CSV)", "win.export-csv")
         primary_menu.append("Import Library", "win.import-library")
@@ -1578,6 +1583,158 @@ class AniyoriWindow(Adw.ApplicationWindow):
             Adw.Toast.new(f"Imported {len(entries)} anime entries.")
         )
 
+
+    def _dispatch_webhook_event(self, entry: AnimeEntry, event_type: str):
+        """Deliver a watch-status event off the GTK thread; isolate endpoint failures."""
+        try:
+            webhooks = self.webhook_store.load()
+        except (OSError, WebhookError) as error:
+            LOGGER.warning("Could not load configured webhooks: %s", error)
+            return
+        if not any(item.enabled for item in webhooks):
+            return
+        from datetime import datetime, timezone
+        event = {
+            "event": event_type,
+            "anime_title": entry.title,
+            "episode": entry.episodes_watched if event_type == "progress" else None,
+            "progress": entry.episodes_watched,
+            "total_episodes": entry.episodes_total,
+            "status": entry.status.value,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        }
+        def worker():
+            try:
+                outcomes = deliver_webhooks(webhooks, event)
+                for outcome in outcomes:
+                    if not outcome.success:
+                        LOGGER.warning("Webhook '%s' delivery failed: %s", outcome.name, outcome.message)
+            except Exception:
+                LOGGER.exception("Webhook event delivery failed unexpectedly")
+        threading.Thread(target=worker, daemon=True).start()
+
+    def _show_webhook_manager(self):
+        try:
+            webhooks = list(self.webhook_store.load())
+        except (OSError, WebhookError) as error:
+            self.toast_overlay.add_toast(Adw.Toast.new("Could not load webhooks: " + str(error)))
+            webhooks = []
+        dialog = Adw.AlertDialog(
+            heading="HTTP Webhooks",
+            body="Enabled webhooks receive JSON watch-progress and status events. Requests run in the background; failures are logged and never block library updates.",
+        )
+        content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+        listing = Gtk.ListBox()
+        listing.set_selection_mode(Gtk.SelectionMode.SINGLE)
+        listing.add_css_class("boxed-list")
+        content.append(listing)
+        name_entry = Gtk.Entry()
+        name_entry.set_placeholder_text("Webhook name")
+        content.append(name_entry)
+        url_entry = Gtk.Entry()
+        url_entry.set_placeholder_text("https://example.org/webhook")
+        url_entry.set_input_purpose(Gtk.InputPurpose.URL)
+        content.append(url_entry)
+        headers_entry = Gtk.Entry()
+        headers_entry.set_placeholder_text('Optional headers as JSON, e.g. {"X-Api-Key":"…"}')
+        content.append(headers_entry)
+        enabled_check = Gtk.CheckButton(label="Enabled")
+        enabled_check.set_active(True)
+        content.append(enabled_check)
+        buttons = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        save_button = Gtk.Button(label="Add Webhook")
+        edit_button = Gtk.Button(label="Edit Selected")
+        remove_button = Gtk.Button(label="Remove Selected")
+        buttons.append(save_button)
+        buttons.append(edit_button)
+        buttons.append(remove_button)
+        content.append(buttons)
+        dialog.set_extra_child(content)
+        dialog.add_response("close", "Close")
+        dialog.set_default_response("close")
+        dialog.present(self)
+        editing_id = {"value": None}
+        rows = {}
+        def refresh():
+            rows.clear()
+            child = listing.get_first_child()
+            while child is not None:
+                following = child.get_next_sibling()
+                listing.remove(child)
+                child = following
+            for webhook in webhooks:
+                row = Gtk.ListBoxRow()
+                label = Gtk.Label(
+                    label=webhook.name + " · " + webhook.url + " · " + ("Enabled" if webhook.enabled else "Disabled"),
+                    xalign=0, wrap=True,
+                )
+                label.set_margin_top(6)
+                label.set_margin_bottom(6)
+                label.set_margin_start(8)
+                label.set_margin_end(8)
+                row.set_child(label)
+                rows[row] = webhook
+                listing.append(row)
+        def selected_webhook():
+            row = listing.get_selected_row()
+            return rows.get(row) if row is not None else None
+        def edit_selected(_button):
+            webhook = selected_webhook()
+            if webhook is None:
+                self.toast_overlay.add_toast(Adw.Toast.new("Select a webhook to edit."))
+                return
+            editing_id["value"] = webhook.webhook_id
+            name_entry.set_text(webhook.name)
+            url_entry.set_text(webhook.url)
+            headers_entry.set_text(json.dumps(dict(webhook.headers or {})))
+            enabled_check.set_active(webhook.enabled)
+            save_button.set_label("Save Changes")
+        def remove_selected(_button):
+            webhook = selected_webhook()
+            if webhook is None:
+                self.toast_overlay.add_toast(Adw.Toast.new("Select a webhook to remove."))
+                return
+            try:
+                webhooks[:] = self.webhook_store.remove(webhook.webhook_id)
+            except (OSError, WebhookError) as error:
+                self.toast_overlay.add_toast(Adw.Toast.new("Could not remove webhook: " + str(error)))
+                return
+            if editing_id["value"] == webhook.webhook_id:
+                editing_id["value"] = None
+                save_button.set_label("Add Webhook")
+                name_entry.set_text("")
+                url_entry.set_text("")
+                headers_entry.set_text("")
+            refresh()
+        def save_webhook(_button):
+            try:
+                headers = json.loads(headers_entry.get_text() or "{}")
+                if not isinstance(headers, dict):
+                    raise WebhookError("Webhook headers must be a JSON object.")
+                if editing_id["value"]:
+                    webhooks[:] = self.webhook_store.update(
+                        editing_id["value"], name=name_entry.get_text(),
+                        url=url_entry.get_text(), enabled=enabled_check.get_active(),
+                        headers=headers,
+                    )
+                else:
+                    webhooks[:] = self.webhook_store.add(name_entry.get_text(), url_entry.get_text(), headers)
+            except (OSError, ValueError, json.JSONDecodeError) as error:
+                self.toast_overlay.add_toast(Adw.Toast.new("Could not save webhook: " + str(error)))
+                return
+            editing_id["value"] = None
+            save_button.set_label("Add Webhook")
+            name_entry.set_text("")
+            url_entry.set_text("")
+            headers_entry.set_text("")
+            enabled_check.set_active(True)
+            refresh()
+            self.toast_overlay.add_toast(Adw.Toast.new("Webhook saved."))
+        save_button.connect("clicked", save_webhook)
+        edit_button.connect("clicked", edit_selected)
+        remove_button.connect("clicked", remove_selected)
+        refresh()
+
     def _show_watch_history_dialog(self):
         dialog = Adw.AlertDialog(
             heading='Watch History',
@@ -2754,6 +2911,10 @@ class AniyoriWindow(Adw.ApplicationWindow):
             self.toast_overlay.add_toast(Adw.Toast.new(f"Bulk progress update failed: {error}"))
             return
         self.entries = self.storage.list_entries()
+        for entry in entries:
+            updated_entry = next((item for item in self.entries if item.storage_id == entry.storage_id), None)
+            if updated_entry is not None and updated_entry.episodes_watched != entry.episodes_watched:
+                self._dispatch_webhook_event(updated_entry, "progress")
         self._clear_bulk_selection()
         self._render_library()
         self.toast_overlay.add_toast(Adw.Toast.new(f"Updated progress for {changed} anime."))
@@ -2930,6 +3091,8 @@ class AniyoriWindow(Adw.ApplicationWindow):
         if updated:
             self.entries = self.storage.list_entries()
             self._render_library()
+            updated_entry = next((item for item in self.entries if item.storage_id == entry.storage_id), entry)
+            self._dispatch_webhook_event(updated_entry, "progress")
             self.toast_overlay.add_toast(Adw.Toast.new(f"Progress updated: {entry.title}"))
         else:
             self.toast_overlay.add_toast(
@@ -3108,6 +3271,8 @@ class AniyoriWindow(Adw.ApplicationWindow):
             self.toast_overlay.add_toast(Adw.Toast.new(str(error) or "Check the entered values."))
             return
         self.entries = self.storage.list_entries()
+        if edited.episodes_watched != original.episodes_watched or edited.status != original.status:
+            self._dispatch_webhook_event(edited, "status" if edited.status != original.status else "progress")
         self._render_library()
         self.toast_overlay.add_toast(Adw.Toast.new(f"Updated {edited.title}."))
 
