@@ -1150,9 +1150,12 @@ class AniyoriWindow(Adw.ApplicationWindow):
         content.append(pattern)
         actions = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         add = Gtk.Button(label='Add Exclusion')
+        edit = Gtk.Button(label='Edit Selected')
         remove = Gtk.Button(label='Remove Selected')
         actions.append(add)
+        actions.append(edit)
         actions.append(remove)
+        editing_index = [None]
         content.append(actions)
         dialog.set_extra_child(content)
         dialog.add_response('close', 'Close')
@@ -1173,31 +1176,59 @@ class AniyoriWindow(Adw.ApplicationWindow):
             selected = kind.get_selected()
             if selected >= len(kinds):
                 return
-            updated = list(rules) + [{'kind': kinds[selected], 'pattern': pattern.get_text().strip()}]
+            item = {'kind': kinds[selected], 'pattern': pattern.get_text().strip()}
+            updated = list(rules)
+            if editing_index[0] is None:
+                updated.append(item)
+            else:
+                updated[editing_index[0]] = item
             try:
                 self.recognition_exclusion_store.save_rules(updated)
             except (OSError, RecognitionExclusionError) as error:
-                self.toast_overlay.add_toast(Adw.Toast.new('Could not add exclusion: ' + str(error)))
+                self.toast_overlay.add_toast(Adw.Toast.new('Could not save exclusion: ' + str(error)))
                 return
             rules[:] = updated
+            editing_index[0] = None
+            add.set_label('Add Exclusion')
             pattern.set_text('')
             refresh()
-            self.toast_overlay.add_toast(Adw.Toast.new('Recognition exclusion added.'))
+            self.toast_overlay.add_toast(Adw.Toast.new('Recognition exclusion saved.'))
+        def edit_rule(_button):
+            selected = listing.get_selected_row()
+            if selected is None:
+                self.toast_overlay.add_toast(Adw.Toast.new('Select an exclusion to edit.'))
+                return
+            index = selected.get_index()
+            if index < 0 or index >= len(rules):
+                return
+            item = rules[index]
+            kind.set_selected(kinds.index(item['kind']))
+            pattern.set_text(item['pattern'])
+            editing_index[0] = index
+            add.set_label('Update Exclusion')
         def remove_rule(_button):
             selected = listing.get_selected_row()
             if selected is None:
                 self.toast_overlay.add_toast(Adw.Toast.new('Select an exclusion to remove.'))
                 return
+            index = selected.get_index()
             updated = list(rules)
-            updated.pop(selected.get_index())
+            updated.pop(index)
             try:
                 self.recognition_exclusion_store.save_rules(updated)
             except (OSError, RecognitionExclusionError) as error:
                 self.toast_overlay.add_toast(Adw.Toast.new('Could not save exclusions: ' + str(error)))
                 return
             rules[:] = updated
+            if editing_index[0] == index:
+                editing_index[0] = None
+                add.set_label('Add Exclusion')
+                pattern.set_text('')
+            elif editing_index[0] is not None and editing_index[0] > index:
+                editing_index[0] -= 1
             refresh()
         add.connect('clicked', add_rule)
+        edit.connect('clicked', edit_rule)
         remove.connect('clicked', remove_rule)
         refresh()
     def _on_scan_folder_selected(self, chooser, response, refresh_folders):

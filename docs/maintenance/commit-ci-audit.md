@@ -24,10 +24,10 @@ Persistent repository-specific record of commit-level CI checks and red-cross in
 
 - Repository: `SakibShahariar/aniyori`
 - Default branch: `main`
-- Checkpoint SHA: `27e21bb294823d796f4d41c6d88595bc7942716a`
+- Checkpoint SHA: `4addcca6b73c8aa952de0b02ea58aeefe4e01715`
 - Initialized: 2026-11-02
 - Baseline: latest branch tip queried through combined commit-status endpoint; empty status list recorded as **unavailable**, not green/red. Older history was not retroactively audited during setup.
-- Next session: review commits after `27e21bb294823d796f4d41c6d88595bc7942716a`; carry forward any red or unresolved entries.
+- Next session: review commits after `4addcca6b73c8aa952de0b02ea58aeefe4e01715`; carry forward any red or unresolved entries.
 
 ## Initial baseline
 
@@ -313,3 +313,16 @@ The complete Tests workflow passed. The unit-tests job completed Python source c
 | Date | Reviewed range / checkpoint | Result summary |
 |---|---|---|
 | 2026-11-04 | `12bb8b59932ecfa318b7ab81660336822c321904` → `27e21bb294823d796f4d41c6d88595bc7942716a` | Reviewed the recognition-exclusions implementation; CI green. Checkpoint advanced to this commit. |
+
+
+## Reviewed range: 2026-11-04 (continued)
+
+| Commit SHA | Subject | CI result | Run |
+|---|---|---|---|
+| `4addcca6b73c8aa952de0b02ea58aeefe4e01715` | fix(recognition): skip matching excluded media (#52) | green | [41767034670](https://github.com/SakibShahariar/aniyori/actions/runs/41767034670) |
+
+The complete Tests workflow passed. Python source compilation and the full unittest suite completed successfully.
+
+| Date | Reviewed range / checkpoint | Result summary |
+|---|---|---|
+| 2026-11-04 | `27e21bb294823d796f4d41c6d88595bc7942716a` → `4addcca6b73c8aa952de0b02ea58aeefe4e01715` | Reviewed the recognition short-circuit correction; CI green. Checkpoint advanced to this commit. |
