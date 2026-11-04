@@ -1780,6 +1780,50 @@ class AniyoriWindow(Adw.ApplicationWindow):
         nyaa_search_entry = Gtk.Entry()
         nyaa_search_entry.set_placeholder_text("Search Nyaa releases (e.g. Frieren)")
         content.append(nyaa_search_entry)
+        history_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        history_dropdown = Gtk.DropDown(
+            model=Gtk.StringList.new(["No recent or saved torrent searches"])
+        )
+        history_dropdown.set_hexpand(True)
+        history_dropdown.set_sensitive(False)
+        history_row.append(history_dropdown)
+        use_history_button = Gtk.Button(label="Use")
+        history_row.append(use_history_button)
+        save_history_button = Gtk.Button(label="Save")
+        history_row.append(save_history_button)
+        remove_history_button = Gtk.Button(label="Remove")
+        history_row.append(remove_history_button)
+        clear_history_button = Gtk.Button(label="Clear")
+        history_row.append(clear_history_button)
+        content.append(history_row)
+        history_items = []
+
+        def refresh_torrent_search_history():
+            history_items.clear()
+            try:
+                history_items.extend(
+                    ("history", query, query)
+                    for query in self.search_history_store.list_history("torrent")
+                )
+                history_items.extend(
+                    ("saved", item["name"], item["query"])
+                    for item in self.search_history_store.list_saved_searches("torrent")
+                )
+            except (OSError, SearchHistoryError) as error:
+                LOGGER.warning("Could not load torrent search history", exc_info=True)
+                self.toast_overlay.add_toast(
+                    Adw.Toast.new(f"Torrent search history unavailable: {error}")
+                )
+            labels = [
+                ("Recent · " if kind == "history" else "Saved · ") + name
+                for kind, name, _query in history_items
+            ] or ["No recent or saved torrent searches"]
+            history_dropdown.set_model(Gtk.StringList.new(labels))
+            history_dropdown.set_sensitive(bool(history_items))
+            if history_items:
+                history_dropdown.set_selected(0)
+
+        refresh_torrent_search_history()
         nyaa_search_button = Gtk.Button(label="Add Nyaa Search Feed")
         nyaa_search_button.set_tooltip_text(
             "Add an English-translated anime RSS search from Nyaa.si."
@@ -1848,8 +1892,80 @@ class AniyoriWindow(Adw.ApplicationWindow):
             except (OSError, ValueError, FeedParseError) as error:
                 self.toast_overlay.add_toast(Adw.Toast.new(f"Could not add Nyaa search: {error}"))
                 return
+            try:
+                self.search_history_store.record_query("torrent", query)
+                refresh_torrent_search_history()
+            except (OSError, SearchHistoryError) as error:
+                LOGGER.warning("Could not record torrent search", exc_info=True)
+                self.toast_overlay.add_toast(
+                    Adw.Toast.new(f"Could not save search history: {error}")
+                )
             nyaa_search_entry.set_text("")
             reload_feeds()
+
+        def use_torrent_search_history(_button):
+            index = history_dropdown.get_selected()
+            if index >= len(history_items):
+                return
+            nyaa_search_entry.set_text(history_items[index][2])
+            add_nyaa_search(None)
+
+        def save_torrent_search(_button):
+            query = nyaa_search_entry.get_text().strip()
+            if not query:
+                self.toast_overlay.add_toast(
+                    Adw.Toast.new("Enter a Nyaa search query to save first.")
+                )
+                return
+            try:
+                saved = self.search_history_store.save_search("torrent", query, query)
+            except (OSError, SearchHistoryError) as error:
+                self.toast_overlay.add_toast(
+                    Adw.Toast.new(f"Could not save search: {error}")
+                )
+                return
+            refresh_torrent_search_history()
+            self.toast_overlay.add_toast(
+                Adw.Toast.new("Search saved." if saved else "That search is already saved.")
+            )
+
+        def remove_torrent_search_history(_button):
+            index = history_dropdown.get_selected()
+            if index >= len(history_items):
+                return
+            kind, name, query = history_items[index]
+            try:
+                removed = (
+                    self.search_history_store.remove_history("torrent", query)
+                    if kind == "history"
+                    else self.search_history_store.remove_saved_search("torrent", name)
+                )
+            except (OSError, SearchHistoryError) as error:
+                self.toast_overlay.add_toast(
+                    Adw.Toast.new(f"Could not remove search: {error}")
+                )
+                return
+            refresh_torrent_search_history()
+            if removed:
+                self.toast_overlay.add_toast(Adw.Toast.new("Search removed."))
+
+        def clear_torrent_search_history(_button):
+            try:
+                count = self.search_history_store.clear_history("torrent")
+            except (OSError, SearchHistoryError) as error:
+                self.toast_overlay.add_toast(
+                    Adw.Toast.new(f"Could not clear history: {error}")
+                )
+                return
+            refresh_torrent_search_history()
+            self.toast_overlay.add_toast(
+                Adw.Toast.new(f"Cleared {count} recent searches.")
+            )
+
+        use_history_button.connect("clicked", use_torrent_search_history)
+        save_history_button.connect("clicked", save_torrent_search)
+        remove_history_button.connect("clicked", remove_torrent_search_history)
+        clear_history_button.connect("clicked", clear_torrent_search_history)
 
         def toggle_feed(feed):
             try:
