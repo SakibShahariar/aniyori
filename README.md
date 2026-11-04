@@ -48,6 +48,7 @@ implemented. The public AniList catalogue client does not store OAuth tokens.
 Aniyori does not upload the local library database as part of these catalogue or
 feed requests. Search history and feed configuration are stored locally.
 
+- **Notifications:** matched releases, download failures, webhook delivery errors, and backup/restore events are saved locally in `~/.config/aniyori/notifications.json`. Event types, minimum severity, and optional desktop notifications are configurable. Repeated matched releases and identical failure reports are deduplicated.
 - **HTTP webhooks:** only when you explicitly configure and enable an endpoint, Aniyori sends JSON progress/status events to that URL. Webhook endpoints, custom headers, and their values are stored in `~/.config/aniyori/webhooks.json` with owner-only file permissions. Requests use the system's normal TLS certificate validation for HTTPS; redirects are not followed, and failed deliveries are logged without interrupting library updates.
 - **Magnet handoff:** Aniyori opens a validated magnet URI only when you explicitly
   choose the desktop-handler action.

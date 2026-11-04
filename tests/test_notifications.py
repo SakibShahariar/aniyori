@@ -36,11 +36,20 @@ class NotificationStoreTests(unittest.TestCase):
     def test_preferences_filter_event_types_and_round_trip(self):
         with tempfile.TemporaryDirectory() as directory:
             store = NotificationStore(Path(directory) / "notifications.json")
-            prefs = NotificationPreferences(("backup", "webhook_error"), True)
+            prefs = NotificationPreferences(("backup", "webhook_error"), True, "warning")
             store.save_preferences(prefs)
             self.assertEqual(store.preferences(), prefs)
             self.assertIsNone(store.add("release_match", "info", "New", "release"))
             self.assertIsNotNone(store.add("backup", "info", "Done", "saved"))
+
+    def test_minimum_severity_filters_lower_priority_events(self):
+        with tempfile.TemporaryDirectory() as directory:
+            store = NotificationStore(Path(directory) / "notifications.json")
+            store.save_preferences(NotificationPreferences(EVENT_TYPES, False, "warning"))
+            self.assertIsNone(store.add("release_match", "info", "New", "release"))
+            self.assertIsNone(store.add("webhook_error", "info", "Failure", "ignored"))
+            self.assertIsNotNone(store.add("webhook_error", "warning", "Failure", "saved"))
+            self.assertIsNotNone(store.add("download_failure", "error", "Failure", "saved"))
 
     def test_persists_private_file_and_rejects_corrupt_data(self):
         with tempfile.TemporaryDirectory() as directory:

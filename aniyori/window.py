@@ -1427,7 +1427,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
             create_backup(self.storage.path, default_config_dir(), path)
         except (BackupError, OSError, sqlite3.Error) as error:
             LOGGER.exception("Could not create full Aniyori backup")
-            self._record_notification("backup", "error", "Backup failed", str(error))
+            self._record_notification("backup", "error", "Backup failed", str(error), "backup-failed:" + str(error))
             self.toast_overlay.add_toast(Adw.Toast.new(f"Backup failed: {error}"))
             return
         self._record_notification("backup", "info", "Backup created", Path(path).name)
@@ -1482,7 +1482,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
             self.entries = self.storage.list_entries()
         except (BackupError, OSError, sqlite3.Error, ValueError) as error:
             LOGGER.exception("Could not restore Aniyori backup")
-            self._record_notification("backup", "error", "Backup restore failed", str(error))
+            self._record_notification("backup", "error", "Backup restore failed", str(error), "restore-failed:" + str(error))
             self.toast_overlay.add_toast(Adw.Toast.new(f"Restore failed: {error}"))
             return
         self._record_notification("backup", "info", "Backup restored", Path(path).name)
@@ -1721,6 +1721,13 @@ class AniyoriWindow(Adw.ApplicationWindow):
         desktop = Gtk.CheckButton(label="Show desktop notifications")
         desktop.set_active(saved.desktop_notifications)
         content.append(desktop)
+        severity_label = Gtk.Label(label="Minimum notification severity", xalign=0)
+        content.append(severity_label)
+        severity_dropdown = Gtk.DropDown.new_from_strings([
+            "All notifications", "Warnings and errors", "Errors only",
+        ])
+        severity_dropdown.set_selected(("info", "warning", "error").index(saved.minimum_severity))
+        content.append(severity_dropdown)
         dialog.set_extra_child(content)
         dialog.add_response("cancel", "Cancel")
         dialog.add_response("save", "Save")
@@ -1738,6 +1745,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
             preferences = NotificationPreferences(
                 tuple(event for event, check in checks.items() if check.get_active()),
                 desktop.get_active(),
+                ("info", "warning", "error")[severity_dropdown.get_selected()],
             )
             try:
                 self.notification_store.save_preferences(preferences)
@@ -2373,7 +2381,10 @@ class AniyoriWindow(Adw.ApplicationWindow):
         )
         self.toast_overlay.add_toast(Adw.Toast.new(message))
         if error:
-            self._record_notification("download_failure", "error", "qBittorrent submission failed", str(error))
+            self._record_notification(
+                "download_failure", "error", "qBittorrent submission failed",
+                str(error), "qbittorrent:" + str(error),
+            )
         return GLib.SOURCE_REMOVE
 
     def _show_release_rule_manager(self):

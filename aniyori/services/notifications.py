@@ -39,6 +39,7 @@ class Notification:
 class NotificationPreferences:
     enabled_events: tuple[str, ...] = EVENT_TYPES
     desktop_notifications: bool = False
+    minimum_severity: str = "info"
 
 
 def default_notification_path() -> Path:
@@ -106,14 +107,16 @@ class NotificationStore:
         raw_preferences = payload["preferences"]
         enabled = raw_preferences.get("enabled_events")
         desktop = raw_preferences.get("desktop_notifications")
+        minimum_severity = raw_preferences.get("minimum_severity", "info")
         if (
             not isinstance(enabled, list)
             or any(value not in EVENT_TYPES for value in enabled)
             or len(set(enabled)) != len(enabled)
             or not isinstance(desktop, bool)
+            or minimum_severity not in SEVERITIES
         ):
             raise NotificationError("Saved notification preferences are invalid.")
-        preferences = NotificationPreferences(tuple(enabled), desktop)
+        preferences = NotificationPreferences(tuple(enabled), desktop, minimum_severity)
         notifications = []
         seen_ids = set()
         for raw_item in payload["notifications"]:
@@ -138,6 +141,7 @@ class NotificationStore:
             "preferences": {
                 "enabled_events": list(preferences.enabled_events),
                 "desktop_notifications": preferences.desktop_notifications,
+                "minimum_severity": preferences.minimum_severity,
             },
             "notifications": [asdict(item) for item in notifications[-MAX_NOTIFICATIONS:]],
         }
@@ -169,6 +173,7 @@ class NotificationStore:
             or any(value not in EVENT_TYPES for value in preferences.enabled_events)
             or len(set(preferences.enabled_events)) != len(preferences.enabled_events)
             or not isinstance(preferences.desktop_notifications, bool)
+            or preferences.minimum_severity not in SEVERITIES
         ):
             raise NotificationError("Notification preferences contain invalid values.")
         notifications, _previous = self._read()
@@ -186,6 +191,8 @@ class NotificationStore:
             timestamp, dedupe_key, False,
         ))
         if event_type not in preferences.enabled_events:
+            return None
+        if SEVERITIES.index(item.severity) < SEVERITIES.index(preferences.minimum_severity):
             return None
         if dedupe_key is not None and any(
             existing.dedupe_key == dedupe_key for existing in notifications

@@ -467,3 +467,17 @@ The complete Tests workflow passed, including Python source compilation and the 
 | Date | Reviewed range / checkpoint | Result summary |
 |---|---|---|
 | 2026-11-04 | `12ffcfc1ebc4e9373283a93a92d3d4e6b546d774` → `a6a7b3c321b6331d7734ac356910d1bbc9159791` | Reviewed all commits after the prior checkpoint, including the red runs and their corrective commits. Checkpoint advances after the correction is verified. |
+
+
+## Reviewed range: 2026-11-04 (continued)
+
+| Commit SHA | Subject | CI result | Run |
+|---|---|---|---|
+| `de1e91738f90b407692d3ff62a4e3f7ea7edbe40` | fix(notifications): validate events before preference filtering (#48) | green | [41773942552](https://github.com/SakibShahariar/aniyori/actions/runs/41773942552) |
+| `c457791cbea723506b5246865bfe9b4c3d4cbbea` | feat(gui): add notification center and event integrations (#48) | green | [41774077897](https://github.com/SakibShahariar/aniyori/actions/runs/41774077897) |
+
+The initial notification service commit `a6a7b3c321b6331d7734ac356910d1bbc9159791` failed one test because disabled event preferences were checked before validating the event type (run [41773825186](https://github.com/SakibShahariar/aniyori/actions/runs/41773825186)). The validation-order fix is recorded above and passed the complete workflow. The notification UI/event integration commit also passed source compilation and the full test suite.
+
+| Date | Reviewed range / checkpoint | Result summary |
+|---|---|---|
+| 2026-11-04 | `a6a7b3c321b6331d7734ac356910d1bbc9159791` → `c457791cbea723506b5246865bfe9b4c3d4cbbea` | Reviewed notification service, its corrective commit, and UI/event integration. Checkpoint advanced to the green UI commit. |
