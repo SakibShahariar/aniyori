@@ -36,6 +36,7 @@ def sort_library_entries(
         return sorted(
             items,
             key=lambda item: (
+                item.episodes_total is None or item.episodes_total <= 0,
                 -(
                     item.episodes_watched / item.episodes_total
                     if item.episodes_total else item.episodes_watched

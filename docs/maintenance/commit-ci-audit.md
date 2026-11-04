@@ -24,10 +24,10 @@ Persistent repository-specific record of commit-level CI checks and red-cross in
 
 - Repository: `SakibShahariar/aniyori`
 - Default branch: `main`
-- Checkpoint SHA: `4e38f61fc67320c432852801b2dd39dbbc0f0220`
+- Checkpoint SHA: `cde8823cb4cd740c37305d540dfb1e17f7ae0e3e`
 - Initialized: 2026-11-02
 - Baseline: latest branch tip queried through combined commit-status endpoint; empty status list recorded as **unavailable**, not green/red. Older history was not retroactively audited during setup.
-- Next session: review commits after `4e38f61fc67320c432852801b2dd39dbbc0f0220`; carry forward any red or unresolved entries.
+- Next session: review commits after `cde8823cb4cd740c37305d540dfb1e17f7ae0e3e`; carry forward any red or unresolved entries.
 
 ## Initial baseline
 
@@ -417,3 +417,16 @@ The complete Tests workflow passed, including source compilation and the full un
 | Date | Reviewed range / checkpoint | Result summary |
 |---|---|---|
 | 2026-11-04 | `427f5ad1952d4490cce07cc3e72624a2712cdb4f` → `4e38f61fc67320c432852801b2dd39dbbc0f0220` | Reviewed per-anime eligibility enforcement; CI green. Checkpoint advanced to this commit. |
+
+
+## Reviewed range: 2026-11-04 (continued)
+
+| Commit SHA | Subject | CI result | Run |
+|---|---|---|---|
+| `cde8823cb4cd740c37305d540dfb1e17f7ae0e3e` | feat(library): add sorting controls for list and grid views (#25) | red | [41768465125](https://github.com/SakibShahariar/aniyori/actions/runs/41768465125) |
+
+The unit-tests job reported two failures: progress sorting placed entries with unknown episode totals ahead of known completion percentages, and the timestamp-map test regex was over-escaped. Source compilation passed. The correction places unknown-total entries after percentage-known entries and fixes the test pattern.
+
+| Date | Reviewed range / checkpoint | Result summary |
+|---|---|---|
+| 2026-11-04 | `4e38f61fc67320c432852801b2dd39dbbc0f0220` → `cde8823cb4cd740c37305d540dfb1e17f7ae0e3e` | Reviewed library sorting; two test failures recorded for correction. |

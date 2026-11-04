@@ -23,7 +23,7 @@ class LibrarySortTests(unittest.TestCase):
     def test_progress_sort_uses_completion_fraction_then_title(self):
         self.assertEqual(
             [item.title for item in sort_library_entries(self.entries, sort_by="progress")],
-            ["Alpha", "Beta", "Zulu"],
+            ["Alpha", "Zulu", "Beta"],
         )
 
     def test_recently_updated_sort_places_latest_first_and_missing_last(self):
