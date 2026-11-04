@@ -21,7 +21,7 @@ A native Linux anime tracker built with Python, GTK 4, PyGObject, and libadwaita
 - **Preferences:** saved share-format templates with live preview, release-attribute preferences, explainable release-quality scoring, and ordered smart release rules.
 - **Release discovery:** Nyaa.si search and configurable RSS/Atom feeds, release metadata, library matching, filtering, sorting, and rule-based selection.
 - **Download handoff:** validated magnet links through the desktop's default torrent application or explicit qBittorrent WebUI submission.
-- **Data:** local SQLite storage, JSON/CSV export, and validated library import.
+- **Data:** local SQLite storage, JSON/CSV export, validated library import, and full database/configuration backups.
 
 Library entries remain local. The desktop interface still needs a launch and interaction test on a Linux session.
 
@@ -76,8 +76,11 @@ or points to a relative path, Aniyori uses the standard home-directory default.
 
 The configuration directory contains saved RSS feed URLs, search history, ordered
 release rules, release preferences, release-scoring settings, share-template
-settings, and qBittorrent connection preferences. qBittorrent passwords are kept
-separately in the desktop Secret Service. The metadata and cover directories contain
+settings, custom external links, and qBittorrent connection preferences. Full
+backups include the SQLite library and regular files in this configuration directory.
+qBittorrent passwords are kept separately in the desktop Secret Service and are not
+exported; configure qBittorrent credentials again when restoring on another desktop.
+The metadata and cover directories contain
 cached remote data and images; they can be cleared without deleting the library
 database or preferences.
 

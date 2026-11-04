@@ -12,6 +12,7 @@ gi.require_version("Adw", "1")
 from gi.repository import Adw, Gdk, Gio, GLib, Gtk
 
 from .models import AnimeEntry, WatchStatus, parse_episode_count
+from .backup import BackupError, create_backup, default_config_dir, restore_backup
 from .library_io import export_csv, export_json, import_csv, import_json
 from .search import SearchGeneration
 from .services.search_history import SearchHistoryError, SearchHistoryStore
@@ -301,6 +302,8 @@ class AniyoriWindow(Adw.ApplicationWindow):
             ("export-json", lambda: self._show_export_dialog("json")),
             ("export-csv", lambda: self._show_export_dialog("csv")),
             ("import-library", self._show_import_dialog),
+            ("create-backup", self._show_backup_dialog),
+            ("restore-backup", self._show_restore_backup_dialog),
             ("scan-folders", self._show_scan_folders_dialog),
             ("share-format", self._show_share_format_dialog),
             ("manage-external-links", self._show_external_links_manager),
@@ -341,6 +344,8 @@ class AniyoriWindow(Adw.ApplicationWindow):
         primary_menu.append("Export Library (JSON)", "win.export-json")
         primary_menu.append("Export Library (CSV)", "win.export-csv")
         primary_menu.append("Import Library", "win.import-library")
+        primary_menu.append("Create Full Backup", "win.create-backup")
+        primary_menu.append("Restore Full Backup", "win.restore-backup")
         primary_menu.append("Scan Local Folders", "win.scan-folders")
         primary_menu.append("Share Format", "win.share-format")
         primary_menu.append("Manage External Links", "win.manage-external-links")
@@ -1247,6 +1252,93 @@ class AniyoriWindow(Adw.ApplicationWindow):
         dialog.set_default_response("close")
         dialog.present(self)
         return GLib.SOURCE_REMOVE
+
+    def _show_backup_dialog(self):
+        chooser = Gtk.FileChooserNative.new(
+            "Create Aniyori backup",
+            self,
+            Gtk.FileChooserAction.SAVE,
+            "Create Backup",
+            "Cancel",
+        )
+        chooser.set_current_name("aniyori-backup.zip")
+        chooser.connect("response", self._on_backup_file_chosen)
+        chooser.show()
+
+    def _on_backup_file_chosen(self, chooser, response):
+        if response != Gtk.ResponseType.ACCEPT:
+            chooser.destroy()
+            return
+        selected_file = chooser.get_file()
+        path = selected_file.get_path() if selected_file is not None else None
+        chooser.destroy()
+        if not path:
+            self.toast_overlay.add_toast(Adw.Toast.new("Choose a local backup destination."))
+            return
+        try:
+            create_backup(self.storage.path, default_config_dir(), path)
+        except (BackupError, OSError, sqlite3.Error) as error:
+            LOGGER.exception("Could not create full Aniyori backup")
+            self.toast_overlay.add_toast(Adw.Toast.new(f"Backup failed: {error}"))
+            return
+        self.toast_overlay.add_toast(Adw.Toast.new("Full Aniyori backup created."))
+
+    def _show_restore_backup_dialog(self):
+        chooser = Gtk.FileChooserNative.new(
+            "Restore Aniyori backup",
+            self,
+            Gtk.FileChooserAction.OPEN,
+            "Choose Backup",
+            "Cancel",
+        )
+        chooser.connect("response", self._on_restore_backup_file_chosen)
+        chooser.show()
+
+    def _on_restore_backup_file_chosen(self, chooser, response):
+        if response != Gtk.ResponseType.ACCEPT:
+            chooser.destroy()
+            return
+        selected_file = chooser.get_file()
+        path = selected_file.get_path() if selected_file is not None else None
+        chooser.destroy()
+        if not path:
+            self.toast_overlay.add_toast(Adw.Toast.new("Choose a local Aniyori backup file."))
+            return
+        dialog = Adw.AlertDialog(
+            heading="Replace local Aniyori data?",
+            body=(
+                "Restoring this backup replaces the current library database and all "
+                "Aniyori configuration files (including feeds, rules, and preferences). "
+                "This cannot be undone. Create a backup of the current data first if needed."
+            ),
+        )
+        dialog.add_response("cancel", "Cancel")
+        dialog.add_response("restore", "Restore Backup")
+        dialog.set_response_appearance("restore", Adw.ResponseAppearance.DESTRUCTIVE)
+        dialog.set_default_response("cancel")
+        dialog.set_close_response("cancel")
+        dialog.choose(self, None, self._on_restore_backup_confirmed, path)
+
+    def _on_restore_backup_confirmed(self, dialog, result, path: str):
+        try:
+            response = dialog.choose_finish(result)
+        except GLib.Error:
+            LOGGER.warning("Could not finish backup restore confirmation", exc_info=True)
+            return
+        if response != "restore":
+            return
+        try:
+            restore_backup(path, self.storage.path, default_config_dir())
+            self.entries = self.storage.list_entries()
+        except (BackupError, OSError, sqlite3.Error, ValueError) as error:
+            LOGGER.exception("Could not restore Aniyori backup")
+            self.toast_overlay.add_toast(Adw.Toast.new(f"Restore failed: {error}"))
+            return
+        self._selected_entry_ids.clear()
+        self.release_results = ()
+        self._render_library()
+        self._refresh_airing_schedule()
+        self.toast_overlay.add_toast(Adw.Toast.new("Aniyori backup restored successfully."))
 
     def _show_export_dialog(self, file_format: str):
         chooser = Gtk.FileChooserNative.new(

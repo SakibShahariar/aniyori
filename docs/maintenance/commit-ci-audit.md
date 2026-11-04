@@ -24,10 +24,10 @@ Persistent repository-specific record of commit-level CI checks and red-cross in
 
 - Repository: `SakibShahariar/aniyori`
 - Default branch: `main`
-- Checkpoint SHA: `92bb1f608b391b944c7a212d2de75ca0c9fcbe6b`
+- Checkpoint SHA: `071d00a59c02c75bdf39780660f88e3a4932c014`
 - Initialized: 2026-11-02
 - Baseline: latest branch tip queried through combined commit-status endpoint; empty status list recorded as **unavailable**, not green/red. Older history was not retroactively audited during setup.
-- Next session: review commits after `632b7958e1194ff0d322822920d99be60d3d250f`; carry forward any red or unresolved entries.
+- Next session: review commits after `071d00a59c02c75bdf39780660f88e3a4932c014`; carry forward any red or unresolved entries.
 
 ## Initial baseline
 
@@ -274,3 +274,16 @@ Both runs completed successfully. The unit-tests job passed Python source compil
 | Date | Reviewed range / checkpoint | Result summary |
 |---|---|---|
 | 2026-11-04 | `da530187558d73b1418eef684955021e29aef333` → `92bb1f608b391b944c7a212d2de75ca0c9fcbe6b` | Reviewed the two omitted commits; both completed green. Checkpoint advanced to the current branch tip. |
+
+
+## Reviewed range: 2026-11-04 (continued)
+
+| Commit SHA | Subject | CI result | Run |
+|---|---|---|---|
+| `071d00a59c02c75bdf39780660f88e3a4932c014` | feat(links): add configurable external anime links (#59) | green | [41766278479](https://github.com/SakibShahariar/aniyori/actions/runs/41766278479) |
+
+The complete Tests workflow passed. The unit-tests job completed source compilation and the full unittest suite successfully.
+
+| Date | Reviewed range / checkpoint | Result summary |
+|---|---|---|
+| 2026-11-04 | `92bb1f608b391b944c7a212d2de75ca0c9fcbe6b` → `071d00a59c02c75bdf39780660f88e3a4932c014` | Reviewed the external-links implementation commit; CI green. Checkpoint advanced to this commit. |
