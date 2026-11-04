@@ -443,3 +443,27 @@ The complete Tests workflow passed, including Python source compilation and the 
 | Date | Reviewed range / checkpoint | Result summary |
 |---|---|---|
 | 2026-11-04 | `cde8823cb4cd740c37305d540dfb1e17f7ae0e3e` → `12ffcfc1ebc4e9373283a93a92d3d4e6b546d774` | Reviewed the library sort correction; CI green after the recorded red run. |
+
+
+## Reviewed range: 2026-11-04 (continued maintenance)
+
+| Commit SHA | Subject | CI result | Run |
+|---|---|---|---|
+| `ff8cbb1a6d4805137e2866408fbf6aeb1edf7df0` | feat(trailers): add AniList trailer playback action (#37) | green | [41768811099](https://github.com/SakibShahariar/aniyori/actions/runs/41768811099) |
+| `a5a0ff8df6dbf5e00497f3ea155a7cf74226e113` | feat(storage): track watched state per episode (#24) | red | [41770763514](https://github.com/SakibShahariar/aniyori/actions/runs/41770763514) |
+| `6cec42c3ecb5bdbcd1b64ea99aefe5e84ceabd8a` | fix(storage): distinguish episode rewatches in history (#24) | green | [41770881361](https://github.com/SakibShahariar/aniyori/actions/runs/41770881361) |
+| `db78d80b0b1d4c5470485f9427bc7e47881b6460` | feat(webhooks): add secure configurable delivery service (#40) | green | [41773248196](https://github.com/SakibShahariar/aniyori/actions/runs/41773248196) |
+| `5182258c44424fd345f2a5b082807ce6ca2268cf` | feat(gui): manage and dispatch watch webhooks (#40) | green | [41773497204](https://github.com/SakibShahariar/aniyori/actions/runs/41773497204) |
+| `c283f151ee4c5abbb45772df998ffd0baec5e117` | fix(webhooks): notify bulk status changes and document privacy (#40) | green | [41773587399](https://github.com/SakibShahariar/aniyori/actions/runs/41773587399) |
+| `a6a7b3c321b6331d7734ac356910d1bbc9159791` | feat(notifications): add persistent notification service (#48) | red | [41773825186](https://github.com/SakibShahariar/aniyori/actions/runs/41773825186) |
+
+### Failure investigation: notification validation
+
+- Failed job: `unit-tests`, test `test_rejects_invalid_preferences_and_notifications`.
+- Diagnosis: `NotificationStore.add()` checked whether an event type was enabled before validating the event. An unknown type therefore returned `None` rather than raising `NotificationError`.
+- Classification: validation-order bug in the new notification service.
+- Correction: validate and normalize the notification before applying the user's event-type preference filter. The corrected commit and rerun are recorded in the next ledger entry.
+
+| Date | Reviewed range / checkpoint | Result summary |
+|---|---|---|
+| 2026-11-04 | `12ffcfc1ebc4e9373283a93a92d3d4e6b546d774` → `a6a7b3c321b6331d7734ac356910d1bbc9159791` | Reviewed all commits after the prior checkpoint, including the red runs and their corrective commits. Checkpoint advances after the correction is verified. |

@@ -180,17 +180,17 @@ class NotificationStore:
         *, dedupe_key: str | None = None, created_at: str | None = None,
     ) -> Notification | None:
         notifications, preferences = self._read()
-        if event_type not in preferences.enabled_events:
-            return None
-        if dedupe_key is not None and any(
-            item.dedupe_key == dedupe_key for item in notifications
-        ):
-            return None
         timestamp = created_at or datetime.now(timezone.utc).isoformat()
         item = _normalize_notification(Notification(
             uuid.uuid4().hex, event_type, severity, title, message,
             timestamp, dedupe_key, False,
         ))
+        if event_type not in preferences.enabled_events:
+            return None
+        if dedupe_key is not None and any(
+            existing.dedupe_key == dedupe_key for existing in notifications
+        ):
+            return None
         notifications.append(item)
         self._write(notifications, preferences)
         return item
