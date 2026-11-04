@@ -14,7 +14,7 @@ gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
 from gi.repository import Adw, Gdk, Gio, GLib, Gtk
 
-from .models import AnimeEntry, WatchStatus, parse_episode_count
+from .models import MAX_EPISODE_COUNT, AnimeEntry, WatchStatus, parse_episode_count
 from .backup import BackupError, create_backup, default_config_dir, restore_backup
 from .services.recognition_exclusions import RecognitionExclusionError, RecognitionExclusionStore
 from .library_io import export_csv, export_json, import_csv, import_json
@@ -87,7 +87,7 @@ def _apply_cover_texture(picture: Gtk.Picture, path: str):
 
 
 class AnimeRow(Gtk.Box):
-    def __init__(self, entry: AnimeEntry, on_progress, on_remove, on_edit, airing=None, selected=False, on_select=None, on_links=None):
+    def __init__(self, entry: AnimeEntry, on_progress, on_remove, on_edit, airing=None, selected=False, on_select=None, on_links=None, on_episodes=None):
         super().__init__(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
         self.set_margin_top(10)
         self.set_margin_bottom(10)
@@ -164,6 +164,11 @@ class AnimeRow(Gtk.Box):
         next_button.connect("clicked", lambda _button: on_progress(entry))
         self.append(next_button)
 
+        episodes_button = Gtk.Button(label="Episodes")
+        episodes_button.set_tooltip_text("Edit watched state for individual episodes")
+        episodes_button.connect("clicked", lambda _button: on_episodes(entry) if on_episodes else None)
+        self.append(episodes_button)
+
         links_button = Gtk.Button(label="Links")
         links_button.set_tooltip_text("Open external anime information links")
         links_button.connect("clicked", lambda button: on_links(entry, button) if on_links else None)
@@ -181,7 +186,7 @@ class AnimeRow(Gtk.Box):
 
 
 class AnimeCard(Gtk.Box):
-    def __init__(self, entry: AnimeEntry, on_progress, on_remove, on_edit, airing=None, selected=False, on_select=None, on_links=None):
+    def __init__(self, entry: AnimeEntry, on_progress, on_remove, on_edit, airing=None, selected=False, on_select=None, on_links=None, on_episodes=None):
         super().__init__(orientation=Gtk.Orientation.VERTICAL, spacing=10)
         self.set_size_request(180, 180)
         self.set_margin_top(12)
@@ -259,6 +264,12 @@ class AnimeCard(Gtk.Box):
         next_button.set_halign(Gtk.Align.CENTER)
         next_button.connect("clicked", lambda _button: on_progress(entry))
         self.append(next_button)
+
+        episodes_button = Gtk.Button(label="Episodes")
+        episodes_button.set_tooltip_text("Edit watched state for individual episodes")
+        episodes_button.connect("clicked", lambda _button: on_episodes(entry) if on_episodes else None)
+        episodes_button.set_halign(Gtk.Align.CENTER)
+        self.append(episodes_button)
 
         actions = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         actions.set_halign(Gtk.Align.CENTER)
@@ -3403,6 +3414,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
                     selected,
                     self._toggle_entry_selection,
                     self._show_external_links,
+                    self._show_episode_editor,
                 )
                 card = AnimeCard(
                     entry,
@@ -3413,6 +3425,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
                     selected,
                     self._toggle_entry_selection,
                     self._show_external_links,
+                    self._show_episode_editor,
                 )
                 self.list_box.insert(row, position)
                 self.grid_flow.insert(card, position)
@@ -3587,6 +3600,77 @@ class AniyoriWindow(Adw.ApplicationWindow):
             dialog.close()
         save.connect('clicked', save_preferences)
         reset.connect('clicked', reset_preferences)
+    def _show_episode_editor(self, entry: AnimeEntry):
+        if entry.storage_id is None:
+            self.toast_overlay.add_toast(Adw.Toast.new("This library entry has no storage ID."))
+            return
+        try:
+            episode_states = self.storage.list_episode_progress(entry.storage_id)
+        except (ValueError, sqlite3.Error) as error:
+            self.toast_overlay.add_toast(Adw.Toast.new(f"Could not load episode progress: {error}"))
+            return
+
+        legacy_progress = entry.episodes_watched if not episode_states else 0
+        episode_limit = entry.episodes_total or MAX_EPISODE_COUNT
+        dialog = Adw.AlertDialog(
+            heading=f"Episodes — {entry.title}",
+            body="Choose an episode and mark it watched or unwatched. Changes are saved immediately.",
+        )
+        content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
+        content.append(Gtk.Label(label="Episode number", xalign=0))
+        episode_number = Gtk.SpinButton.new_with_range(1, max(1, episode_limit), 1)
+        episode_number.set_numeric(True)
+        content.append(episode_number)
+        watched_check = Gtk.CheckButton(label="Watched")
+        content.append(watched_check)
+        summary = Gtk.Label(xalign=0)
+        summary.add_css_class("dim-label")
+        content.append(summary)
+        dialog.set_extra_child(content)
+        dialog.add_response("close", "Close")
+        dialog.set_close_response("close")
+        dialog.set_default_response("close")
+
+        def current_watched(number: int) -> bool:
+            if number in episode_states:
+                return episode_states[number]
+            return not episode_states and number <= legacy_progress
+
+        def update_summary():
+            watched_count = (
+                sum(1 for watched in episode_states.values() if watched)
+                if episode_states else legacy_progress
+            )
+            total_text = str(entry.episodes_total) if entry.episodes_total is not None else "unknown"
+            summary.set_label(f"{watched_count} episodes watched · {total_text} total")
+
+        def sync_selected_episode(*_args):
+            number = episode_number.get_value_as_int()
+            watched_check.handler_block(toggle_handler[0])
+            watched_check.set_active(current_watched(number))
+            watched_check.handler_unblock(toggle_handler[0])
+
+        def on_watched_toggled(check):
+            nonlocal legacy_progress, episode_states
+            number = episode_number.get_value_as_int()
+            try:
+                self.storage.set_episode_watched(entry.storage_id, number, check.get_active())
+                episode_states = self.storage.list_episode_progress(entry.storage_id)
+                legacy_progress = 0
+            except (ValueError, sqlite3.Error) as error:
+                self.toast_overlay.add_toast(Adw.Toast.new(f"Could not update episode: {error}"))
+                sync_selected_episode()
+                return
+            self.entries = self.storage.list_entries()
+            self._render_library()
+            update_summary()
+
+        toggle_handler = [watched_check.connect("toggled", on_watched_toggled)]
+        episode_number.connect("value-changed", sync_selected_episode)
+        update_summary()
+        sync_selected_episode()
+        dialog.present(self)
+
     def _show_edit_dialog(self, entry: AnimeEntry):
         dialog = Adw.AlertDialog(
             heading="Edit anime",

@@ -575,3 +575,13 @@ The initial profile service run exposed three test failures: two compared profil
 | Date | Reviewed range / checkpoint | Result summary |
 |---|---|---|
 | 2026-11-04 | `a14281850f9f77266a92cf65ab7f0dda15a0598c` → `2d5534c550a12c65995e131c6ff8b9bce7619546` | Reviewed the final network test, profile storage/service, correction, and profile UI/bootstrap commits; all final outcomes green. Checkpoint advanced. |
+
+
+## Reviewed range: 2026-11-04 (continued)
+
+| Commit SHA | Subject | CI result | Run |
+|---|---|---|---|
+| `1dd84fd30c80fc1fde6d980bfe10592fc33e75ab` | fix(profiles): guard active profile removal and document migration (#60) | green | [41776092223](https://github.com/SakibShahariar/aniyori/actions/runs/41776092223) |
+| `0198ea4cdc3f3aaae9cbcb8779aa441c618caee0` | feat(library): add persisted per-view layout preferences (#65) | green | [41776342777](https://github.com/SakibShahariar/aniyori/actions/runs/41776342777) |
+
+The profile-removal guard and migration documentation passed the complete Tests workflow. The library-layout commit also passed compilation and unit tests; review confirmed that it adds only the persistence service and tests, not GTK integration. Issue #65 therefore remains open as Category B until the preferences are connected to the list/grid widgets and desktop usability is checked.
