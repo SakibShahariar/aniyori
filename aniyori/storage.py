@@ -520,8 +520,12 @@ class LibraryStorage:
                 "UPDATE anime SET episodes_watched = ?, status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
                 (progress, status, storage_id),
             )
-            if watched and (not was_watched or previous is not None):
-                detail = "Rewatched episode" if was_watched else "Marked episode watched"
+            if watched and not was_watched:
+                detail = (
+                    "Rewatched episode"
+                    if previous is not None
+                    else "Marked episode watched"
+                )
                 self._insert_history_event(
                     connection, anime_id=storage_id, anime_title=row["title"],
                     episode=episode, action="episode", source=source.strip(), details=detail,
