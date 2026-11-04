@@ -1,5 +1,6 @@
 """Main library window for Aniyori."""
 
+import hashlib
 import json
 import logging
 import sqlite3
@@ -47,6 +48,9 @@ from .statistics import calculate_library_statistics
 from .services.library_sort import SORT_MODES, sort_library_entries
 from .services.external_links import ExternalLinkError, ExternalLinkStore, links_for_entry
 from .services.webhooks import WebhookError, WebhookStore, deliver_webhooks
+from .services.notifications import (
+    EVENT_TYPES, NotificationError, NotificationPreferences, NotificationStore,
+)
 
 LOGGER = logging.getLogger(__name__)
 
@@ -286,6 +290,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
         self.share_template_store = ShareTemplateStore()
         self.external_link_store = ExternalLinkStore()
         self.webhook_store = WebhookStore()
+        self.notification_store = NotificationStore()
         self.release_preference_store = ReleasePreferenceStore()
         self.anime_release_preference_store = AnimeReleasePreferenceStore()
         self.release_scoring_store = ReleaseScoringSettingsStore()
@@ -310,6 +315,8 @@ class AniyoriWindow(Adw.ApplicationWindow):
             ("statistics", self._show_statistics_dialog),
             ("watch-history", self._show_watch_history_dialog),
             ("manage-webhooks", self._show_webhook_manager),
+            ("notifications", self._show_notification_center),
+            ("notification-preferences", self._show_notification_preferences),
             ("export-json", lambda: self._show_export_dialog("json")),
             ("export-csv", lambda: self._show_export_dialog("csv")),
             ("import-library", self._show_import_dialog),
@@ -354,6 +361,8 @@ class AniyoriWindow(Adw.ApplicationWindow):
         primary_menu.append("Library Statistics", "win.statistics")
         primary_menu.append("Watch History", "win.watch-history")
         primary_menu.append("Manage Webhooks", "win.manage-webhooks")
+        primary_menu.append("Notifications", "win.notifications")
+        primary_menu.append("Notification Preferences", "win.notification-preferences")
         primary_menu.append("Export Library (JSON)", "win.export-json")
         primary_menu.append("Export Library (CSV)", "win.export-csv")
         primary_menu.append("Import Library", "win.import-library")
@@ -1418,8 +1427,10 @@ class AniyoriWindow(Adw.ApplicationWindow):
             create_backup(self.storage.path, default_config_dir(), path)
         except (BackupError, OSError, sqlite3.Error) as error:
             LOGGER.exception("Could not create full Aniyori backup")
+            self._record_notification("backup", "error", "Backup failed", str(error))
             self.toast_overlay.add_toast(Adw.Toast.new(f"Backup failed: {error}"))
             return
+        self._record_notification("backup", "info", "Backup created", Path(path).name)
         self.toast_overlay.add_toast(Adw.Toast.new("Full Aniyori backup created."))
 
     def _show_restore_backup_dialog(self):
@@ -1471,8 +1482,10 @@ class AniyoriWindow(Adw.ApplicationWindow):
             self.entries = self.storage.list_entries()
         except (BackupError, OSError, sqlite3.Error, ValueError) as error:
             LOGGER.exception("Could not restore Aniyori backup")
+            self._record_notification("backup", "error", "Backup restore failed", str(error))
             self.toast_overlay.add_toast(Adw.Toast.new(f"Restore failed: {error}"))
             return
+        self._record_notification("backup", "info", "Backup restored", Path(path).name)
         self._selected_entry_ids.clear()
         self.release_results = ()
         self._render_library()
@@ -1584,6 +1597,156 @@ class AniyoriWindow(Adw.ApplicationWindow):
         )
 
 
+
+    def _record_notification(
+        self, event_type, severity, title, message, dedupe_key=None
+    ):
+        try:
+            item = self.notification_store.add(
+                event_type, severity, title, message, dedupe_key=dedupe_key
+            )
+            preferences = self.notification_store.preferences()
+        except (OSError, NotificationError) as error:
+            LOGGER.warning("Could not store notification: %s", error)
+            return GLib.SOURCE_REMOVE
+        if item is not None and preferences.desktop_notifications:
+            application = self.get_application()
+            if application is not None:
+                notification = Gio.Notification.new(item.title)
+                notification.set_body(item.message)
+                application.send_notification(item.notification_id, notification)
+        return GLib.SOURCE_REMOVE
+
+    def _show_notification_center(self):
+        dialog = Adw.AlertDialog(
+            heading="Notifications",
+            body="Recent matched releases, download failures, webhook errors, and backup events.",
+        )
+        content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+        listing = Gtk.ListBox()
+        listing.set_selection_mode(Gtk.SelectionMode.SINGLE)
+        listing.add_css_class("boxed-list")
+        scroll = Gtk.ScrolledWindow()
+        scroll.set_min_content_height(280)
+        scroll.set_max_content_height(480)
+        scroll.set_child(listing)
+        content.append(scroll)
+        actions = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        dismiss = Gtk.Button(label="Dismiss Selected")
+        clear = Gtk.Button(label="Clear Dismissed")
+        actions.append(dismiss)
+        actions.append(clear)
+        content.append(actions)
+        dialog.set_extra_child(content)
+        dialog.add_response("close", "Close")
+        dialog.set_default_response("close")
+        dialog.present(self)
+        rows = {}
+        def refresh():
+            rows.clear()
+            child = listing.get_first_child()
+            while child is not None:
+                following = child.get_next_sibling()
+                listing.remove(child)
+                child = following
+            try:
+                items = self.notification_store.list(limit=200)
+            except (OSError, NotificationError) as error:
+                self.toast_overlay.add_toast(Adw.Toast.new("Could not load notifications: " + str(error)))
+                return
+            if not items:
+                listing.append(Gtk.ListBoxRow(child=Gtk.Label(label="No notifications yet.", xalign=0)))
+                return
+            for item in items:
+                row = Gtk.ListBoxRow()
+                state = "Dismissed" if item.dismissed else item.severity.upper()
+                label = Gtk.Label(
+                    label=item.created_at + " · " + state + " · " + item.title + "\n" + item.message,
+                    xalign=0, wrap=True,
+                )
+                label.set_margin_top(8)
+                label.set_margin_bottom(8)
+                label.set_margin_start(8)
+                label.set_margin_end(8)
+                row.set_child(label)
+                rows[row] = item
+                listing.append(row)
+        def dismiss_selected(_button):
+            row = listing.get_selected_row()
+            item = rows.get(row) if row is not None else None
+            if item is None:
+                self.toast_overlay.add_toast(Adw.Toast.new("Select a notification to dismiss."))
+                return
+            try:
+                self.notification_store.dismiss([item.notification_id])
+            except (OSError, NotificationError) as error:
+                self.toast_overlay.add_toast(Adw.Toast.new("Could not dismiss notification: " + str(error)))
+                return
+            refresh()
+        def clear_dismissed(_button):
+            try:
+                removed = self.notification_store.clear_dismissed()
+            except (OSError, NotificationError) as error:
+                self.toast_overlay.add_toast(Adw.Toast.new("Could not clear dismissed notifications: " + str(error)))
+                return
+            refresh()
+            self.toast_overlay.add_toast(Adw.Toast.new("Cleared " + str(removed) + " dismissed notification(s)."))
+        dismiss.connect("clicked", dismiss_selected)
+        clear.connect("clicked", clear_dismissed)
+        refresh()
+
+    def _show_notification_preferences(self):
+        try:
+            saved = self.notification_store.preferences()
+        except (OSError, NotificationError) as error:
+            self.toast_overlay.add_toast(Adw.Toast.new("Could not load notification preferences: " + str(error)))
+            return
+        dialog = Adw.AlertDialog(
+            heading="Notification Preferences",
+            body="Choose which event types are saved. Desktop notifications are optional and depend on your desktop environment.",
+        )
+        content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+        labels = {
+            "release_match": "New matched releases",
+            "download_failure": "Download failures",
+            "webhook_error": "Webhook delivery errors",
+            "backup": "Backup and restore events",
+        }
+        checks = {}
+        for event_type in EVENT_TYPES:
+            check = Gtk.CheckButton(label=labels[event_type])
+            check.set_active(event_type in saved.enabled_events)
+            checks[event_type] = check
+            content.append(check)
+        desktop = Gtk.CheckButton(label="Show desktop notifications")
+        desktop.set_active(saved.desktop_notifications)
+        content.append(desktop)
+        dialog.set_extra_child(content)
+        dialog.add_response("cancel", "Cancel")
+        dialog.add_response("save", "Save")
+        dialog.set_response_appearance("save", Adw.ResponseAppearance.SUGGESTED)
+        dialog.set_default_response("save")
+        dialog.set_close_response("cancel")
+        def response(_dialog, result):
+            try:
+                selected = _dialog.choose_finish(result)
+            except GLib.Error:
+                LOGGER.warning("Could not finish notification preferences dialog", exc_info=True)
+                return
+            if selected != "save":
+                return
+            preferences = NotificationPreferences(
+                tuple(event for event, check in checks.items() if check.get_active()),
+                desktop.get_active(),
+            )
+            try:
+                self.notification_store.save_preferences(preferences)
+            except (OSError, NotificationError) as error:
+                self.toast_overlay.add_toast(Adw.Toast.new("Could not save notification preferences: " + str(error)))
+                return
+            self.toast_overlay.add_toast(Adw.Toast.new("Notification preferences saved."))
+        dialog.choose(self, None, response)
+
     def _dispatch_webhook_event(self, entry: AnimeEntry, event_type: str):
         """Deliver a watch-status event off the GTK thread; isolate endpoint failures."""
         try:
@@ -1609,6 +1772,12 @@ class AniyoriWindow(Adw.ApplicationWindow):
                 for outcome in outcomes:
                     if not outcome.success:
                         LOGGER.warning("Webhook '%s' delivery failed: %s", outcome.name, outcome.message)
+                        GLib.idle_add(
+                            self._record_notification, "webhook_error", "warning",
+                            "Webhook delivery failed",
+                            outcome.name + ": " + outcome.message,
+                            "webhook:" + outcome.webhook_id + ":" + outcome.message,
+                        )
             except Exception:
                 LOGGER.exception("Webhook event delivery failed unexpectedly")
         threading.Thread(target=worker, daemon=True).start()
@@ -2203,6 +2372,8 @@ class AniyoriWindow(Adw.ApplicationWindow):
             if error else "Release submitted to qBittorrent."
         )
         self.toast_overlay.add_toast(Adw.Toast.new(message))
+        if error:
+            self._record_notification("download_failure", "error", "qBittorrent submission failed", str(error))
         return GLib.SOURCE_REMOVE
 
     def _show_release_rule_manager(self):
@@ -2729,6 +2900,17 @@ class AniyoriWindow(Adw.ApplicationWindow):
             return GLib.SOURCE_REMOVE
         self.release_results = results
         self._render_release_results()
+        for result in results:
+            for release in result.releases:
+                if release.match_status == "matched" and release.eligible:
+                    identity = release.entry.identifier or release.entry.link or release.entry.title
+                    key = hashlib.sha256(
+                        (result.feed.url + "\0" + str(identity)).encode("utf-8")
+                    ).hexdigest()
+                    self._record_notification(
+                        "release_match", "info", "New matched release",
+                        result.feed.name + ": " + release.entry.title, "release:" + key,
+                    )
         failed = sum(1 for result in results if result.error)
         count = sum(len(result.releases) for result in results)
         message = f"Found {count} release entries"
