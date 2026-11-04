@@ -512,3 +512,19 @@ The initial notification service commit `a6a7b3c321b6331d7734ac356910d1bbc915979
 - Correction: update the cover-cache tests to patch the shared network-opener factory. The same integration batch also routes webhook requests through configured proxy/TLS/timeout settings.
 - Retry and final outcome will be recorded after the next CI run.
 
+
+
+## Reviewed range: 2026-11-04 (continued)
+
+| Commit SHA | Subject | CI result | Run |
+|---|---|---|---|
+| `2ddfd825dc92e83e05f86cc58464077d4c6f5513` | test(notifications): align preference test with severity threshold (#48) | green | [41774324407](https://github.com/SakibShahariar/aniyori/actions/runs/41774324407) |
+| `e4d72e64c9993a9707c45cb9bfaae8ba54a14616` | feat(network): add shared proxy and request settings (#62) | green | [41774614134](https://github.com/SakibShahariar/aniyori/actions/runs/41774614134) |
+| `e4be1a144e0455fe9d08acd4f477ca0d1cc4603e` | feat(network): apply proxy and retry settings to service clients (#62) | red | [41774848525](https://github.com/SakibShahariar/aniyori/actions/runs/41774848525) |
+| `a14281850f9f77266a92cf65ab7f0dda15a0598c` | fix(network): update cover tests and proxy webhook requests (#62) | green | [41775034660](https://github.com/SakibShahariar/aniyori/actions/runs/41775034660) |
+
+The cover-cache test patch-target failure in `e4be1a1` was corrected in `a142818`; the complete Tests workflow passed, including Python compilation and all unit tests. The network integration now covers AniList, RSS, cover retrieval, webhook delivery, and qBittorrent requests. Only explicitly safe read-only requests retry; side-effecting POSTs do not.
+
+| Date | Reviewed range / checkpoint | Result summary |
+|---|---|---|
+| 2026-11-04 | `c457791cbea723506b5246865bfe9b4c3d4cbbea` → `a14281850f9f77266a92cf65ab7f0dda15a0598c` | Reviewed notification severity fix and all network-settings commits, including the red cover-test run and green correction. Checkpoint advanced to the verified green commit. |

@@ -74,6 +74,34 @@ class NetworkSettingsTests(unittest.TestCase):
                 open_request(Request("https://example.org", data=b"payload"), retry_safe=False, opener=opener)
         self.assertEqual(opener.open.call_count, 1)
 
+
+    def test_opener_applies_proxy_and_keeps_tls_verification_enabled(self):
+        from aniyori.services.network import build_network_opener
+        context = object()
+        with patch("aniyori.services.network.NetworkSettingsStore.load",
+                   return_value=NetworkSettings("http://proxy.example:8080", 22, 0, None)):
+            with patch("aniyori.services.network.ssl.create_default_context", return_value=context):
+                with patch("aniyori.services.network.build_opener") as build:
+                    build_network_opener()
+        handlers = build.call_args.args
+        self.assertEqual(handlers[0].proxies, {
+            "http": "http://proxy.example:8080",
+            "https": "http://proxy.example:8080",
+        })
+        self.assertIs(handlers[1].context, context)
+
+    def test_configured_timeout_is_used_by_service_opener(self):
+        opener = MagicMock()
+        response = MagicMock()
+        opener.open.return_value = response
+        with patch("aniyori.services.network.NetworkSettingsStore.load",
+                   return_value=NetworkSettings(timeout_seconds=37, retries=0)):
+            self.assertIs(
+                open_request(Request("https://example.org"), opener=opener),
+                response,
+            )
+        self.assertEqual(opener.open.call_args.kwargs["timeout"], 37)
+
     def test_http_server_errors_retry_but_client_errors_do_not(self):
         opener = MagicMock()
         opener.open.side_effect = [
