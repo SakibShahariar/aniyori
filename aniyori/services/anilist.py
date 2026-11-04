@@ -7,6 +7,7 @@ Catalogue search is public; authenticated sync will be added separately.
 from __future__ import annotations
 
 import json
+import re
 from typing import Any
 
 from .metadata_cache import MetadataCache
@@ -55,6 +56,7 @@ query AnimeDetails($id: Int!) {
     siteUrl
     genres
     nextAiringEpisode { airingAt timeUntilAiring episode }
+    trailer { id site thumbnail }
   }
 }
 """
@@ -71,6 +73,20 @@ def _normalise_media(media: dict[str, Any]) -> dict[str, Any]:
     airing = media.get("nextAiringEpisode")
     if not isinstance(airing, dict):
         airing = {}
+    trailer = media.get("trailer")
+    if not isinstance(trailer, dict):
+        trailer = {}
+    trailer_id = trailer.get("id")
+    trailer_site = trailer.get("site")
+    trailer_url = None
+    if isinstance(trailer_id, str) and isinstance(trailer_site, str):
+        site = trailer_site.casefold()
+        if site == "youtube" and re.fullmatch(r"[A-Za-z0-9_-]{11}", trailer_id):
+            trailer_url = f"https://www.youtube.com/watch?v={trailer_id}"
+        elif site == "dailymotion" and re.fullmatch(r"[A-Za-z0-9]+", trailer_id):
+            trailer_url = f"https://www.dailymotion.com/video/{trailer_id}"
+        elif site == "vimeo" and re.fullmatch(r"[0-9]+", trailer_id):
+            trailer_url = f"https://vimeo.com/{trailer_id}"
     airing_at = airing.get("airingAt")
     time_until = airing.get("timeUntilAiring")
     next_episode = airing.get("episode")
@@ -96,6 +112,8 @@ def _normalise_media(media: dict[str, Any]) -> dict[str, Any]:
         "description": media.get("description") or "",
         "cover_image": cover.get("large") or cover.get("medium"),
         "site_url": media.get("siteUrl"),
+        "trailer_url": trailer_url,
+        "trailer_thumbnail": trailer.get("thumbnail") if trailer_url else None,
         "genres": (
             list(media["genres"])
             if isinstance(media.get("genres"), list)

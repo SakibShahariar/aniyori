@@ -90,6 +90,31 @@ class AniListClientTests(unittest.TestCase):
                     with self.assertRaises(AniListError):
                         self.client.search_anime("Example", refresh=True)
 
+    def test_normalise_media_builds_supported_trailer_urls(self):
+        youtube = _normalise_media({
+            "title": {"romaji": "Example"},
+            "trailer": {"id": "abcdefghijk", "site": "youtube", "thumbnail": "https://img.example/thumb.jpg"},
+        })
+        self.assertEqual(
+            youtube["trailer_url"],
+            "https://www.youtube.com/watch?v=abcdefghijk",
+        )
+        self.assertEqual(youtube["trailer_thumbnail"], "https://img.example/thumb.jpg")
+        dailymotion = _normalise_media({
+            "title": {"romaji": "Example"},
+            "trailer": {"id": "x8abc123", "site": "dailymotion"},
+        })
+        self.assertEqual(dailymotion["trailer_url"], "https://www.dailymotion.com/video/x8abc123")
+        for trailer in (
+            {"id": "short", "site": "youtube"},
+            {"id": "abcdefghijk", "site": "unknown"},
+            {"id": "javascript:alert(1)", "site": "dailymotion"},
+        ):
+            with self.subTest(trailer=trailer):
+                self.assertIsNone(_normalise_media({
+                    "title": {"romaji": "Example"}, "trailer": trailer,
+                })["trailer_url"])
+
     def test_normalise_media_handles_malformed_optional_nested_fields(self):
         result = _normalise_media({
             "id": 21, "title": "unexpected", "coverImage": [], "genres": "Adventure"

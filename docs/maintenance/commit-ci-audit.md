@@ -24,10 +24,10 @@ Persistent repository-specific record of commit-level CI checks and red-cross in
 
 - Repository: `SakibShahariar/aniyori`
 - Default branch: `main`
-- Checkpoint SHA: `cde8823cb4cd740c37305d540dfb1e17f7ae0e3e`
+- Checkpoint SHA: `12ffcfc1ebc4e9373283a93a92d3d4e6b546d774`
 - Initialized: 2026-11-02
 - Baseline: latest branch tip queried through combined commit-status endpoint; empty status list recorded as **unavailable**, not green/red. Older history was not retroactively audited during setup.
-- Next session: review commits after `cde8823cb4cd740c37305d540dfb1e17f7ae0e3e`; carry forward any red or unresolved entries.
+- Next session: review commits after `12ffcfc1ebc4e9373283a93a92d3d4e6b546d774`; carry forward any red or unresolved entries.
 
 ## Initial baseline
 
@@ -430,3 +430,16 @@ The unit-tests job reported two failures: progress sorting placed entries with u
 | Date | Reviewed range / checkpoint | Result summary |
 |---|---|---|
 | 2026-11-04 | `4e38f61fc67320c432852801b2dd39dbbc0f0220` → `cde8823cb4cd740c37305d540dfb1e17f7ae0e3e` | Reviewed library sorting; two test failures recorded for correction. |
+
+
+## Reviewed range: 2026-11-04 (continued)
+
+| Commit SHA | Subject | CI result | Run |
+|---|---|---|---|
+| `12ffcfc1ebc4e9373283a93a92d3d4e6b546d774` | fix(library): order unknown progress after known totals (#25) | green | [41768582095](https://github.com/SakibShahariar/aniyori/actions/runs/41768582095) |
+
+The complete Tests workflow passed, including Python source compilation and the full unittest suite. This corrects the two test failures recorded for the initial library-sorting commit.
+
+| Date | Reviewed range / checkpoint | Result summary |
+|---|---|---|
+| 2026-11-04 | `cde8823cb4cd740c37305d540dfb1e17f7ae0e3e` → `12ffcfc1ebc4e9373283a93a92d3d4e6b546d774` | Reviewed the library sort correction; CI green after the recorded red run. |

@@ -2596,6 +2596,9 @@ class AniyoriWindow(Adw.ApplicationWindow):
             and entry.storage_id is not None
             and str(entry.provider_id).isdigit()
         ]
+        current_ids = {storage_id for storage_id, _provider_id in candidates}
+        for storage_id in set(self._trailer_by_id) - current_ids:
+            self._trailer_by_id.pop(storage_id, None)
         if not candidates:
             return GLib.SOURCE_REMOVE
 

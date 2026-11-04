@@ -35,6 +35,7 @@ implemented. The public AniList catalogue client does not store OAuth tokens.
 
 - **AniList:** catalogue searches send the search text to AniList's public GraphQL
   API. Opening or refreshing catalogue details sends the corresponding media ID.
+  Available trailers can be launched with mpv (when installed) or the default URI handler.
 - **External links:** MyAnimeList and Kitsu search links send the anime title to the
   selected website through your default browser. AniList links use the stored ID;
   custom link templates open only when explicitly selected.
