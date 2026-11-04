@@ -24,10 +24,10 @@ Persistent repository-specific record of commit-level CI checks and red-cross in
 
 - Repository: `SakibShahariar/aniyori`
 - Default branch: `main`
-- Checkpoint SHA: `886c7bc3666eb0b9d40d9fe4f60112c82dda340f`
+- Checkpoint SHA: `be7a4856601693d0c34c54c9d6c6b0d9b142667b`
 - Initialized: 2026-11-02
 - Baseline: latest branch tip queried through combined commit-status endpoint; empty status list recorded as **unavailable**, not green/red. Older history was not retroactively audited during setup.
-- Next session: review commits after `886c7bc3666eb0b9d40d9fe4f60112c82dda340f`; carry forward any red or unresolved entries.
+- Next session: review commits after `be7a4856601693d0c34c54c9d6c6b0d9b142667b`; carry forward any red or unresolved entries.
 
 ## Initial baseline
 
@@ -365,3 +365,16 @@ The unit-tests job failed one assertion in `test_history_can_be_filtered_by_anim
 | Date | Reviewed range / checkpoint | Result summary |
 |---|---|---|
 | 2026-11-04 | `f025df42fb15b2b8b332ecbaed3a74832907552c` → `886c7bc3666eb0b9d40d9fe4f60112c82dda340f` | Reviewed the new single-episode event classification; CI exposed one incorrect test expectation. |
+
+
+## Reviewed range: 2026-11-04 (continued)
+
+| Commit SHA | Subject | CI result | Run |
+|---|---|---|---|
+| `be7a4856601693d0c34c54c9d6c6b0d9b142667b` | test(history): isolate episode event filter assertion (#51) | green | [41767636544](https://github.com/SakibShahariar/aniyori/actions/runs/41767636544) |
+
+The complete Tests workflow passed, including Python source compilation and all unit tests. The prior failed test assertion is corrected; the preceding red run remains recorded above.
+
+| Date | Reviewed range / checkpoint | Result summary |
+|---|---|---|
+| 2026-11-04 | `886c7bc3666eb0b9d40d9fe4f60112c82dda340f` → `be7a4856601693d0c34c54c9d6c6b0d9b142667b` | Reviewed the watch-history test correction; CI green after the recorded red run. Checkpoint advanced. |

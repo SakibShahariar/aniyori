@@ -31,6 +31,7 @@ from .services.qbittorrent import (
     QBittorrentClient, QBittorrentError, QBittorrentSettings, QBittorrentSettingsStore,
 )
 from .services.rss import FeedParseError, RSSFeedStore, build_nyaa_search_url
+from .services.anime_release_preferences import AnimeReleasePreferenceError, AnimeReleasePreferenceStore
 from .services.release_preferences import (
     PREFERENCE_ATTRIBUTES, ReleasePreferenceError, ReleasePreferenceStore,
     evaluate_release_preferences,
@@ -282,6 +283,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
         self.share_template_store = ShareTemplateStore()
         self.external_link_store = ExternalLinkStore()
         self.release_preference_store = ReleasePreferenceStore()
+        self.anime_release_preference_store = AnimeReleasePreferenceStore()
         self.release_scoring_store = ReleaseScoringSettingsStore()
         self.release_rule_store = ReleaseRuleStore()
         self.rss_feed_store = RSSFeedStore()
@@ -2087,6 +2089,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
                 child = next_child
             try:
                 rules = self.release_rule_store.load()
+            anime_preferences = self.anime_release_preference_store.load()
             except (OSError, ValueError) as error:
                 self.toast_overlay.add_toast(Adw.Toast.new(f"Could not load rules: {error}"))
                 return ()
@@ -2524,6 +2527,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
                     weights=weights,
                     minimum_score=minimum_score,
                     rules=rules,
+                    anime_preferences=anime_preferences,
                 )
                 error = None
             except Exception as refresh_error:
@@ -2897,6 +2901,105 @@ class AniyoriWindow(Adw.ApplicationWindow):
                 Adw.Toast.new("That anime could not be updated. Try again.")
             )
 
+    def _show_anime_download_preferences_dialog(self, entry: AnimeEntry):
+        if entry.storage_id is None:
+            self.toast_overlay.add_toast(Adw.Toast.new('Save this anime before setting download preferences.'))
+            return
+        try:
+            saved = self.anime_release_preference_store.load_for(entry.storage_id)
+        except (OSError, AnimeReleasePreferenceError) as error:
+            self.toast_overlay.add_toast(Adw.Toast.new('Could not load per-anime preferences: ' + str(error)))
+            return
+        dialog = Adw.AlertDialog(
+            heading='Download Preferences — ' + entry.title,
+            body='These settings override global release preferences for this anime. Empty attributes inherit global defaults.',
+        )
+        content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+        enabled = Gtk.CheckButton(label='Allow downloads for this anime')
+        enabled.set_active(saved['enabled'])
+        content.append(enabled)
+        size_grid = Gtk.Grid(column_spacing=8, row_spacing=6)
+        minimum = Gtk.Entry()
+        minimum.set_placeholder_text('No minimum')
+        minimum.set_text('' if saved['min_file_size_mb'] is None else str(saved['min_file_size_mb']))
+        maximum = Gtk.Entry()
+        maximum.set_placeholder_text('No maximum')
+        maximum.set_text('' if saved['max_file_size_mb'] is None else str(saved['max_file_size_mb']))
+        size_grid.attach(Gtk.Label(label='Minimum size (MiB)', xalign=0), 0, 0, 1, 1)
+        size_grid.attach(minimum, 1, 0, 1, 1)
+        size_grid.attach(Gtk.Label(label='Maximum size (MiB)', xalign=0), 0, 1, 1, 1)
+        size_grid.attach(maximum, 1, 1, 1, 1)
+        content.append(size_grid)
+        attribute_grid = Gtk.Grid(column_spacing=8, row_spacing=6)
+        for column, heading in enumerate(('Attribute', 'Preferred', 'Rejected')):
+            label = Gtk.Label(label=heading, xalign=0)
+            label.add_css_class('heading')
+            attribute_grid.attach(label, column, 0, 1, 1)
+        editors = {}
+        saved_attributes = saved['preferences']
+        for row, attribute in enumerate(PREFERENCE_ATTRIBUTES, start=1):
+            current = saved_attributes.get(attribute, {})
+            preferred = Gtk.Entry()
+            preferred.set_placeholder_text('Inherit global')
+            preferred.set_text(', '.join(current.get('preferred', [])))
+            rejected = Gtk.Entry()
+            rejected.set_placeholder_text('Inherit global')
+            rejected.set_text(', '.join(current.get('rejected', [])))
+            attribute_grid.attach(Gtk.Label(label=attribute.replace('_', ' ').title(), xalign=0), 0, row, 1, 1)
+            attribute_grid.attach(preferred, 1, row, 1, 1)
+            attribute_grid.attach(rejected, 2, row, 1, 1)
+            editors[attribute] = (preferred, rejected)
+        attribute_scroll = Gtk.ScrolledWindow()
+        attribute_scroll.set_min_content_height(220)
+        attribute_scroll.set_max_content_height(320)
+        attribute_scroll.set_child(attribute_grid)
+        content.append(attribute_scroll)
+        save = Gtk.Button(label='Save Anime Preferences')
+        save.add_css_class('suggested-action')
+        reset = Gtk.Button(label='Reset to Global Defaults')
+        actions = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        actions.append(save)
+        actions.append(reset)
+        content.append(actions)
+        dialog.set_extra_child(content)
+        dialog.add_response('close', 'Close')
+        dialog.set_default_response('close')
+        dialog.present(self)
+        def save_preferences(_button):
+            try:
+                def parse_size(widget, label):
+                    raw = widget.get_text().strip()
+                    if not raw:
+                        return None
+                    return float(raw)
+                payload = {
+                    'enabled': enabled.get_active(),
+                    'min_file_size_mb': parse_size(minimum, 'Minimum'),
+                    'max_file_size_mb': parse_size(maximum, 'Maximum'),
+                    'preferences': {},
+                }
+                for attribute, (preferred, rejected) in editors.items():
+                    preferred_values = [value.strip() for value in preferred.get_text().split(',') if value.strip()]
+                    rejected_values = [value.strip() for value in rejected.get_text().split(',') if value.strip()]
+                    if preferred_values or rejected_values:
+                        payload['preferences'][attribute] = {'preferred': preferred_values, 'rejected': rejected_values}
+                self.anime_release_preference_store.save_for(entry.storage_id, payload)
+            except (ValueError, OSError, AnimeReleasePreferenceError) as error:
+                self.toast_overlay.add_toast(Adw.Toast.new('Could not save anime preferences: ' + str(error)))
+                return
+            self.toast_overlay.add_toast(Adw.Toast.new('Anime download preferences saved.'))
+            self._refresh_release_feeds()
+        def reset_preferences(_button):
+            try:
+                self.anime_release_preference_store.reset_for(entry.storage_id)
+            except (OSError, AnimeReleasePreferenceError) as error:
+                self.toast_overlay.add_toast(Adw.Toast.new('Could not reset anime preferences: ' + str(error)))
+                return
+            self.toast_overlay.add_toast(Adw.Toast.new('Global download preferences restored for this anime.'))
+            self._refresh_release_feeds()
+            dialog.close()
+        save.connect('clicked', save_preferences)
+        reset.connect('clicked', reset_preferences)
     def _show_edit_dialog(self, entry: AnimeEntry):
         dialog = Adw.AlertDialog(
             heading="Edit anime",
@@ -2921,6 +3024,9 @@ class AniyoriWindow(Adw.ApplicationWindow):
         ))
         status_dropdown.set_selected(statuses.index(entry.status))
         content.append(status_dropdown)
+        download_preferences_button = Gtk.Button(label='Per-anime Download Preferences')
+        download_preferences_button.connect('clicked', lambda _button: self._show_anime_download_preferences_dialog(entry))
+        content.append(download_preferences_button)
         dialog.set_extra_child(content)
         dialog.add_response("cancel", "Cancel")
         dialog.add_response("save", "Save changes")

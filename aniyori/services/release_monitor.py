@@ -16,6 +16,7 @@ from .release_scoring import (
 )
 from .rss import FeedEntry, FeedParseError, RSSFeed, _safe_link, parse_release_feed
 from .release_rules import ReleaseRule, evaluate_release_rules, normalize_release_rules
+from .release_preferences import normalize_release_preferences
 
 
 DEFAULT_FEED_TIMEOUT = 15
@@ -43,6 +44,7 @@ class MonitoredRelease:
     decision_explanation: str
     rule_status: str = "unmatched"
     rule_reason: str | None = None
+    anime_preference_reason: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -186,6 +188,7 @@ def _enrich_entry(
     weights: Mapping[str, float] | None,
     minimum_score: float,
     rules: tuple[ReleaseRule, ...],
+    anime_preferences: Mapping[str, Mapping[str, Any]],
 ) -> MonitoredRelease:
     parsed = parse_anime_filename(entry.title)
     if parsed is None:
@@ -193,11 +196,46 @@ def _enrich_entry(
     else:
         decision = match_anime_title(parsed.title, candidates)
     release_metadata = _release_metadata(entry, parsed)
-
+    best = decision.best_match
+    anime_override = (
+        anime_preferences.get(str(best.media_id), {})
+        if best is not None else {}
+    )
+    enabled = anime_override.get("enabled", True)
+    global_payload = {}
+    if isinstance(preferences, Mapping):
+        global_payload = dict(preferences)
+    elif preferences is not None:
+        global_payload = {
+            item.attribute: {
+                "preferred": list(item.preferred),
+                "rejected": list(item.rejected),
+                "priority": item.priority,
+            }
+            for item in preferences
+        }
+    effective_payload = dict(global_payload)
+    effective_payload.update(anime_override.get("preferences", {}))
+    effective_preferences = normalize_release_preferences(effective_payload)
     quality = score_release(
         release_metadata,
         weights=weights,
-        preferences=preferences,
+        preferences=effective_preferences,
+    )
+    size = release_metadata.get("file_size_mb")
+    minimum_size = anime_override.get("min_file_size_mb")
+    maximum_size = anime_override.get("max_file_size_mb")
+    size_reason = None
+    if minimum_size is not None or maximum_size is not None:
+        if size is None:
+            size_reason = "Per-anime file-size limit cannot be checked because release size is unknown."
+        elif minimum_size is not None and size < minimum_size:
+            size_reason = f"File size {size:g} MiB is below the per-anime minimum {minimum_size:g} MiB."
+        elif maximum_size is not None and size > maximum_size:
+            size_reason = f"File size {size:g} MiB exceeds the per-anime maximum {maximum_size:g} MiB."
+    anime_preference_reason = (
+        "Downloads are disabled for this anime."
+        if not enabled else size_reason
     )
     rule_decision = evaluate_release_rules({
         "title": entry.title,
@@ -208,7 +246,6 @@ def _enrich_entry(
         "summary": entry.summary,
         "categories": entry.categories,
     }, rules)
-    best = decision.best_match
     return MonitoredRelease(
         feed_name=feed.name,
         feed_url=feed.url,
@@ -221,7 +258,9 @@ def _enrich_entry(
         score=quality,
         metadata=release_metadata,
         eligible=(
-            quality.accepted
+            enabled
+            and size_reason is None
+            and quality.accepted
             and quality.score >= minimum_score
             and rule_decision.status != "discarded"
         ),
@@ -230,9 +269,11 @@ def _enrich_entry(
              if quality.score >= minimum_score
              else quality.explanation + f"; Below minimum score {minimum_score:g}/100")
             + (f"; {rule_decision.reason}" if rule_decision.reason else "")
+            + (f"; {anime_preference_reason}" if anime_preference_reason else "")
         ),
         rule_status=rule_decision.status,
         rule_reason=rule_decision.reason,
+        anime_preference_reason=anime_preference_reason,
     )
 
 
@@ -245,6 +286,7 @@ def refresh_release_feeds(
     weights: Mapping[str, float] | None = None,
     minimum_score: float = 0.0,
     rules: Iterable[ReleaseRule] = (),
+    anime_preferences: Mapping[str, Mapping[str, Any]] | None = None,
 ) -> tuple[FeedRefreshResult, ...]:
     """Refresh enabled feeds independently; one failure never aborts other feeds.
 
@@ -257,6 +299,10 @@ def refresh_release_feeds(
         raise ValueError("Catalogue candidates must be an iterable of mappings.")
     cutoff = validate_minimum_score(minimum_score)
     normalized_rules = normalize_release_rules(rules)
+    if anime_preferences is None:
+        anime_preferences = {}
+    if not isinstance(anime_preferences, Mapping):
+        raise ValueError("Per-anime release preferences must be a mapping.")
     candidate_list = tuple(item for item in candidates if isinstance(item, Mapping))
     results = []
     for feed in feeds:
@@ -277,6 +323,7 @@ def refresh_release_feeds(
                         weights=weights if weights is not None else DEFAULT_WEIGHTS,
                         minimum_score=cutoff,
                         rules=normalized_rules,
+                        anime_preferences=anime_preferences,
                     )
                     for entry in entries
                 ),
