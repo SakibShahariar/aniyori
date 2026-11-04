@@ -24,10 +24,10 @@ Persistent repository-specific record of commit-level CI checks and red-cross in
 
 - Repository: `SakibShahariar/aniyori`
 - Default branch: `main`
-- Checkpoint SHA: `f72b7b89df607a68d2e2b112166b3ba4dc14e794`
+- Checkpoint SHA: `427f5ad1952d4490cce07cc3e72624a2712cdb4f`
 - Initialized: 2026-11-02
 - Baseline: latest branch tip queried through combined commit-status endpoint; empty status list recorded as **unavailable**, not green/red. Older history was not retroactively audited during setup.
-- Next session: review commits after `f72b7b89df607a68d2e2b112166b3ba4dc14e794`; carry forward any red or unresolved entries.
+- Next session: review commits after `427f5ad1952d4490cce07cc3e72624a2712cdb4f`; carry forward any red or unresolved entries.
 
 ## Initial baseline
 
@@ -391,3 +391,16 @@ The unit-tests job failed during Python source compilation in `aniyori/window.py
 | Date | Reviewed range / checkpoint | Result summary |
 |---|---|---|
 | 2026-11-04 | `be7a4856601693d0c34c54c9d6c6b0d9b142667b` → `f72b7b89df607a68d2e2b112166b3ba4dc14e794` | Reviewed the initial per-anime preference integration; compile error recorded for correction. |
+
+
+## Reviewed range: 2026-11-04 (continued)
+
+| Commit SHA | Subject | CI result | Run |
+|---|---|---|---|
+| `427f5ad1952d4490cce07cc3e72624a2712cdb4f` | fix(gui): load anime overrides during feed refresh (#57) | green | [41768156324](https://github.com/SakibShahariar/aniyori/actions/runs/41768156324) |
+
+The complete Tests workflow passed, including source compilation and the full unittest suite. This corrects the compile failure recorded for the preceding implementation commit.
+
+| Date | Reviewed range / checkpoint | Result summary |
+|---|---|---|
+| 2026-11-04 | `f72b7b89df607a68d2e2b112166b3ba4dc14e794` → `427f5ad1952d4490cce07cc3e72624a2712cdb4f` | Reviewed the release-refresh load placement correction; CI green after the recorded red run. |

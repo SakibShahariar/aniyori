@@ -1791,6 +1791,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
                 decision = (
                     "Discarded by rule" if release.rule_status == "discarded" else
                     "Eligible" if release.eligible else
+                    release.anime_preference_reason if release.anime_preference_reason else
                     "Rejected by preferences" if not release.score.accepted else
                     "Below score threshold"
                 )
@@ -1821,6 +1822,11 @@ class AniyoriWindow(Adw.ApplicationWindow):
                         "Explicitly submit this release to your configured qBittorrent WebUI."
                     )
                     send_button.set_valign(Gtk.Align.CENTER)
+                    send_button.set_sensitive(release.eligible)
+                    if not release.eligible:
+                        send_button.set_tooltip_text(
+                            release.anime_preference_reason or release.decision_explanation
+                        )
                     send_button.connect(
                         "clicked",
                         lambda _button, magnet=release.entry.magnet_uri:
@@ -1832,7 +1838,10 @@ class AniyoriWindow(Adw.ApplicationWindow):
                     )
                     link.set_tooltip_text(
                         "Open this magnet link in your desktop's registered torrent application."
+                        if release.eligible else
+                        release.anime_preference_reason or release.decision_explanation
                     )
+                    link.set_sensitive(release.eligible)
                     link.set_valign(Gtk.Align.CENTER)
                     row.append(link)
                 elif release.entry.link:
