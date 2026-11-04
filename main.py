@@ -2,6 +2,11 @@
 """Entry point for Aniyori."""
 
 import sys
+from pathlib import Path
+
+from aniyori.services.profiles import configure_storage_environment
+
+configure_storage_environment(app_directory=Path(__file__).resolve().parent)
 
 import gi
 

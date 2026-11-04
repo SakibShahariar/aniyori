@@ -77,6 +77,7 @@ or points to a relative path, Aniyori uses the standard home-directory default.
 | Custom external-link templates | `~/.config/aniyori/external-links.json` |
 | HTTP webhook endpoints and custom headers | `~/.config/aniyori/webhooks.json` |
 | Proxy, timeout, retry, and CA bundle preferences | `~/.config/aniyori/network.json` |
+| Profile registry | `~/.config/aniyori/profiles.json` |
 | Local recognition exclusions | `~/.config/aniyori/recognition-exclusions.json` |
 | Per-anime release preferences | `~/.config/aniyori/anime-release-preferences.json` |
 | AniList metadata cache | `~/.cache/aniyori/metadata/` |
@@ -91,6 +92,12 @@ exported; configure qBittorrent credentials again when restoring on another desk
 The metadata and cover directories contain
 cached remote data and images; they can be cleared without deleting the library
 database or preferences.
+
+### Settings profiles and portable mode
+
+By default, the **Default** profile continues to use the standard XDG data, config, and cache directories, preserving existing installations. Create named profiles from **Profiles & Portable Mode**; each named profile gets separate library, configuration, and cache roots under the corresponding XDG `aniyori/profiles/<profile-id>/` directories. Select a profile and restart Aniyori to activate it. Removing a profile deletes only that profile's isolated data; the Default profile cannot be removed.
+
+To enable portable mode, place an empty `.aniyori-portable` marker file beside `main.py` before launching Aniyori. On startup, Aniyori then uses a `portable-data/` directory beside the application for its data, config, cache, and profile registry. The application directory must be writable; if it is not, startup fails with a clear error rather than silently writing data elsewhere. An alternate portable root can be selected with `ANIYORI_PORTABLE_DIR`.
 
 ### Removing local data
 

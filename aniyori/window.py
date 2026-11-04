@@ -52,6 +52,7 @@ from .services.notifications import (
     EVENT_TYPES, NotificationError, NotificationPreferences, NotificationStore,
 )
 from .services.network import NetworkSettings, NetworkSettingsError, NetworkSettingsStore
+from .services.profiles import ProfileError, ProfileStore
 
 LOGGER = logging.getLogger(__name__)
 
@@ -293,6 +294,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
         self.webhook_store = WebhookStore()
         self.notification_store = NotificationStore()
         self.network_settings_store = NetworkSettingsStore()
+        self.profile_store = ProfileStore()
         self.release_preference_store = ReleasePreferenceStore()
         self.anime_release_preference_store = AnimeReleasePreferenceStore()
         self.release_scoring_store = ReleaseScoringSettingsStore()
@@ -320,6 +322,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
             ("notifications", self._show_notification_center),
             ("notification-preferences", self._show_notification_preferences),
             ("network-settings", self._show_network_settings_dialog),
+            ("profiles", self._show_profiles_dialog),
             ("export-json", lambda: self._show_export_dialog("json")),
             ("export-csv", lambda: self._show_export_dialog("csv")),
             ("import-library", self._show_import_dialog),
@@ -367,6 +370,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
         primary_menu.append("Notifications", "win.notifications")
         primary_menu.append("Notification Preferences", "win.notification-preferences")
         primary_menu.append("Network Settings", "win.network-settings")
+        primary_menu.append("Profiles & Portable Mode", "win.profiles")
         primary_menu.append("Export Library (JSON)", "win.export-json")
         primary_menu.append("Export Library (CSV)", "win.export-csv")
         primary_menu.append("Import Library", "win.import-library")
@@ -1602,6 +1606,125 @@ class AniyoriWindow(Adw.ApplicationWindow):
 
 
 
+
+
+    def _show_profiles_dialog(self):
+        try:
+            profiles = list(self.profile_store.list_profiles())
+            active = self.profile_store.active_profile()
+        except (OSError, ProfileError) as error:
+            self.toast_overlay.add_toast(Adw.Toast.new("Could not load profiles: " + str(error)))
+            return
+        dialog = Adw.AlertDialog(
+            heading="Settings Profiles",
+            body="Each profile has its own library database, configuration, and cache. Switching profiles takes effect after you close and reopen Aniyori.",
+        )
+        content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+        profile_dropdown = Gtk.DropDown.new_from_strings([item.name for item in profiles])
+        profile_dropdown.set_selected(next(
+            index for index, item in enumerate(profiles)
+            if item.profile_id == active.profile_id
+        ))
+        content.append(Gtk.Label(label="Active profile", xalign=0))
+        content.append(profile_dropdown)
+        name_entry = Gtk.Entry()
+        name_entry.set_placeholder_text("New profile name")
+        content.append(name_entry)
+        buttons = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        create_button = Gtk.Button(label="Create")
+        switch_button = Gtk.Button(label="Switch Profile")
+        remove_button = Gtk.Button(label="Remove Selected")
+        buttons.append(create_button)
+        buttons.append(switch_button)
+        buttons.append(remove_button)
+        content.append(buttons)
+        portable = os.environ.get("ANIYORI_PORTABLE_MODE") == "1"
+        if portable:
+            portable_text = "Portable mode is active. Data is stored beside the application in: " + str(
+                os.environ.get("ANIYORI_PORTABLE_DIR") or (Path(__file__).resolve().parents[1] / "portable-data")
+            )
+        else:
+            portable_text = (
+                "Portable mode is off. To enable it, place an empty .aniyori-portable marker "
+                "beside main.py and restart. The application directory must be writable."
+            )
+        portable_label = Gtk.Label(label=portable_text, xalign=0, wrap=True)
+        portable_label.add_css_class("dim-label")
+        content.append(portable_label)
+        dialog.set_extra_child(content)
+        dialog.add_response("close", "Close")
+        dialog.set_default_response("close")
+        dialog.present(self)
+        def refresh(selected_id=None):
+            nonlocal profiles
+            try:
+                profiles = list(self.profile_store.list_profiles())
+                current = self.profile_store.active_profile()
+            except (OSError, ProfileError) as error:
+                self.toast_overlay.add_toast(Adw.Toast.new("Could not refresh profiles: " + str(error)))
+                return
+            profile_dropdown.set_model(Gtk.StringList.new([item.name for item in profiles]))
+            target = selected_id or current.profile_id
+            profile_dropdown.set_selected(next(
+                (index for index, item in enumerate(profiles) if item.profile_id == target),
+                next(index for index, item in enumerate(profiles) if item.profile_id == current.profile_id),
+            ))
+        def create_profile(_button):
+            try:
+                created = self.profile_store.create(name_entry.get_text())
+            except (OSError, ProfileError) as error:
+                self.toast_overlay.add_toast(Adw.Toast.new("Could not create profile: " + str(error)))
+                return
+            name_entry.set_text("")
+            refresh(created.profile_id)
+            self.toast_overlay.add_toast(Adw.Toast.new("Profile created. Select it and choose Switch Profile to use it after restarting."))
+        def switch_profile(_button):
+            index = profile_dropdown.get_selected()
+            if index >= len(profiles):
+                return
+            selected = profiles[index]
+            try:
+                self.profile_store.switch(selected.profile_id)
+            except (OSError, ProfileError) as error:
+                self.toast_overlay.add_toast(Adw.Toast.new("Could not switch profile: " + str(error)))
+                return
+            self.toast_overlay.add_toast(Adw.Toast.new("Profile selected. Close and reopen Aniyori to load its separate data."))
+        def confirm_remove(_dialog, result, selected):
+            try:
+                response = _dialog.choose_finish(result)
+            except GLib.Error:
+                LOGGER.warning("Could not finish profile removal confirmation", exc_info=True)
+                return
+            if response != "remove":
+                return
+            try:
+                self.profile_store.remove(selected.profile_id)
+            except (OSError, ProfileError) as error:
+                self.toast_overlay.add_toast(Adw.Toast.new("Could not remove profile: " + str(error)))
+                return
+            refresh()
+            self.toast_overlay.add_toast(Adw.Toast.new("Profile and its isolated data were removed."))
+        def remove_profile(_button):
+            index = profile_dropdown.get_selected()
+            if index >= len(profiles):
+                return
+            selected = profiles[index]
+            if selected.profile_id == "default":
+                self.toast_overlay.add_toast(Adw.Toast.new("The Default profile cannot be removed."))
+                return
+            confirm = Adw.AlertDialog(
+                heading="Remove profile?",
+                body="This permanently deletes the selected profile's library, settings, and cache. This cannot be undone.",
+            )
+            confirm.add_response("cancel", "Cancel")
+            confirm.add_response("remove", "Remove Profile")
+            confirm.set_response_appearance("remove", Adw.ResponseAppearance.DESTRUCTIVE)
+            confirm.set_default_response("cancel")
+            confirm.set_close_response("cancel")
+            confirm.choose(self, None, confirm_remove, selected)
+        create_button.connect("clicked", create_profile)
+        switch_button.connect("clicked", switch_profile)
+        remove_button.connect("clicked", remove_profile)
 
     def _show_network_settings_dialog(self):
         try:
