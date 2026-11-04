@@ -235,3 +235,16 @@ Commits after the previous checkpoint through `bd3f6937d34fba486dd8efd1e6677e8ed
 | Date | Reviewed range / checkpoint | Result summary |
 |---|---|---|
 | 2026-11-04 | `afdd14713429707cda05001c00e1a8f600d7c25b` → `632b7958e1194ff0d322822920d99be60d3d250f` | README now documents the qBittorrent API flow, Secret Service requirement, local settings path, and credential-removal behavior; CI green. |
+
+
+## Reviewed range: 2026-11-04 (continued)
+
+| Commit SHA | Subject | CI result | Run |
+|---|---|---|---|
+| `cbdc9294150ea517cad3e4e546a48232733cefbd` | feat(search): add torrent search history controls (#64) | green | [41765361128](https://github.com/SakibShahariar/aniyori/actions/runs/41765361128) |
+
+The torrent search-history UI was added to the Nyaa feed manager. The complete Tests workflow completed successfully; its unit-tests job passed compilation and the test suite.
+
+| Date | Reviewed range / checkpoint | Result summary |
+|---|---|---|
+| 2026-11-04 | `632b7958e1194ff0d322822920d99be60d3d250f` → `cbdc9294150ea517cad3e4e546a48232733cefbd` | Reviewed the new torrent-history UI commit; complete Tests workflow green. |

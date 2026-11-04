@@ -1,6 +1,7 @@
 """Tests for persistent recent search history and saved queries."""
 
 import json
+import stat
 import tempfile
 import unittest
 from pathlib import Path
@@ -98,6 +99,10 @@ class SearchHistoryStoreTests(unittest.TestCase):
         with self.assertRaisesRegex(SearchHistoryError, "Duplicate saved-search key"):
             self.store.record_query("anilist", "Naruto")
         self.assertEqual(self.path.read_text(encoding="utf-8"), content)
+
+    def test_history_file_is_created_with_private_permissions(self):
+        self.store.record_query("torrent", "Frieren")
+        self.assertEqual(stat.S_IMODE(self.path.stat().st_mode), 0o600)
 
     def test_saved_history_round_trips_across_instances(self):
         self.store.record_query("anilist", "Naruto")
