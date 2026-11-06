@@ -54,13 +54,14 @@ def scan_video_files_detailed(
     Directory and file symlinks are not followed. Every discovered file is
     resolved and checked against its canonical configured root before it is
     accepted. Overlapping roots are deduplicated by canonical path. Distinct
-    hard-link paths are counted separately in size totals, consistently with
-    the path-based file inventory.
+    Hard links and overlapping roots are deduplicated by device/inode when
+    the filesystem supplies a stable inode, so one physical file contributes
+    to size totals once.
     """
     if isinstance(roots, (str, Path)):
         roots = (roots,)
     excluded = {name.casefold() for name in excluded_directories}
-    discovered: dict[Path, ScannedVideoFile] = {}
+    discovered: dict[tuple[int, int] | Path, ScannedVideoFile] = {}
     incomplete_roots: set[Path] = set()
     cancelled = False
 
@@ -124,8 +125,12 @@ def scan_video_files_detailed(
                 except (OSError, RuntimeError, ValueError):
                     incomplete_roots.add(root_path)
                     continue
+                identity = (
+                    (metadata.st_dev, metadata.st_ino)
+                    if metadata.st_ino else resolved
+                )
                 discovered.setdefault(
-                    resolved,
+                    identity,
                     ScannedVideoFile(path=resolved, size_bytes=metadata.st_size),
                 )
             if cancelled:
