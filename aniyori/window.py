@@ -1619,8 +1619,36 @@ class AniyoriWindow(Adw.ApplicationWindow):
             lines.append("No AniList-backed library entries are available to summarize.")
         excluded = [item for item in result.matches if item.excluded_reason]
         if excluded:
-            lines.append(f"\nExcluded files ({len(excluded)}):")
+            lines.append(f"\\nExcluded files ({len(excluded)}):")
             lines.extend(f"{item.path.name}: {item.excluded_reason}" for item in excluded)
+        ambiguous = [
+            item for item in result.matches
+            if item.excluded_reason is None and item.result.status == "ambiguous"
+        ]
+        unparsed = [
+            item for item in result.matches
+            if item.excluded_reason is None and item.result.status == "unparsed"
+        ]
+        unmatched = [
+            item for item in result.matches
+            if item.excluded_reason is None and item.result.status == "no_match"
+        ]
+        for label, items in (
+            ("Ambiguous matches", ambiguous),
+            ("Unparsed or unknown-episode paths", unparsed),
+            ("Unmatched paths", unmatched),
+        ):
+            if items:
+                names = [item.path.name for item in items[:8]]
+                if len(items) > 8:
+                    names.append(f"and {len(items) - 8} more")
+                lines.append(f"\\n{label} ({len(items)}; not assigned to episode totals):")
+                lines.extend(names)
+        if ambiguous or unparsed or unmatched:
+            lines.append(
+                "Missing-episode counts use confidently matched files only; "
+                "unclassified paths may contain episodes that could not be identified."
+            )
 
         folder_actions = Gtk.Box(
             orientation=Gtk.Orientation.VERTICAL, spacing=6
