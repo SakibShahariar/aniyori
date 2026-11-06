@@ -74,7 +74,7 @@ Use a disposable test profile or a backup of any library data you care about. Do
 - [ ] Reconnect the drive and rescan; confirm its files and size return without changing library progress.
 - [ ] Test unreadable directories/files and files deleted during a scan; confirm partial results instead of a fatal error or fabricated size.
 - [ ] Test symlink roots, directory loops, file symlinks (including broken links), and links targeting paths outside a configured root; confirm they are not followed.
-- [ ] Create a hard link where supported; confirm distinct hard-link paths are counted separately in size totals, as documented in the results.
+- [ ] Create a hard link where supported; confirm hard-link aliases contribute to aggregate size only once by device/inode.
 - [ ] Cancel a large scan and change configured roots or library entries during a scan; confirm stale results are discarded and the UI remains responsive.
 
 ## Local player detection — #32
