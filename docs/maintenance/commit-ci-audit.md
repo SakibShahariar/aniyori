@@ -764,3 +764,15 @@ The independent list/grid reset documentation and the trailer feature-summary co
 | a240267a020fd81ad80c50a35e7d3bf7cbc67506 | docs(qa): add live desktop validation checklist (#84) | green | [42170963371](https://github.com/SakibShahariar/aniyori/actions/runs/42170963371) |
 
 Both commits completed the repository Tests workflow successfully. The reviewed range is advanced through the current default-branch checkpoint a240267a020fd81ad80c50a35e7d3bf7cbc67506; the next substantive commit will record its own completed check.
+
+
+## Reviewed range: 2026-11-06 (continued)
+
+| Commit SHA | Subject | CI result | Run |
+|---|---|---|---|
+| 3496728ecf956babf7425a82b8cf659a7c70f4a1 | feat(notifications): add opt-in airing reminders (#31) | green | [42173388953](https://github.com/SakibShahariar/aniyori/actions/runs/42173388953) |
+| 18fc47973f5f886c88bc12fd06c4adf991d8f114 | feat(playback): add MPRIS recognition helpers (#32) | green | [42173686243](https://github.com/SakibShahariar/aniyori/actions/runs/42173686243) |
+| 5ef314f16ff1979189bdc6db24d9843ad618b565 | test(playback): cover MPRIS recognition safeguards (#32) | green | [42173747712](https://github.com/SakibShahariar/aniyori/actions/runs/42173747712) |
+| 81b821c5be0586cb710085d5deb5eb5785f8ea39 | feat(playback): connect mpv and VLC MPRIS tracking (#32) | green | [42173842483](https://github.com/SakibShahariar/aniyori/actions/runs/42173842483) |
+
+The airing-reminder change, MPRIS helper and safeguards, and mpv/VLC GTK integration all completed the Tests workflow successfully. These checks cover compilation and unit tests; live mpv/VLC playback remains a manual desktop validation item under #32.

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import math
 import json
 import os
 from pathlib import Path
@@ -155,6 +156,9 @@ def playback_finished(position_us, duration_us, *, threshold: float = COMPLETION
         or not isinstance(duration_us, (int, float))
         or isinstance(threshold, bool)
         or not isinstance(threshold, (int, float))
+        or not math.isfinite(position_us)
+        or not math.isfinite(duration_us)
+        or not math.isfinite(threshold)
         or not 0.0 < threshold <= 1.0
         or position_us < 0
         or duration_us <= 0

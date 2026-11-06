@@ -68,6 +68,8 @@ class PlayerDetectionTests(unittest.TestCase):
         self.assertFalse(playback_finished(0, 0))
         self.assertFalse(playback_finished(True, 1000))
         self.assertFalse(playback_finished(1000, 1000, threshold=0))
+        self.assertFalse(playback_finished(float('inf'), 1000))
+        self.assertFalse(playback_finished(1000, float('nan')))
 
     def test_settings_are_disabled_by_default_and_private(self):
         with tempfile.TemporaryDirectory() as directory:

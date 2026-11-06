@@ -55,6 +55,15 @@ Use a disposable test profile or a backup of any library data you care about. Do
 - [ ] Add folder, filename, anime-title, and release-group exclusions; rescan and confirm excluded files show the matching reason and do not enter episode inventory.
 - [ ] Edit and remove exclusions; restart and confirm rules persist.
 
+## Local player detection — #32
+
+- [ ] Enable Local Player Detection from the main menu; confirm it is off by default and can be disabled again.
+- [ ] Play a recognized local episode in mpv; confirm progress changes only after playback reaches 90% of the reported duration.
+- [ ] Repeat with VLC and confirm the MPRIS player is detected.
+- [ ] Play an unrecognized file and an ambiguous title; confirm neither changes library data.
+- [ ] Disable detection while a player is open; confirm subsequent playback does not update progress.
+- [ ] Test with no session bus, no supported player, and a player that exits; confirm the app remains responsive and no progress is changed.
+
 ## RSS discovery and smart rules — #43, #44, #54
 
 - [ ] Add a Nyaa.si RSS search feed and a generic RSS/Atom feed.

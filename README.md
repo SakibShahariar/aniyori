@@ -23,7 +23,7 @@ See the [live desktop validation checklist](docs/qa/live-desktop-checklist.md) f
 
 - **Library:** manual and AniList-backed entries, aggregate and per-episode watched tracking, status filters, list/grid views, bulk status/progress/delete actions, and statistics.
 - **AniList:** cached catalogue search, seasonal discovery charts for current/upcoming/past seasons, title/genre search, format/status filters, popularity/score/title/date sorting, AniList recent and saved search queries, next-episode countdowns, and offline metadata fallback, and validated trailer actions in catalogue details and seasonal cards.
-- **Local media:** configurable folders, recursive video discovery, filename recognition, and available/missing/next episode summaries.
+- **Local media:** configurable folders, recursive video discovery, filename recognition, available/missing/next episode summaries, and opt-in mpv/VLC playback progress detection.
 - **Preferences:** saved share-format templates with live preview, release-attribute preferences, explainable release-quality scoring, and ordered smart release rules.
 - **Release discovery:** Nyaa.si search and configurable RSS/Atom feeds, release metadata, library matching, filtering, sorting, and rule-based selection.
 - **Download handoff:** validated magnet links through the desktop's default torrent application or explicit qBittorrent WebUI submission.
@@ -65,6 +65,7 @@ Aniyori does not upload the local library database as part of these catalogue or
 feed requests. Search history and feed configuration are stored locally.
 
 - **Notifications:** matched releases, opt-in new-episode airing reminders (disabled by default), download failures, webhook delivery errors, and backup/restore events are saved locally in `~/.config/aniyori/notifications.json`. Event types, minimum severity, and optional desktop notifications are configurable. Repeated matched releases and identical failure reports are deduplicated.
+- **Local player detection:** only when explicitly enabled, Aniyori reads mpv/VLC MPRIS metadata for local file playback. It matches filenames conservatively and updates progress only after at least 90% of the media duration; remote URLs and unrecognized or ambiguous files are ignored. Playback metadata is not uploaded.
 - **Network settings:** optional HTTP(S) proxy, request timeout, bounded retry count for read-only requests, and custom CA bundle settings are stored in `~/.config/aniyori/network.json`. TLS certificate verification is always enabled; insecure verification bypasses are not supported. Proxy credentials are not accepted.
 - **HTTP webhooks:** only when you explicitly configure and enable an endpoint, Aniyori sends JSON progress/status events to that URL. Webhook endpoints, custom headers, and their values are stored in `~/.config/aniyori/webhooks.json` with owner-only file permissions. Requests use the system's normal TLS certificate validation for HTTPS; redirects are not followed, and failed deliveries are logged without interrupting library updates.
 - **Magnet handoff:** Aniyori opens a validated magnet URI only when you explicitly
@@ -96,6 +97,7 @@ or points to a relative path, Aniyori uses the standard home-directory default.
 | Profile registry | `~/.config/aniyori/profiles.json` |
 | List/grid layout preferences | `~/.config/aniyori/library-layout.json` |
 | Local recognition exclusions | `~/.config/aniyori/recognition-exclusions.json` |
+| Local player detection preference | `~/.config/aniyori/player-detection.json` |
 | Per-anime release preferences | `~/.config/aniyori/anime-release-preferences.json` |
 | AniList metadata cache | `~/.cache/aniyori/metadata/` |
 | Cover image cache | `~/.cache/aniyori/covers/` |
