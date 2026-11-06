@@ -648,3 +648,17 @@ The manual refresh action now bypasses a fresh season cache while changing to an
 | Date | Reviewed range / checkpoint | Result summary |
 |---|---|---|
 | 2026-11-06 | `851b137ee55317a224e6bee073fdf1636bda8c62` → `e661a006d27d10037d25b27236aefb48165bf3a3` | Reviewed manual-refresh and next-airing-sort fixes; both Tests runs completed green. |
+
+
+## Reviewed range: 2026-11-06 (continued)
+
+| Commit SHA | Subject | CI result | Run |
+|---|---|---|---|
+| `4720b267f04d45a1dae2c2c3074bead5c311535b` | docs(discovery): clarify airing-date and refresh behavior (#36) | green | [42157447377](https://github.com/SakibShahariar/aniyori/actions/runs/42157447377) |
+| `d1eeb2671e11c2703ffcc47f7f9ae6f8c4cdb3fd` | feat(library): apply customizable list and grid layouts (#65) | green | [42164437656](https://github.com/SakibShahariar/aniyori/actions/runs/42164437656) |
+| `bdf2e85c0a8b4ad97ab007db622adf9eb7b55f08` | fix(library): apply title width and progress visibility (#65) | green | [42164488854](https://github.com/SakibShahariar/aniyori/actions/runs/42164488854) |
+
+The seasonal discovery documentation commit completed the Tests workflow successfully. The layout integration commit and its follow-up correction also completed source compilation and the full unit-test suite successfully. The UI preferences now feed the row/card widgets; live small-window and visual interaction validation remains open under #65.
+
+- Reviewed checkpoint: `bdf2e85c0a8b4ad97ab007db622adf9eb7b55f08`
+- Commits after the previous checkpoint through this SHA: `4720b267f04d45a1dae2c2c3074bead5c311535b`, `d1eeb2671e11c2703ffcc47f7f9ae6f8c4cdb3fd`, and `bdf2e85c0a8b4ad97ab007db622adf9eb7b55f08`; all three Tests runs completed green.

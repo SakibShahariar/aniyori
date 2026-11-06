@@ -25,6 +25,10 @@ A native Linux anime tracker built with Python, GTK 4, PyGObject, and libadwaita
 
 Library entries remain local. The desktop interface still needs a launch and interaction test on a Linux session.
 
+## Custom library layout
+
+Choose **Customize Library Layout** from the main menu to configure list and grid views independently. Show or hide status, progress, source, and airing metadata; reorder those fields; and adjust list-column widths or grid-card width. The title remains visible at the start of each item. **Reset Defaults** restores both views without changing the library data. Preferences are saved in `~/.config/aniyori/library-layout.json`.
+
 ## Season discovery
 
 Open **Season Discovery** from the main menu to browse the current, upcoming, or past AniList seasons. Choose a season and year, then search titles/genres, filter by genre, format, or airing status, and sort by popularity, score, title, or next airing date. Each result includes available cover art and metadata, an AniList link, and an **Add to library** action. Seasonal catalogue requests run in the background and use the local metadata cache as an offline fallback. The Refresh season action bypasses a fresh cache entry. This uses AniList's public catalogue; it does not sign in or synchronize an AniList account list.
@@ -82,6 +86,7 @@ or points to a relative path, Aniyori uses the standard home-directory default.
 | HTTP webhook endpoints and custom headers | `~/.config/aniyori/webhooks.json` |
 | Proxy, timeout, retry, and CA bundle preferences | `~/.config/aniyori/network.json` |
 | Profile registry | `~/.config/aniyori/profiles.json` |
+| List/grid layout preferences | `~/.config/aniyori/library-layout.json` |
 | Local recognition exclusions | `~/.config/aniyori/recognition-exclusions.json` |
 | Per-anime release preferences | `~/.config/aniyori/anime-release-preferences.json` |
 | AniList metadata cache | `~/.cache/aniyori/metadata/` |
