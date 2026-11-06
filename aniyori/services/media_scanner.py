@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import os
+import stat
 from collections.abc import Callable, Iterable
+from dataclasses import dataclass
 from pathlib import Path
 
 
@@ -24,58 +26,136 @@ DEFAULT_EXCLUDED_DIRECTORIES = frozenset(
 )
 
 
+@dataclass(frozen=True, slots=True)
+class ScannedVideoFile:
+    """One contained regular video file and its best-known size."""
+
+    path: Path
+    size_bytes: int | None
+
+
+@dataclass(frozen=True, slots=True)
+class VideoScanResult:
+    """File snapshot plus roots that made the scan incomplete."""
+
+    files: tuple[ScannedVideoFile, ...]
+    unavailable_roots: tuple[Path, ...]
+    size_complete: bool
+
+
+def scan_video_files_detailed(
+    roots: Iterable[str | Path],
+    *,
+    excluded_directories: Iterable[str] = DEFAULT_EXCLUDED_DIRECTORIES,
+    is_cancelled: Callable[[], bool] | None = None,
+) -> VideoScanResult:
+    """Discover unique contained video paths without following symlinks.
+
+    Directory and file symlinks are not followed. Every discovered file is
+    resolved and checked against its canonical configured root before it is
+    accepted. Overlapping roots are deduplicated by canonical path. Distinct
+    hard-link paths are counted separately in size totals, consistently with
+    the path-based file inventory.
+    """
+    if isinstance(roots, (str, Path)):
+        roots = (roots,)
+    excluded = {name.casefold() for name in excluded_directories}
+    discovered: dict[Path, ScannedVideoFile] = {}
+    incomplete_roots: set[Path] = set()
+    cancelled = False
+
+    for raw_root in roots:
+        if is_cancelled is not None and is_cancelled():
+            cancelled = True
+            break
+        root_path = Path(raw_root).expanduser()
+        try:
+            if root_path.is_symlink():
+                incomplete_roots.add(root_path)
+                continue
+            root = root_path.resolve(strict=True)
+            if not root.is_dir():
+                incomplete_roots.add(root_path)
+                continue
+        except (OSError, RuntimeError):
+            incomplete_roots.add(root_path)
+            continue
+
+        def record_walk_error(_error):
+            incomplete_roots.add(root_path)
+
+        for current, directories, filenames in os.walk(
+            root, topdown=True, followlinks=False, onerror=record_walk_error
+        ):
+            if is_cancelled is not None and is_cancelled():
+                cancelled = True
+                break
+
+            current_path = Path(current)
+            safe_directories = []
+            for name in sorted(directories, key=str.casefold):
+                if name.casefold() in excluded:
+                    continue
+                candidate = current_path / name
+                try:
+                    if candidate.is_symlink():
+                        continue
+                    resolved = candidate.resolve(strict=True)
+                    resolved.relative_to(root)
+                    if resolved.is_dir():
+                        safe_directories.append(name)
+                except (OSError, RuntimeError, ValueError):
+                    continue
+            directories[:] = safe_directories
+
+            for filename in sorted(filenames, key=str.casefold):
+                if is_cancelled is not None and is_cancelled():
+                    cancelled = True
+                    break
+                path = current_path / filename
+                if path.suffix.casefold() not in VIDEO_EXTENSIONS:
+                    continue
+                try:
+                    metadata = path.lstat()
+                    if not stat.S_ISREG(metadata.st_mode):
+                        continue
+                    resolved = path.resolve(strict=True)
+                    resolved.relative_to(root)
+                except (OSError, RuntimeError, ValueError):
+                    incomplete_roots.add(root_path)
+                    continue
+                discovered.setdefault(
+                    resolved,
+                    ScannedVideoFile(path=resolved, size_bytes=metadata.st_size),
+                )
+            if cancelled:
+                break
+        if cancelled:
+            break
+
+    files = tuple(
+        sorted(discovered.values(), key=lambda item: str(item.path).casefold())
+    )
+    unavailable = tuple(
+        sorted(incomplete_roots, key=lambda path: str(path).casefold())
+    )
+    return VideoScanResult(
+        files=files,
+        unavailable_roots=unavailable,
+        size_complete=not unavailable and not cancelled,
+    )
+
+
 def scan_video_files(
     roots: Iterable[str | Path],
     *,
     excluded_directories: Iterable[str] = DEFAULT_EXCLUDED_DIRECTORIES,
     is_cancelled: Callable[[], bool] | None = None,
 ) -> list[Path]:
-    """Return unique video files below existing roots in stable path order.
-
-    The scan never follows directory symlinks, ignores symlinked files and
-    common non-media/system directories, and tolerates roots that disappear or
-    cannot be read. The cancellation callback is checked between directories
-    and files, without coupling this service to GTK or a threading primitive.
-    """
-    excluded = {name.casefold() for name in excluded_directories}
-    discovered: set[Path] = set()
-
-    for raw_root in roots:
-        if is_cancelled is not None and is_cancelled():
-            break
-        root = Path(raw_root).expanduser()
-        if root.is_symlink() or not root.is_dir():
-            continue
-        root = root.absolute()
-
-        for current, directories, filenames in os.walk(
-            root, topdown=True, followlinks=False, onerror=lambda _error: None
-        ):
-            if is_cancelled is not None and is_cancelled():
-                break
-
-            current_path = Path(current)
-            directories[:] = sorted(
-                (
-                    name
-                    for name in directories
-                    if name.casefold() not in excluded
-                    and not (current_path / name).is_symlink()
-                ),
-                key=str.casefold,
-            )
-
-            for filename in sorted(filenames, key=str.casefold):
-                if is_cancelled is not None and is_cancelled():
-                    break
-                path = current_path / filename
-                if path.suffix.casefold() not in VIDEO_EXTENSIONS:
-                    continue
-                try:
-                    if path.is_symlink() or not path.is_file():
-                        continue
-                except OSError:
-                    continue
-                discovered.add(path)
-
-    return sorted(discovered, key=lambda path: str(path).casefold())
+    """Return unique video paths while preserving the original scanner API."""
+    result = scan_video_files_detailed(
+        roots,
+        excluded_directories=excluded_directories,
+        is_cancelled=is_cancelled,
+    )
+    return [item.path for item in result.files]
