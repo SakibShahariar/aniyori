@@ -15,6 +15,7 @@ All notable user-facing changes for Aniyori are documented here.
 - RSS/Atom release discovery, including Nyaa.si search feeds and user-configured feeds, with release metadata, library matching, filtering, and sorting.
 - Ordered smart release rules, global and per-anime release preferences, and explainable release scoring.
 - Explicit release handoff through the desktop torrent handler or a configured qBittorrent WebUI. Feed refresh and rule evaluation do not submit downloads automatically.
+- qBittorrent download queue with progress, transfer rates, ETA, pause/resume, data recheck for failed states, and safe removal that keeps downloaded files by default.
 - Search history and saved searches, configurable external links, and share-message templates.
 - JSON/CSV library export and import, full ZIP backup/restore, and profile/portable-mode support.
 - Persistent notifications, optional desktop notifications, configurable HTTP webhooks, and shared proxy/TLS/timeout/retry settings.

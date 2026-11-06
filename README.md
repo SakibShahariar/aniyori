@@ -25,6 +25,8 @@ The initial `v0.1.0` release notes are being prepared in [CHANGELOG.md](CHANGELO
 - **Preferences:** saved share-format templates with live preview, release-attribute preferences, explainable release-quality scoring, and ordered smart release rules.
 - **Release discovery:** Nyaa.si search and configurable RSS/Atom feeds, release metadata, library matching, filtering, sorting, and rule-based selection.
 - **Download handoff:** validated magnet links through the desktop's default torrent application or explicit qBittorrent WebUI submission.
+- **Download Queue:** qBittorrent queue status, progress, transfer rates, ETA, pause/resume, failed-torrent recheck, and removal that preserves downloaded files by default.
+- **External links:** built-in AniList, MyAnimeList, and Kitsu links plus configurable HTTP(S) templates from library rows/cards and the episode editor.
 - **Library:** sortable list/grid views with status filters, local SQLite watch history, JSON/CSV export, and full database/configuration backups.
 
 Library entries remain local. The desktop interface still needs a launch and interaction test on a Linux session.

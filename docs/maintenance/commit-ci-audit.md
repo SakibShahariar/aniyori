@@ -662,3 +662,27 @@ The seasonal discovery documentation commit completed the Tests workflow success
 
 - Reviewed checkpoint: `bdf2e85c0a8b4ad97ab007db622adf9eb7b55f08`
 - Commits after the previous checkpoint through this SHA: `4720b267f04d45a1dae2c2c3074bead5c311535b`, `d1eeb2671e11c2703ffcc47f7f9ae6f8c4cdb3fd`, and `bdf2e85c0a8b4ad97ab007db622adf9eb7b55f08`; all three Tests runs completed green.
+
+
+## Reviewed range: 2026-11-06 (continued)
+
+| Commit SHA | Subject | CI result | Run |
+|---|---|---|---|
+| `872858c54af13426a1803a7fd4b5a97d14270995` | docs(library): document layout preferences and CI audit (#65) | green | [42164649478](https://github.com/SakibShahariar/aniyori/actions/runs/42164649478) |
+| `df3e3709562666f7677967faafb9a80b21c06f2c` | docs(release): prepare v0.1.0 draft notes (#81) | green | [42164750197](https://github.com/SakibShahariar/aniyori/actions/runs/42164750197) |
+| `b173014cebe279e37cbbf9aa68de03edf080e93b` | feat(links): expose anime links in episode editor (#59) | green | [42164886022](https://github.com/SakibShahariar/aniyori/actions/runs/42164886022) |
+| `4ae810f57b9d8756eb5f477525079f862d5b8a14` | feat(download): add qBittorrent queue API methods (#56) | green | [42165037594](https://github.com/SakibShahariar/aniyori/actions/runs/42165037594) |
+| `43b746784847db19678c432ceb30704d4f4f04ec` | test(download): cover qBittorrent queue API actions (#56) | green | [42165072760](https://github.com/SakibShahariar/aniyori/actions/runs/42165072760) |
+| `2dca1027a1bc59955d53056e6e32eeb15dd2bc91` | feat(gui): add qBittorrent download queue view (#56) | green | [42165153095](https://github.com/SakibShahariar/aniyori/actions/runs/42165153095) |
+| `9345bb5b94d1361d032312b1d5a182a8a7b253e8` | fix(gui): keep qBittorrent queue refresh responsive (#56) | green | [42165184982](https://github.com/SakibShahariar/aniyori/actions/runs/42165184982) |
+| `053c5e1333edecaed4e259effe89a1d2fa9a7d3a` | fix(download): support qBittorrent v5 queue controls (#56) | red — stale test expectation | [42165244536](https://github.com/SakibShahariar/aniyori/actions/runs/42165244536) |
+| `c7c0879c5c4f178d05b99fc68cef1b06cddd0ea6` | test(download): cover qBittorrent v5 and legacy queue controls (#56) | green — corrected the test expectation and verified fallback | [42165273480](https://github.com/SakibShahariar/aniyori/actions/runs/42165273480) |
+| `4ff22c25cd0f65d86a5cb8978055624a5c874656` | feat(gui): show per-torrent progress and transfer rates (#56) | green | [42165376615](https://github.com/SakibShahariar/aniyori/actions/runs/42165376615) |
+| `f0bd8009873c4a183f91ca2254d1a5c79e1f053c` | feat(download): add torrent recheck recovery action (#56) | green | [42165451347](https://github.com/SakibShahariar/aniyori/actions/runs/42165451347) |
+| `9000a890b07d2cf0d45953261700b051edf13862` | test(download): cover torrent recheck action (#56) | green | [42165471495](https://github.com/SakibShahariar/aniyori/actions/runs/42165471495) |
+| `499dcd9d1e3330d4b058e17f65d877f771aa17e6` | feat(gui): add recovery action for failed torrents (#56) | green | [42165488219](https://github.com/SakibShahariar/aniyori/actions/runs/42165488219) |
+
+The release-draft, layout documentation, and episode-editor link commits completed CI successfully. The queue implementation was built in small direct commits and every run was inspected. One compatibility commit initially failed because its test still expected the older endpoint names; the immediately following test commit updated the expectation and verified both qBittorrent 5.x and legacy fallback paths. The current queue implementation and recovery action both pass the full Tests workflow. No CI failure remains unresolved in this reviewed range.
+
+- Reviewed checkpoint: `499dcd9d1e3330d4b058e17f65d877f771aa17e6`
+- Commits after the previous checkpoint through this SHA: all commits listed in this table; the only red run is explicitly corrected by the succeeding green test commit.
