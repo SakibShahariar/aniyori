@@ -814,3 +814,37 @@ The initial batching commit exposed an error-path regression: malformed response
 The combined commit-status lookup returned an empty status list for every SHA above. The available workflow-run lookup only exposes pull-request-triggered runs, so it did not provide push-triggered Tests run details for this range. **Unavailable is not green or red**; no CI pass is claimed. Recheck these exact SHAs when the Tests workflow run metadata is accessible.
 
 - Reviewed checkpoint: `71f5fd9bf58fbe3441745f7a5827b0488df16625`
+
+
+## Reviewed range: 2026-11-06 (continued — status evidence unavailable)
+
+| Commit SHA | Subject | CI result | Run |
+|---|---|---|---|
+| `7bf81b4f462a904e28f35a930ba98bf3aa97be03` | docs(maintenance): record unavailable CI evidence for history insights | unavailable | — |
+| `703392334d7ec23718354fd0a7b557922677907f` | docs(readme): mention yearly watch-history insights (#88) | unavailable | — |
+| `b01e686a43cc4d7c94ade4cb24ec87875f1ddeef` | feat(scanner): report file sizes and unavailable roots (#87) | unavailable | — |
+| `1f10d64d116e1bbce6765cad01f6e9c01b04d573` | feat(scanner): propagate scan completeness and sizes (#87) | unavailable | — |
+| `203aba13fffebc88a295829b8eeee9cca5a43b64` | feat(scanner): add per-anime size and next-unwatched data (#87) | unavailable | — |
+| `03676b863f4506d07aac9b08ea9cd010b66625d2` | feat(scanner): expose partial scan and collection totals (#87) | unavailable | — |
+| `2299390e233cb3231c0e4f0ce58de6066eea6515` | test(scanner): cover local size and unwatched selection (#87) | unavailable | — |
+| `65d235792956abf13875c37a24863d71023c9244` | test(scanner): cover unavailable roots and size safety (#87) | unavailable | — |
+| `0be911bb14e6f74812c9a39e5c529bf96e08d2f7` | test(scanner): cover aggregate and partial scan results (#87) | unavailable | — |
+| `f174c2db0abca9c34f265698147a7c9cd5d5565d` | fix(scanner): snapshot configured roots before scanning (#87) | unavailable | — |
+| `3ead6e0fc0e3f419a729f81cb2f5b3b303e1490b` | feat(gui): show local collection insights and folder actions (#87) | unavailable | — |
+| `0137196c01949df1aeece73c22f85a4321dde3b1` | test(scanner): verify recognition size metadata (#87) | unavailable | — |
+| `ee4d45f4e57a68f9de56abf53b16b71bc170f828` | test(scanner): cover unreadable files and broken links (#87) | unavailable | — |
+| `fc0aa5e6fdf52db29c8af75ca031b316e00b9230` | docs(qa): add local collection validation steps (#87) | unavailable | — |
+| `a45f118839f04159ffb3d4f80cc9f2632aa4ab24` | fix(scanner): deduplicate hard links by file identity (#87) | unavailable | — |
+| `2715298649ea57d358f86abe63f37ed4005606c3` | test(scanner): count hard-linked files once (#87) | unavailable | — |
+| `c19f88f357b06b4361c95c715a6788b979e08c2f` | fix(gui): clarify unique file size totals (#87) | unavailable | — |
+| `a003c28dba802c4b8b86d855fad721238a90e02b` | fix(scanner): accept numeric watched-state keys (#87) | unavailable | — |
+| `ca6984728998291507cfd4b99590c43173665e93` | fix(scanner): preserve hard-link paths while deduplicating size (#87) | unavailable | — |
+| `cce1d5bc5f0318322b64bb768d53349dce12f94f` | fix(scanner): carry stable file identity through recognition (#87) | unavailable | — |
+| `c81bedccdb183b7e9df60f3a766a02e4e5b14c36` | fix(scanner): avoid duplicate hard-link anime sizes (#87) | unavailable | — |
+| `bf934ca185fdd318ac4a63e04e67e479e6f7b43b` | test(scanner): distinguish paths from unique file size (#87) | unavailable | — |
+| `e725a2aa90b3257f321f9c5856b589a6317ec3f6` | test(scanner): deduplicate per-anime hard-link sizes (#87) | unavailable | — |
+| `56f0e450cb3eed17bc5f09f3edcbc72dc07356d3` | docs(qa): align hard-link size validation (#87) | unavailable | — |
+
+The combined commit-status lookup returned an empty status list for every SHA above. Push-triggered Tests run details were not available through the connected workflow-run surface. These entries are **unavailable**, not assumed green or red; recheck the exact SHAs when Actions run metadata is accessible.
+
+- Reviewed checkpoint: `56f0e450cb3eed17bc5f09f3edcbc72dc07356d3`
