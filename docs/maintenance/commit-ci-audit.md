@@ -848,3 +848,42 @@ The combined commit-status lookup returned an empty status list for every SHA ab
 The combined commit-status lookup returned an empty status list for every SHA above. Push-triggered Tests run details were not available through the connected workflow-run surface. These entries are **unavailable**, not assumed green or red; recheck the exact SHAs when Actions run metadata is accessible.
 
 - Reviewed checkpoint: `56f0e450cb3eed17bc5f09f3edcbc72dc07356d3`
+
+
+## Reviewed range: 2026-11-06 (continued — status evidence unavailable)
+
+| Commit SHA | Subject | CI result | Run |
+|---|---|---|---|
+| `779ea9e33b1e95b3159b0ef44f64ac0eea5fc327` | docs(maintenance): record scanner CI evidence availability | unavailable | — |
+| `1d6fd1334c5a64461ab345135b721eab456f5414` | docs(scanner): clarify hard-link path and size behavior (#87) | unavailable | — |
+| `c62de432d8f50e187c0b7c77061b96f94d7a8302` | fix(gui): distinguish unknown and absent unwatched episodes (#87) | unavailable | — |
+| `bd15a99b415ab767133c695e82df8e8d1ab62341` | test(scanner): cover root escape and symlink loops (#87) | unavailable | — |
+| `281ed87481c76525e6d679920d694dd678dc3935` | test(scanner): preserve configured root snapshots (#87) | unavailable | — |
+| `37e5ffb3bef29218b1d19da8b47fa350c424c1ff` | docs(scanner): clarify path-based scanner return values (#87) | unavailable | — |
+| `e969fc2113150141d897c3771e9452b29ec3dad0` | fix(gui): label unknown-total episode estimates accurately (#87) | unavailable | — |
+| `76680402a49e43ed02c6f5787b153f7f804b4cfd` | feat(gui): explain unclassified local media paths (#87) | unavailable | — |
+| `bcdbc1c9b0e43e3f6acbd4588b162bd102a15f48` | docs(gui): qualify inode-based size deduplication (#87) | unavailable | — |
+| `084c6d6ce123ae324770481e19d3bbd642790010` | docs(qa): qualify inode-based size deduplication (#87) | unavailable | — |
+| `b7d00a9cdba5094aceec45a3491ea51051b3d7bd` | feat(library): add validated named view preset storage (#89) | unavailable | — |
+| `6812b87a834f5071da8d5c3545121df4a3ba0a84` | fix(library): tolerate malformed preset option values (#89) | unavailable | — |
+| `54f5f79125cc76a5e755e7289b29231072a77f33` | test(library): cover named view preset storage (#89) | unavailable | — |
+| `64b4193ce21290264128660344a1eb5231f6dfd3` | feat(library): support updating saved view presets (#89) | unavailable | — |
+| `7c3a993b888b71334f3f9b65a61962616ed07fc2` | test(library): cover updating named view presets (#89) | unavailable | — |
+| `77017f197bcd4a8087bd05ba5e7eece7e73fa2df` | feat(gui): manage named library-view presets (#89) | unavailable | — |
+| `c2acf853737848fb92a4cb9447bc42c1e4f544ac` | fix(gui): harden preset selection and default handling (#89) | unavailable | — |
+| `e0f629fbfc46063fad2e0e77eff0ddfbac549371` | test(library): cover list/grid presets and layout isolation (#89) | unavailable | — |
+| `2f52d6246d935de027e1388fcad77b6b6c57c7f3` | docs(qa): add library-view preset validation steps (#89) | unavailable | — |
+| `272007b61d975ab92f8c33193b2df31ad3bf4574` | fix(library): preserve oversized preset files safely (#89) | unavailable | — |
+| `7db3ea3c8c82f1d6f2ce4ef4bf40054d5c97244c` | test(library): protect oversized preset data (#89) | unavailable | — |
+| `b9918624c8129594634910b8c80204f6169d3eb0` | docs(readme): document view presets and local collection insights (#87 #89) | unavailable | — |
+| `25b1d56cc8b6ea88bdffae22e18c3b8e5c66db79` | fix(scanner): avoid false episode counts for hard-link aliases (#87) | unavailable | — |
+| `3d8381ace000c8ea987de1af9facf38b05410ca6` | test(scanner): withhold conflicting hard-link episode assignments (#87) | unavailable | — |
+| `442e9e376ed851e1ad10e87a821fbb93dc0eda24` | fix(gui): explain conflicting hard-link episode names (#87) | unavailable | — |
+| `4de5dc4ad873389a8e0d0c64f803fa873e90d79a` | docs(qa): cover conflicting hard-link episode names (#87) | unavailable | — |
+| `d710b49e47dbc7d9bd16dd691a161be18c1f2112` | fix(library): tolerate malformed preset layouts (#89) | unavailable | — |
+| `8dc45abef98ad16ad40e005c7438ab0f80ba76e7` | test(library): cover malformed nested preset layouts (#89) | unavailable | — |
+| `13a833c803d560f37db7b1808f1667307b34b77c` | docs(gui): clarify preset scope (#89) | unavailable | — |
+
+The combined commit-status lookup returned an empty status list for every SHA above. No push-triggered Tests run details were exposed by the connected workflow-run surface. These entries are **unavailable**, not assumed green or red. Recheck these exact SHAs when Actions run metadata is accessible.
+
+- Reviewed checkpoint: `13a833c803d560f37db7b1808f1667307b34b77c`
