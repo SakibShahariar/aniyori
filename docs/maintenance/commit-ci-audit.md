@@ -741,3 +741,16 @@ The GTK minimum-version documentation commit and the independent per-view layout
 
 - Reviewed checkpoint: `b78993bed0db17b4aa92bc2250003e03795dca6d`
 - Commits after the previous checkpoint: `3afedcb8dab683ec92f5c85982ca144e831b8c71` and `b78993bed0db17b4aa92bc2250003e03795dca6d`; both Tests runs completed green.
+
+
+## Reviewed range: 2026-11-06 (continued)
+
+| Commit SHA | Subject | CI result | Run |
+|---|---|---|---|
+| `cffb134a2b46f1bd38057db70286401a04355d10` | docs(library): clarify independent layout resets and CI audit (#65) | green | [42166781641](https://github.com/SakibShahariar/aniyori/actions/runs/42166781641) |
+| `b403130e9a41345899523ce98729598be4226d30` | docs(discovery): clarify trailer feature summary (#37) | green | [42170438423](https://github.com/SakibShahariar/aniyori/actions/runs/42170438423) |
+
+The independent list/grid reset documentation and the trailer feature-summary correction both passed the complete Tests workflow. The README now describes the trailer actions without the earlier punctuation error.
+
+- Reviewed checkpoint: `b403130e9a41345899523ce98729598be4226d30`
+- Commits since the previous recorded checkpoint: `cffb134a2b46f1bd38057db70286401a04355d10` and `b403130e9a41345899523ce98729598be4226d30`; both Tests runs completed green.
