@@ -2665,7 +2665,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
 
         def refresh(_button=None):
             if busy[0]:
-                return GLib.SOURCE_REMOVE
+                return GLib.SOURCE_CONTINUE
             busy[0] = True
             refresh_button.set_sensitive(False)
             status.set_label("Refreshing qBittorrent queue…")
@@ -2680,13 +2680,13 @@ class AniyoriWindow(Adw.ApplicationWindow):
                 except (QBittorrentError, CredentialStoreError, ValueError) as error:
                     GLib.idle_add(render_queue, (), str(error))
             threading.Thread(target=worker, daemon=True).start()
-            return GLib.SOURCE_REMOVE
+            return GLib.SOURCE_CONTINUE
 
         def run_action(action, info_hash):
             if busy[0]:
                 return
             busy[0] = True
-            status.set_label(f"{action.title()}ing torrent…")
+            status.set_label({"pause": "Pausing torrent…", "resume": "Resuming torrent…", "remove": "Removing torrent…"}[action])
 
             def worker():
                 try:
@@ -2700,10 +2700,15 @@ class AniyoriWindow(Adw.ApplicationWindow):
                         client.resume_torrent(info_hash)
                     elif action == "remove":
                         client.remove_torrent(info_hash, delete_files=False)
-                    GLib.idle_add(refresh)
+                    GLib.idle_add(refresh_after_action)
                 except (QBittorrentError, CredentialStoreError, ValueError) as error:
                     GLib.idle_add(render_queue, (), str(error))
             threading.Thread(target=worker, daemon=True).start()
+
+        def refresh_after_action():
+            busy[0] = False
+            refresh()
+            return GLib.SOURCE_REMOVE
 
         def confirm_remove(torrent):
             confirmation = Adw.AlertDialog(
