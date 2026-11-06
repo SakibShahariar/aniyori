@@ -50,12 +50,11 @@ def calculate_library_statistics(
     }
 
 
-
 def calculate_history_insights(
     events: Iterable[Mapping[str, object]],
     year: int,
     *,
-    local_timezone=None,
+    local_timezone: tzinfo | None = None,
     minutes_per_episode: int = DEFAULT_MINUTES_PER_EPISODE,
 ) -> dict[str, object]:
     """Summarize recorded watch-history events for one local calendar year.
