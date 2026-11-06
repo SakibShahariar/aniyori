@@ -1590,7 +1590,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
             return f"{value:.1f} TiB"
 
         lines = [
-            f"Scanned {len(result.matches)} video file(s) across "
+            f"Scanned {len(result.matches)} video path(s) across "
             f"{len(result.locations)} configured folder(s)."
         ]
         if event.is_set():
@@ -1634,11 +1634,14 @@ class AniyoriWindow(Adw.ApplicationWindow):
             next_episode = (
                 str(item.next_episode) if item.next_episode is not None else "unknown"
             )
-            next_unwatched = (
-                str(item.next_unwatched_episode)
-                if item.next_unwatched_episode is not None
-                else "none known"
-            )
+            if item.next_unwatched_episode is not None:
+                next_unwatched = str(item.next_unwatched_episode)
+            elif not result.scan_complete:
+                next_unwatched = "unknown (scan incomplete)"
+            elif item.seasoned_episodes:
+                next_unwatched = "unknown (season numbering is not comparable)"
+            else:
+                next_unwatched = "none found in scanned files"
             if item.size_complete:
                 size = format_size(item.size_bytes)
             elif item.size_bytes:
