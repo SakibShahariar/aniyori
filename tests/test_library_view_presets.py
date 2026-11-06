@@ -231,6 +231,22 @@ class LibraryViewPresetStoreTests(unittest.TestCase):
             self.assertEqual(len(state["presets"]), 1)
             self.assertEqual(state["default"], "Watching")
 
+    def test_oversized_preset_file_is_rejected_without_truncating_entries(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "presets.json"
+            entry = {"name": "Preset", "settings": sample_settings()}
+            payload = {
+                "format": PRESET_FORMAT,
+                "version": PRESET_VERSION,
+                "default": None,
+                "presets": [entry for _ in range(101)],
+            }
+            path.write_text(json.dumps(payload), encoding="utf-8")
+
+            with self.assertRaisesRegex(LibraryViewPresetError, "limit"):
+                LibraryViewPresetStore(path).load()
+            self.assertEqual(len(json.loads(path.read_text())["presets"]), 101)
+
     def test_corrupt_or_unsupported_store_is_reported_without_overwriting_it(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "presets.json"
