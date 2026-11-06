@@ -123,9 +123,14 @@ class LibraryViewPresetStore:
         ):
             raise LibraryViewPresetError("Saved library-view presets have an unsupported format.")
 
+        if len(payload["presets"]) > MAX_PRESETS:
+            raise LibraryViewPresetError(
+                f"Saved library-view presets exceed the {MAX_PRESETS}-preset limit."
+            )
+
         presets = []
         names = set()
-        for item in payload["presets"][:MAX_PRESETS]:
+        for item in payload["presets"]:
             if not isinstance(item, dict):
                 continue
             try:
