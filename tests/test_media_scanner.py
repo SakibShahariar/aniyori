@@ -123,6 +123,35 @@ class MediaScannerTests(unittest.TestCase):
         self.assertEqual(result.unavailable_roots, (self.root,))
         self.assertFalse(result.size_complete)
 
+    def test_unreadable_or_removed_file_marks_the_scan_partial(self):
+        media = self.root / "episode.mkv"
+        media.touch()
+        original_lstat = Path.lstat
+
+        def failing_lstat(path):
+            if path == media:
+                raise PermissionError("file is no longer readable")
+            return original_lstat(path)
+
+        with patch.object(Path, "lstat", failing_lstat):
+            result = scan_video_files_detailed([self.root])
+
+        self.assertEqual(result.files, ())
+        self.assertEqual(result.unavailable_roots, (self.root,))
+        self.assertFalse(result.size_complete)
+
+    def test_broken_symlink_is_ignored_without_following_it(self):
+        link = self.root / "broken.mkv"
+        try:
+            link.symlink_to(self.root / "missing-target.mkv")
+        except (OSError, NotImplementedError):
+            self.skipTest("Symbolic links are unavailable on this platform")
+
+        result = scan_video_files_detailed([self.root])
+
+        self.assertEqual(result.files, ())
+        self.assertTrue(result.size_complete)
+
     def test_cancelled_scan_is_marked_incomplete(self):
         result = scan_video_files_detailed([self.root], is_cancelled=lambda: True)
 
