@@ -1696,6 +1696,8 @@ class AniyoriWindow(Adw.ApplicationWindow):
                 next_unwatched = str(item.next_unwatched_episode)
             elif not result.scan_complete:
                 next_unwatched = "unknown (scan incomplete)"
+            elif item.ambiguous_file_count:
+                next_unwatched = "unknown (conflicting hard-link episode names)"
             elif item.seasoned_episodes:
                 next_unwatched = "unknown (season numbering is not comparable)"
             else:
@@ -1719,6 +1721,11 @@ class AniyoriWindow(Adw.ApplicationWindow):
                 f"Next available unwatched: {next_unwatched}\n"
                 f"Local size: {size}\nSource: {source}"
             )
+            if item.ambiguous_file_count:
+                lines.append(
+                    f"Conflicting hard-link episode assignments: "
+                    f"{item.ambiguous_file_count} (withheld from availability totals)"
+                )
             if item.seasoned_episodes:
                 seasons = "; ".join(
                     f"Season {season}: {', '.join(map(str, episodes))}"
