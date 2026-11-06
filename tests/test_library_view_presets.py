@@ -5,7 +5,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from aniyori.services.library_layout import DEFAULT_LAYOUTS
+from aniyori.services.library_layout import DEFAULT_LAYOUTS, LibraryLayoutStore
 from aniyori.services.library_view_presets import (
     PRESET_FORMAT,
     PRESET_VERSION,
@@ -49,6 +49,50 @@ class LibraryViewPresetStoreTests(unittest.TestCase):
             )
             self.assertEqual(path.stat().st_mode & 0o777, 0o600)
             self.assertEqual(loaded["default"], None)
+
+    def test_list_and_grid_presets_keep_both_layouts(self):
+        with tempfile.TemporaryDirectory() as directory:
+            store = LibraryViewPresetStore(Path(directory) / "presets.json")
+            grid = sample_settings()
+            grid["view"] = "grid"
+            listing = sample_settings()
+            listing["view"] = "list"
+            listing["layouts"]["list"]["widths"]["title"] = 420
+
+            store.save_preset("Grid", grid)
+            store.save_preset("List", listing)
+
+            self.assertEqual(store.get_preset("Grid")["view"], "grid")
+            self.assertEqual(store.get_preset("List")["view"], "list")
+            self.assertEqual(
+                store.get_preset("Grid")["layouts"]["list"],
+                grid["layouts"]["list"],
+            )
+            self.assertEqual(
+                store.get_preset("List")["layouts"]["grid"],
+                listing["layouts"]["grid"],
+            )
+
+    def test_resetting_layout_does_not_delete_presets(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            layout_store = LibraryLayoutStore(root / "layout.json")
+            preset_store = LibraryViewPresetStore(root / "presets.json")
+            preset_store.save_preset("Watching", sample_settings())
+            layout = layout_store.load_all()["list"]
+            layout["widths"]["title"] = 420
+            layout_store.save("list", layout)
+
+            layout_store.reset("list")
+
+            self.assertEqual(preset_store.list_presets(), ("Watching",))
+            self.assertEqual(
+                preset_store.get_preset("Watching"), sample_settings()
+            )
+            self.assertEqual(
+                layout_store.load_all()["list"]["widths"]["title"],
+                DEFAULT_LAYOUTS["list"]["widths"]["title"],
+            )
 
     def test_duplicate_names_are_case_insensitive(self):
         with tempfile.TemporaryDirectory() as directory:
