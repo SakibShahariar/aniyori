@@ -87,7 +87,7 @@ def _normalize_preset(value, *, tolerant: bool = False) -> dict:
             layouts[layout_view] = _normalize_layout(
                 layout_view, raw_layouts.get(layout_view)
             )
-        except LibraryLayoutError as error:
+        except (LibraryLayoutError, TypeError, ValueError) as error:
             if not tolerant:
                 raise LibraryViewPresetError(str(error)) from error
             layouts[layout_view] = copy.deepcopy(DEFAULT_LAYOUTS[layout_view])
