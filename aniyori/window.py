@@ -1634,6 +1634,11 @@ class AniyoriWindow(Adw.ApplicationWindow):
             next_episode = (
                 str(item.next_episode) if item.next_episode is not None else "unknown"
             )
+            next_episode_label = (
+                "Next expected episode"
+                if item.entry.episodes_total is None
+                else "Next missing episode"
+            )
             if item.next_unwatched_episode is not None:
                 next_unwatched = str(item.next_unwatched_episode)
             elif not result.scan_complete:
