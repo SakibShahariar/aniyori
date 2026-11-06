@@ -3845,7 +3845,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
         genre_dropdown = Gtk.DropDown.new_from_strings(["All genres"])
         format_dropdown = Gtk.DropDown.new_from_strings(["All formats", "TV", "TV_SHORT", "MOVIE", "SPECIAL", "OVA", "ONA", "MUSIC"])
         status_dropdown = Gtk.DropDown.new_from_strings(["All statuses", "RELEASING", "NOT_YET_RELEASED", "FINISHED", "CANCELLED", "HIATUS"])
-        sort_dropdown = Gtk.DropDown.new_from_strings(["Popularity", "Score", "Title", "Start date"])
+        sort_dropdown = Gtk.DropDown.new_from_strings(["Popularity", "Score", "Title", "Airing date"])
         filter_row.append(search_entry)
         filter_row.append(genre_dropdown)
         content.append(filter_row)
@@ -3881,7 +3881,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
                 child = following
             formats = ["", "TV", "TV_SHORT", "MOVIE", "SPECIAL", "OVA", "ONA", "MUSIC"]
             statuses = ["", "RELEASING", "NOT_YET_RELEASED", "FINISHED", "CANCELLED", "HIATUS"]
-            sorts = ["popularity", "score", "title", "start_date"]
+            sorts = ["popularity", "score", "title", "airing_date"]
             genre_values = [""] + sorted({
                 str(value) for item in state["results"]
                 for value in (item.get("genres") if isinstance(item.get("genres"), list) else [])

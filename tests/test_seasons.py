@@ -24,14 +24,14 @@ class SeasonHelpersTests(unittest.TestCase):
 
     def test_sort_modes_and_input_immutability(self):
         results = [
-            {"title": "Zulu", "popularity": 10, "average_score": 70, "start_date": {"year": 2026}},
-            {"title": "Alpha", "popularity": 20, "average_score": 90, "start_date": {"year": 2025}},
+            {"title": "Zulu", "popularity": 10, "average_score": 70, "start_date": {"year": 2026}, "next_airing_at": 200},
+            {"title": "Alpha", "popularity": 20, "average_score": 90, "start_date": {"year": 2025}, "next_airing_at": 100},
         ]
         original = list(results)
         self.assertEqual(filter_season_results(results)[0]["title"], "Alpha")
         self.assertEqual(filter_season_results(results, sort_by="score")[0]["title"], "Alpha")
         self.assertEqual(filter_season_results(results, sort_by="title")[0]["title"], "Alpha")
-        self.assertEqual(filter_season_results(results, sort_by="start_date")[0]["title"], "Zulu")
+        self.assertEqual(filter_season_results(results, sort_by="airing_date")[0]["title"], "Alpha")
         self.assertEqual(results, original)
 
     def test_rejects_unknown_sort_mode(self):

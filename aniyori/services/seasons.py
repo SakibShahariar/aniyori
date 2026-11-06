@@ -20,7 +20,7 @@ def season_for_date(value: date | None = None) -> tuple[str, int]:
 def filter_season_results(results: list[dict[str, Any]], *, query: str = "", genre: str = "",
                           format_name: str = "", status: str = "", sort_by: str = "popularity") -> list[dict[str, Any]]:
     """Filter and sort a season result set without mutating cached results."""
-    if sort_by not in {"popularity", "score", "title", "start_date"}:
+    if sort_by not in {"popularity", "score", "title", "airing_date"}:
         raise ValueError("Unknown season sort mode")
     needle = query.strip().casefold()
     visible = []
@@ -43,11 +43,19 @@ def filter_season_results(results: list[dict[str, Any]], *, query: str = "", gen
         value = item.get(key)
         return value if isinstance(value, (int, float)) and not isinstance(value, bool) else -1
 
-    def date_key(item):
+    def airing_key(item):
+        timestamp = item.get("next_airing_at")
+        if isinstance(timestamp, int) and not isinstance(timestamp, bool) and timestamp > 0:
+            return (0, timestamp, 0, 0)
         value = item.get("start_date")
-        if not isinstance(value, dict):
-            return (0, 0, 0)
-        return tuple(value.get(key) if isinstance(value.get(key), int) else 0 for key in ("year", "month", "day"))
+        if isinstance(value, dict):
+            parts = tuple(
+                value.get(key) if isinstance(value.get(key), int) and not isinstance(value.get(key), bool) else 0
+                for key in ("year", "month", "day")
+            )
+            if any(parts):
+                return (1, *parts)
+        return (2, 0, 0, 0)
 
     if sort_by == "popularity":
         visible.sort(key=lambda item: number(item, "popularity"), reverse=True)
@@ -56,5 +64,5 @@ def filter_season_results(results: list[dict[str, Any]], *, query: str = "", gen
     elif sort_by == "title":
         visible.sort(key=lambda item: str(item.get("title") or "").casefold())
     else:
-        visible.sort(key=date_key, reverse=True)
+        visible.sort(key=airing_key)
     return visible

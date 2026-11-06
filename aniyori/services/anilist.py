@@ -59,6 +59,7 @@ query SeasonAnime($season: MediaSeason!, $seasonYear: Int!, $perPage: Int!) {
       coverImage { medium large }
       siteUrl
       genres
+      nextAiringEpisode { airingAt timeUntilAiring episode }
     }
   }
 }
