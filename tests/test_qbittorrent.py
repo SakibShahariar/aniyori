@@ -186,6 +186,58 @@ class QBittorrentClientTests(unittest.TestCase):
             client.add_magnet(MAGNET)
         self.assertEqual(len(opener.requests), 3)
 
+    def test_list_torrents_returns_validated_queue_snapshot_and_logs_out(self):
+        payload = [{
+            "hash": "a" * 40,
+            "name": "Example Anime S01E01",
+            "state": "downloading",
+            "progress": 0.5,
+            "size": 2000,
+            "completed": 1000,
+            "dlspeed": 500,
+            "upspeed": 20,
+            "eta": 2,
+            "num_seeds": 4,
+            "num_leechs": 1,
+            "category": "Anime",
+        }]
+        opener = _Opener(["Ok.", __import__("json").dumps(payload), "Ok."])
+        client = QBittorrentClient("http://localhost:8080", "user", "password", opener=opener)
+        torrents = client.list_torrents()
+        self.assertEqual(len(torrents), 1)
+        self.assertEqual(torrents[0]["hash"], "a" * 40)
+        self.assertEqual(torrents[0]["progress"], 0.5)
+        self.assertEqual(torrents[0]["download_speed"], 500)
+        self.assertEqual(torrents[0]["eta"], 2)
+        self.assertTrue(opener.requests[1][0].full_url.endswith("/api/v2/torrents/info?filter=all"))
+        self.assertTrue(opener.requests[2][0].full_url.endswith("/api/v2/auth/logout"))
+
+    def test_queue_actions_are_explicit_and_delete_preserves_files_by_default(self):
+        opener = _Opener(["Ok.", "Ok.", "Ok.", "Ok.", "Ok.", "Ok.", "Ok.", "Ok.", "Ok."])
+        client = QBittorrentClient("http://localhost:8080", "user", "password", opener=opener)
+        client.pause_torrent("a" * 40)
+        client.resume_torrent("a" * 40)
+        client.remove_torrent("a" * 40)
+        action_requests = [item[0] for item in opener.requests if "/torrents/" in item[0].full_url]
+        self.assertEqual(
+            [request.full_url.rsplit("/", 1)[-1] for request in action_requests],
+            ["pause", "resume", "delete"],
+        )
+        self.assertEqual(
+            __import__("urllib.parse", fromlist=["parse_qs"]).parse_qs(action_requests[-1].data.decode())["deleteFiles"],
+            ["false"],
+        )
+
+    def test_queue_rejects_invalid_hash_and_malformed_torrent_payload(self):
+        opener = _Opener(["Ok.", "not-json", "Ok."])
+        client = QBittorrentClient("http://localhost:8080", "user", "password", opener=opener)
+        with self.assertRaises(ValueError):
+            client.pause_torrent("not-a-hash")
+        self.assertEqual(opener.requests, [])
+        with self.assertRaises(QBittorrentError):
+            client.list_torrents()
+        self.assertEqual(len(opener.requests), 3)
+
     def test_invalid_category_and_magnet_are_rejected_before_network(self):
         opener = _Opener([])
         client = QBittorrentClient(
