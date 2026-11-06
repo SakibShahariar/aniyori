@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections import Counter
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 
 from .models import AnimeEntry, WatchStatus
 
@@ -111,7 +111,7 @@ def calculate_history_insights(
             seen_ids.add(event_id)
 
         action = event.get("action")
-        if action not in {"episode", "progress", "status"}:
+        if action not in ("episode", "progress", "status"):
             continue
         raw_timestamp = event.get("created_at")
         if not isinstance(raw_timestamp, str) or not raw_timestamp.strip():
@@ -124,7 +124,10 @@ def calculate_history_insights(
             continue
         if timestamp.tzinfo is None:
             timestamp = timestamp.replace(tzinfo=timezone.utc)
-        local_timestamp = timestamp.astimezone(local_timezone)
+        try:
+            local_timestamp = timestamp.astimezone(local_timezone)
+        except (OverflowError, ValueError):
+            continue
         if local_timestamp.year != year:
             continue
 
