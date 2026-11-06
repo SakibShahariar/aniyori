@@ -30,6 +30,18 @@ Use a disposable test profile or a backup of any library data you care about. Do
 - [ ] Open Watch History; filter by title, date, and action; remove a selected event and prune older events.
 - [ ] Restart and confirm history and per-episode state persist.
 
+## Named library-view presets — #89
+
+- [ ] Save presets from both list and grid modes with different supported filters and sort orders; confirm both list and grid layouts are captured.
+- [ ] Apply each preset and switch between list/grid; confirm filters, sorting, column/card layout, and row ordering remain consistent.
+- [ ] Confirm search text, selected anime, open dialogs, and saved AniList/Nyaa searches are not included in presets.
+- [ ] Rename, duplicate, update, and delete presets; verify case-insensitive duplicate names and invalid/empty/long names show clear feedback.
+- [ ] Set a default preset, restart Aniyori, and confirm it is applied; clear the default and confirm the normal library view returns on restart.
+- [ ] Delete the active preset and confirm the configured default view is restored without changing library entries or progress.
+- [ ] Add/remove anime and change status/progress while a preset is active; confirm the preset remains valid and filters use current library data.
+- [ ] Reset list/grid layout settings and confirm saved presets remain intact.
+- [ ] Test a preset containing an unsupported filter/sort value and a corrupt preset file; confirm safe fallback and that the library still opens without overwriting the corrupt file.
+
 ## Yearly watch-history insights — #88
 
 - [ ] Open Library Statistics and confirm the existing library totals and status counts remain visible.
