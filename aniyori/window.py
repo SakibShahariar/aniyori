@@ -6,7 +6,10 @@ import logging
 import os
 import sqlite3
 import threading
+import shutil
+import subprocess
 from pathlib import Path
+from urllib.parse import urlsplit
 
 import gi
 
@@ -4160,6 +4163,44 @@ class AniyoriWindow(Adw.ApplicationWindow):
         self.toast_overlay.add_toast(Adw.Toast.new(f"Restored {entry.title}."))
 
 
+    def _launch_trailer_async(self, url):
+        """Launch a validated trailer in mpv or the desktop's default URI handler."""
+        try:
+            parsed = urlsplit(url)
+            if parsed.scheme != "https" or parsed.hostname not in {
+                "youtube.com", "www.youtube.com", "dailymotion.com",
+                "www.dailymotion.com", "vimeo.com",
+            }:
+                raise ValueError("This trailer URL is not supported.")
+        except (TypeError, ValueError):
+            self.toast_overlay.add_toast(Adw.Toast.new("This trailer URL is invalid."))
+            return
+
+        def open_default():
+            try:
+                Gio.AppInfo.launch_default_for_uri(url, None)
+            except GLib.Error as error:
+                self.toast_overlay.add_toast(Adw.Toast.new(f"Could not open trailer: {error.message}"))
+            return GLib.SOURCE_REMOVE
+
+        def worker():
+            player = shutil.which("mpv")
+            if player:
+                try:
+                    subprocess.Popen(
+                        [player, url],
+                        stdin=subprocess.DEVNULL,
+                        stdout=subprocess.DEVNULL,
+                        stderr=subprocess.DEVNULL,
+                        start_new_session=True,
+                    )
+                    return
+                except OSError:
+                    LOGGER.warning("Could not start mpv; falling back to the desktop URI handler", exc_info=True)
+            GLib.idle_add(open_default)
+
+        threading.Thread(target=worker, daemon=True).start()
+
     def _show_season_discovery(self):
         """Browse AniList seasonal charts without blocking the GTK main thread."""
         dialog = Adw.AlertDialog(
@@ -4268,6 +4309,13 @@ class AniyoriWindow(Adw.ApplicationWindow):
                 actions = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
                 if item.get("site_url"):
                     actions.append(Gtk.LinkButton.new_with_label(item["site_url"], "AniList"))
+                if item.get("trailer_url"):
+                    trailer_button = Gtk.Button(label="Watch Trailer")
+                    trailer_button.connect(
+                        "clicked",
+                        lambda _button, url=item["trailer_url"]: self._launch_trailer_async(url),
+                    )
+                    actions.append(trailer_button)
                 add_button = Gtk.Button(label="Add to library")
                 add_button.add_css_class("suggested-action")
 
@@ -4423,6 +4471,10 @@ class AniyoriWindow(Adw.ApplicationWindow):
         details_summary = Gtk.Label(xalign=0, wrap=True)
         details_summary.add_css_class("dim-label")
         details_page.append(details_summary)
+        trailer_button = Gtk.Button(label="Watch Trailer")
+        trailer_button.set_halign(Gtk.Align.START)
+        trailer_button.set_visible(False)
+        details_page.append(trailer_button)
 
         total_entry = Gtk.Entry()
         total_entry.set_placeholder_text("Total episodes (optional)")
@@ -4447,6 +4499,12 @@ class AniyoriWindow(Adw.ApplicationWindow):
         dialog.set_extra_child(pages)
 
         catalogue_state = {"results": [], "selected": None, "pending": False}
+        trailer_button.connect(
+            "clicked",
+            lambda _button: self._launch_trailer_async(catalogue_state["selected"]["trailer_url"])
+            if catalogue_state["selected"] and catalogue_state["selected"].get("trailer_url")
+            else None,
+        )
         search_generation = SearchGeneration()
         history_items = []
 
@@ -4489,6 +4547,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
             selected = catalogue_state["selected"]
             if selected and entry_widget.get_text() != selected["title"]:
                 catalogue_state["selected"] = None
+                trailer_button.set_visible(False)
             invalidate_pending_search()
 
         title_entry.connect("changed", clear_catalogue_selection_if_title_changed)
@@ -4501,6 +4560,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
                 return
             item = results[index]
             catalogue_state["selected"] = item
+            trailer_button.set_visible(bool(item.get("trailer_url")))
             title_entry.set_text(item["title"])
             total_entry.set_text(
                 str(item["episodes"]) if item["episodes"] is not None else ""
