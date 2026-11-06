@@ -32,6 +32,7 @@ class ScannedVideoFile:
 
     path: Path
     size_bytes: int | None
+    file_identity: tuple[int, int] | Path
 
 
 @dataclass(frozen=True, slots=True)
@@ -40,6 +41,7 @@ class VideoScanResult:
 
     files: tuple[ScannedVideoFile, ...]
     unavailable_roots: tuple[Path, ...]
+    total_size_bytes: int
     size_complete: bool
 
 
@@ -61,7 +63,7 @@ def scan_video_files_detailed(
     if isinstance(roots, (str, Path)):
         roots = (roots,)
     excluded = {name.casefold() for name in excluded_directories}
-    discovered: dict[tuple[int, int] | Path, ScannedVideoFile] = {}
+    discovered: dict[Path, ScannedVideoFile] = {}
     incomplete_roots: set[Path] = set()
     cancelled = False
 
@@ -130,8 +132,12 @@ def scan_video_files_detailed(
                     if metadata.st_ino else resolved
                 )
                 discovered.setdefault(
-                    identity,
-                    ScannedVideoFile(path=resolved, size_bytes=metadata.st_size),
+                    resolved,
+                    ScannedVideoFile(
+                        path=resolved,
+                        size_bytes=metadata.st_size,
+                        file_identity=identity,
+                    ),
                 )
             if cancelled:
                 break
@@ -144,9 +150,14 @@ def scan_video_files_detailed(
     unavailable = tuple(
         sorted(incomplete_roots, key=lambda path: str(path).casefold())
     )
+    unique_sizes = {}
+    for item in files:
+        if item.size_bytes is not None:
+            unique_sizes.setdefault(item.file_identity, item.size_bytes)
     return VideoScanResult(
         files=files,
         unavailable_roots=unavailable,
+        total_size_bytes=sum(unique_sizes.values()),
         size_complete=not unavailable and not cancelled,
     )
 
