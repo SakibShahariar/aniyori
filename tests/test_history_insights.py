@@ -84,6 +84,7 @@ class HistoryInsightsTests(unittest.TestCase):
 
     def test_malformed_undated_and_duplicate_records_are_not_counted(self):
         events = [
+            {"id": 1, "action": "episode", "created_at": "not-a-date"},
             {
                 "id": 1, "action": "episode", "details": "Marked episode watched",
                 "created_at": "2026-03-01T12:00:00Z",
@@ -94,7 +95,7 @@ class HistoryInsightsTests(unittest.TestCase):
             },
             {"id": 2, "action": "episode", "created_at": "not-a-date"},
             {"id": 3, "action": "episode"},
-            {"id": 4, "action": "unknown", "created_at": "2026-03-03T00:00:00Z"},
+            {"id": 4, "action": [], "created_at": "2026-03-03T00:00:00Z"},
         ]
 
         result = calculate_history_insights(
