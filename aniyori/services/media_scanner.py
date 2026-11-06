@@ -167,7 +167,7 @@ def scan_video_files(
     excluded_directories: Iterable[str] = DEFAULT_EXCLUDED_DIRECTORIES,
     is_cancelled: Callable[[], bool] | None = None,
 ) -> list[Path]:
-    """Return unique video paths while preserving the original scanner API."""
+    """Return unique canonical video paths while preserving the original API."""
     result = scan_video_files_detailed(
         roots,
         excluded_directories=excluded_directories,
