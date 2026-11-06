@@ -58,21 +58,21 @@ def _normalize_preset(value, *, tolerant: bool = False) -> dict:
         raise LibraryViewPresetError("A library-view preset must be an object.")
 
     filter_name = value.get("filter", "all")
-    if filter_name not in FILTERS:
+    if not isinstance(filter_name, str) or filter_name not in FILTERS:
         if tolerant:
             filter_name = "all"
         else:
             raise LibraryViewPresetError("The preset uses an unsupported library filter.")
 
     sort_mode = value.get("sort", "title")
-    if sort_mode not in SORT_MODES:
+    if not isinstance(sort_mode, str) or sort_mode not in SORT_MODES:
         if tolerant:
             sort_mode = "title"
         else:
             raise LibraryViewPresetError("The preset uses an unsupported sort mode.")
 
     view = value.get("view", "list")
-    if view not in VIEWS:
+    if not isinstance(view, str) or view not in VIEWS:
         if tolerant:
             view = "list"
         else:
