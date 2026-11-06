@@ -10,7 +10,7 @@ All notable user-facing changes for Aniyori are documented here.
 
 - Local anime library backed by SQLite, with list and grid views, filtering, sorting, statistics, and watch history.
 - Per-episode watched/unwatched tracking, rewatch history, and an episode editor while retaining aggregate progress compatibility.
-- Public AniList catalogue search, media details, seasonal discovery charts, next-airing information, cover caching, and trailer launching.
+- Public AniList catalogue search, media details, seasonal discovery charts, next-airing information, cover caching, and validated trailer actions in catalogue details and seasonal cards (mpv or the desktop URI handler).
 - Local media-folder scanning and filename-based episode recognition.
 - RSS/Atom release discovery, including Nyaa.si search feeds and user-configured feeds, with release metadata, library matching, filtering, and sorting.
 - Ordered smart release rules, global and per-anime release preferences, and explainable release scoring.

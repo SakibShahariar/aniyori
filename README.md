@@ -20,7 +20,7 @@ The initial `v0.1.0` release notes are being prepared in [CHANGELOG.md](CHANGELO
 ## Current features
 
 - **Library:** manual and AniList-backed entries, aggregate and per-episode watched tracking, status filters, list/grid views, bulk status/progress/delete actions, and statistics.
-- **AniList:** cached catalogue search, seasonal discovery charts for current/upcoming/past seasons, title/genre search, format/status filters, popularity/score/title/date sorting, AniList recent and saved search queries, next-episode countdowns, and offline metadata fallback.
+- **AniList:** cached catalogue search, seasonal discovery charts for current/upcoming/past seasons, title/genre search, format/status filters, popularity/score/title/date sorting, AniList recent and saved search queries, next-episode countdowns, and offline metadata fallback., validated trailer actions in catalogue details and seasonal cards.
 - **Local media:** configurable folders, recursive video discovery, filename recognition, and available/missing/next episode summaries.
 - **Preferences:** saved share-format templates with live preview, release-attribute preferences, explainable release-quality scoring, and ordered smart release rules.
 - **Release discovery:** Nyaa.si search and configurable RSS/Atom feeds, release metadata, library matching, filtering, sorting, and rule-based selection.

@@ -686,3 +686,21 @@ The release-draft, layout documentation, and episode-editor link commits complet
 
 - Reviewed checkpoint: `499dcd9d1e3330d4b058e17f65d877f771aa17e6`
 - Commits after the previous checkpoint through this SHA: all commits listed in this table; the only red run is explicitly corrected by the succeeding green test commit.
+
+
+## Reviewed range: 2026-11-06 (continued)
+
+| Commit SHA | Subject | CI result | Run |
+|---|---|---|---|
+| `1af5f6e0abadc0811336befe7fd8ada3da33ef81` | docs(download): document queue and reconcile CI audit (#56) | green | [42165626969](https://github.com/SakibShahariar/aniyori/actions/runs/42165626969) |
+| `70a26a1e7827509d8d40f08d5d5528132c1c08ca` | fix(discovery): prune stale airing cache entries (#36) | green | [42165778682](https://github.com/SakibShahariar/aniyori/actions/runs/42165778682) |
+| `8b54a4f2f3a87acd33e1952c30ac029b8b401a0a` | feat(discovery): include trailer metadata in search results (#37) | green | [42165843511](https://github.com/SakibShahariar/aniyori/actions/runs/42165843511) |
+| `50ce377c2d7f6ff8c9dae9188a9dc776b9b93dec` | feat(discovery): add trailer actions to search and season views (#37) | green | [42165880901](https://github.com/SakibShahariar/aniyori/actions/runs/42165880901) |
+| `d692c149603a159e2a0bde628383f9cd3e1ff429` | test(discovery): cover seasonal trailer metadata (#37) | green | [42165911143](https://github.com/SakibShahariar/aniyori/actions/runs/42165911143) |
+| `d85e9aa7048fe86e28728048bf113d192a5f8596` | feat(discovery): add trailer action to anime editor (#37) | green | [42165946541](https://github.com/SakibShahariar/aniyori/actions/runs/42165946541) |
+| `0700be008e716150d4df56224c36f128ffebaa7c` | test(discovery): verify trailer metadata queries (#37) | green | [42165966857](https://github.com/SakibShahariar/aniyori/actions/runs/42165966857) |
+
+The queue documentation/audit commit passed CI. The stale-airing-cache correction and all trailer query/UI/test commits also passed the complete Tests workflow. Trailer metadata is now requested in search and seasonal queries, and actions are available from the edit dialog, catalogue review-details page, and seasonal cards. Live GTK/mpv/default-handler verification remains outstanding.
+
+- Reviewed checkpoint: `0700be008e716150d4df56224c36f128ffebaa7c`
+- Commits after the previous checkpoint through this SHA: all commits listed in this table; all seven Tests runs completed green.
