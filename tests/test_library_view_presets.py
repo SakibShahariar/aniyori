@@ -58,6 +58,20 @@ class LibraryViewPresetStoreTests(unittest.TestCase):
             with self.assertRaisesRegex(LibraryViewPresetError, "already exists"):
                 store.save_preset(" favorites ", sample_settings())
 
+    def test_update_replaces_settings_without_changing_the_preset_name(self):
+        with tempfile.TemporaryDirectory() as directory:
+            store = LibraryViewPresetStore(Path(directory) / "presets.json")
+            store.save_preset("Watching", sample_settings())
+            updated = {
+                **sample_settings(),
+                "filter": "completed",
+                "sort": "progress",
+                "view": "list",
+            }
+
+            self.assertEqual(store.update_preset("Watching", updated), "Watching")
+            self.assertEqual(store.get_preset("Watching"), updated)
+
     def test_rename_updates_default_and_duplicate_copies_settings(self):
         with tempfile.TemporaryDirectory() as directory:
             store = LibraryViewPresetStore(Path(directory) / "presets.json")
