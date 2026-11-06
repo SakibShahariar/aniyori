@@ -116,6 +116,42 @@ class WatchHistoryTests(unittest.TestCase):
         self.assertEqual(len(self.storage.list_watch_history()), 1)
         self.assertEqual(self.storage.list_watch_history()[0]["anime_title"], "Frieren")
 
+    def test_year_query_uses_local_calendar_boundaries(self):
+        first = self.storage.record_watch_event(
+            self.entry.storage_id, episode=1, action="episode"
+        )
+        second = self.storage.record_watch_event(
+            self.entry.storage_id, episode=2, action="episode"
+        )
+        with self.storage._connect() as connection:
+            connection.execute(
+                "UPDATE watch_history SET created_at = ? WHERE id = ?",
+                ("2025-12-31 23:00:00", first),
+            )
+            connection.execute(
+                "UPDATE watch_history SET created_at = ? WHERE id = ?",
+                ("2026-01-01 05:00:00", second),
+            )
+
+        from datetime import timedelta, timezone
+        local_zone = timezone(timedelta(hours=-5))
+        previous_year = self.storage.list_watch_history_for_year(
+            2025, local_timezone=local_zone
+        )
+        current_year = self.storage.list_watch_history_for_year(
+            2026, local_timezone=local_zone
+        )
+
+        self.assertEqual([item["id"] for item in previous_year], [first])
+        self.assertEqual([item["id"] for item in current_year], [second])
+
+    def test_year_query_rejects_invalid_year_and_timezone(self):
+        for year in (True, 0, 10000, "2026"):
+            with self.subTest(year=year), self.assertRaises(ValueError):
+                self.storage.list_watch_history_for_year(year)
+        with self.assertRaises(ValueError):
+            self.storage.list_watch_history_for_year(2026, local_timezone="UTC")
+
     def test_rejects_invalid_history_filters_and_event_data(self):
         with self.assertRaisesRegex(ValueError, "YYYY-MM-DD"):
             self.storage.list_watch_history(date_filter="yesterday")
