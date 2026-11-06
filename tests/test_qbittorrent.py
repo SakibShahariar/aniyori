@@ -5,6 +5,7 @@ import stat
 import tempfile
 import unittest
 from urllib.parse import parse_qs
+from urllib.error import HTTPError
 
 from aniyori.services.qbittorrent import (
     QBittorrentAuthenticationError,
@@ -221,12 +222,24 @@ class QBittorrentClientTests(unittest.TestCase):
         action_requests = [item[0] for item in opener.requests if "/torrents/" in item[0].full_url]
         self.assertEqual(
             [request.full_url.rsplit("/", 1)[-1] for request in action_requests],
-            ["pause", "resume", "delete"],
+            ["stop", "start", "delete"],
         )
         self.assertEqual(
             __import__("urllib.parse", fromlist=["parse_qs"]).parse_qs(action_requests[-1].data.decode())["deleteFiles"],
             ["false"],
         )
+
+    def test_queue_actions_fall_back_to_legacy_pause_endpoint_on_404(self):
+        opener = _Opener([
+            "Ok.",
+            HTTPError("http://localhost:8080/api/v2/torrents/stop", 404, "Not Found", {}, None),
+            "Ok.",
+            "Ok.",
+        ])
+        client = QBittorrentClient("http://localhost:8080", "user", "password", opener=opener)
+        client.pause_torrent("a" * 40)
+        paths = [item[0].full_url.rsplit("/", 1)[-1] for item in opener.requests]
+        self.assertEqual(paths, ["login", "stop", "pause", "logout"])
 
     def test_queue_rejects_invalid_hash_and_malformed_torrent_payload(self):
         opener = _Opener(["Ok.", "not-json", "Ok."])
