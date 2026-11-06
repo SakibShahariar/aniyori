@@ -297,6 +297,96 @@ class QBittorrentClient:
         except QBittorrentError:
             pass
 
+    @staticmethod
+    def _normalize_torrent(payload: dict) -> dict:
+        """Validate one qBittorrent torrent-info record before exposing it to the UI."""
+        if not isinstance(payload, dict):
+            raise QBittorrentError("qBittorrent returned an invalid torrent record.")
+        info_hash = payload.get("hash")
+        if not isinstance(info_hash, str) or not re.fullmatch(r"(?i)(?:[0-9a-f]{40}|[0-9a-f]{64})", info_hash):
+            raise QBittorrentError("qBittorrent returned a torrent with an invalid hash.")
+        name = payload.get("name")
+        state = payload.get("state")
+        if not isinstance(name, str) or len(name) > 2048 or not isinstance(state, str) or len(state) > 64:
+            raise QBittorrentError("qBittorrent returned invalid torrent details.")
+        progress = payload.get("progress", 0.0)
+        if isinstance(progress, bool) or not isinstance(progress, (int, float)) or not 0 <= progress <= 1:
+            raise QBittorrentError("qBittorrent returned an invalid progress value.")
+        def count(key, default=0):
+            value = payload.get(key, default)
+            if isinstance(value, bool) or not isinstance(value, int):
+                raise QBittorrentError(f"qBittorrent returned an invalid {key} value.")
+            return value
+        eta = count("eta", -1)
+        return {
+            "hash": info_hash.lower(),
+            "name": name,
+            "state": state,
+            "progress": float(progress),
+            "size": max(0, count("size")),
+            "downloaded": max(0, count("completed")),
+            "download_speed": max(0, count("dlspeed")),
+            "upload_speed": max(0, count("upspeed")),
+            "eta": eta if eta >= 0 else None,
+            "seeds": max(0, count("num_seeds")),
+            "leechers": max(0, count("num_leechs")),
+            "category": payload.get("category", "") if isinstance(payload.get("category", ""), str) else "",
+        }
+
+    def list_torrents(self) -> tuple[dict, ...]:
+        """Return a validated snapshot of the configured qBittorrent queue."""
+        self._login()
+        try:
+            response = self._request("/api/v2/torrents/info?filter=all")
+            try:
+                payload = json.loads(response)
+            except (TypeError, json.JSONDecodeError) as error:
+                raise QBittorrentError("qBittorrent returned an unreadable torrent list.") from error
+            if not isinstance(payload, list) or len(payload) > 10000:
+                raise QBittorrentError("qBittorrent returned an invalid torrent list.")
+            return tuple(self._normalize_torrent(item) for item in payload)
+        finally:
+            try:
+                self._request("/api/v2/auth/logout", b"")
+            except QBittorrentError:
+                pass
+
+    def _torrent_action(self, action: str, info_hash: str, *, delete_files: bool = False) -> None:
+        """Run one explicit queue action; deletion preserves downloaded files by default."""
+        if not isinstance(info_hash, str) or not re.fullmatch(r"(?i)(?:[0-9a-f]{40}|[0-9a-f]{64})", info_hash):
+            raise ValueError("The torrent identifier is invalid.")
+        if action not in {"pause", "resume", "delete"}:
+            raise ValueError("The requested torrent action is invalid.")
+        fields = {"hashes": info_hash.lower()}
+        if action == "delete":
+            if not isinstance(delete_files, bool):
+                raise ValueError("The delete-files option must be a boolean.")
+            fields["deleteFiles"] = "true" if delete_files else "false"
+        self._login()
+        try:
+            self._request(
+                f"/api/v2/torrents/{action}",
+                urlencode(fields).encode("utf-8"),
+                content_type="application/x-www-form-urlencoded",
+            )
+        finally:
+            try:
+                self._request("/api/v2/auth/logout", b"")
+            except QBittorrentError:
+                pass
+
+    def pause_torrent(self, info_hash: str) -> None:
+        """Pause one torrent after explicit user action."""
+        self._torrent_action("pause", info_hash)
+
+    def resume_torrent(self, info_hash: str) -> None:
+        """Resume one torrent after explicit user action."""
+        self._torrent_action("resume", info_hash)
+
+    def remove_torrent(self, info_hash: str, *, delete_files: bool = False) -> None:
+        """Remove one torrent; downloaded files are retained unless explicitly requested."""
+        self._torrent_action("delete", info_hash, delete_files=delete_files)
+
     def add_magnet(
         self,
         magnet_uri: str,
