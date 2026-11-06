@@ -55,6 +55,7 @@ from .services.notifications import (
 )
 from .services.network import NetworkSettings, NetworkSettingsError, NetworkSettingsStore
 from .services.profiles import ProfileError, ProfileStore
+from .services.library_layout import DEFAULT_LAYOUTS as DEFAULT_LIBRARY_LAYOUTS, LibraryLayoutError, LibraryLayoutStore
 
 LOGGER = logging.getLogger(__name__)
 
@@ -88,7 +89,7 @@ def _apply_cover_texture(picture: Gtk.Picture, path: str):
 
 
 class AnimeRow(Gtk.Box):
-    def __init__(self, entry: AnimeEntry, on_progress, on_remove, on_edit, airing=None, selected=False, on_select=None, on_links=None, on_episodes=None):
+    def __init__(self, entry: AnimeEntry, on_progress, on_remove, on_edit, airing=None, selected=False, on_select=None, on_links=None, on_episodes=None, layout=None):
         super().__init__(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
         self.set_margin_top(10)
         self.set_margin_bottom(10)
@@ -131,18 +132,27 @@ class AnimeRow(Gtk.Box):
             if entry.provider and entry.provider_id
             else f"Manual entry #{entry.storage_id}" if entry.storage_id is not None else "Manual entry"
         )
-        subtitle = Gtk.Label(
-            label=f"{status_text} · {entry.progress_label} · {source_text}", xalign=0
-        )
-        subtitle.add_css_class("dim-label")
-        subtitle.add_css_class("caption")
-        details.append(subtitle)
-        self.airing_label = None
-        if airing is not None:
-            self.airing_label = Gtk.Label(label=format_airing_countdown(*airing) or "", xalign=0)
-            self.airing_label.add_css_class("caption")
-            self.airing_label.add_css_class("accent")
-            details.append(self.airing_label)
+        layout = layout or DEFAULT_LIBRARY_LAYOUTS["list"]
+        metadata = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
+        metadata.set_hexpand(True)
+        self.layout_fields = {
+            "status": Gtk.Label(label=status_text, xalign=0),
+            "progress": Gtk.Label(label=entry.progress_label, xalign=0),
+            "source": Gtk.Label(label=source_text, xalign=0),
+            "airing": Gtk.Label(label=format_airing_countdown(*airing) if airing is not None else "", xalign=0),
+        }
+        self.airing_label = self.layout_fields["airing"]
+        for column in layout["order"]:
+            if column == "title":
+                continue
+            field = self.layout_fields[column]
+            field.set_visible(column in layout["visible"] and (column != "airing" or airing is not None))
+            field.set_size_request(layout["widths"].get(column, -1), -1)
+            field.add_css_class("dim-label")
+            field.add_css_class("caption")
+            metadata.append(field)
+        self.airing_label.add_css_class("accent")
+        details.append(metadata)
 
         if entry.progress_fraction is not None:
             progress = Gtk.ProgressBar()
@@ -187,7 +197,7 @@ class AnimeRow(Gtk.Box):
 
 
 class AnimeCard(Gtk.Box):
-    def __init__(self, entry: AnimeEntry, on_progress, on_remove, on_edit, airing=None, selected=False, on_select=None, on_links=None, on_episodes=None):
+    def __init__(self, entry: AnimeEntry, on_progress, on_remove, on_edit, airing=None, selected=False, on_select=None, on_links=None, on_episodes=None, layout=None):
         super().__init__(orientation=Gtk.Orientation.VERTICAL, spacing=10)
         self.set_size_request(180, 180)
         self.set_margin_top(12)
@@ -228,22 +238,22 @@ class AnimeCard(Gtk.Box):
             if entry.provider and entry.provider_id
             else f"Manual entry #{entry.storage_id}" if entry.storage_id is not None else "Manual entry"
         )
-        subtitle = Gtk.Label(
-            label=f"{status}\n{entry.progress_label}\n{source_text}",
-            justify=Gtk.Justification.CENTER,
-        )
-        subtitle.add_css_class("dim-label")
-        subtitle.add_css_class("caption")
-        self.append(subtitle)
-        self.airing_label = None
-        if airing is not None:
-            self.airing_label = Gtk.Label(
-                label=format_airing_countdown(*airing) or "",
-                justify=Gtk.Justification.CENTER,
-            )
-            self.airing_label.add_css_class("caption")
-            self.airing_label.add_css_class("accent")
-            self.append(self.airing_label)
+        layout = layout or DEFAULT_LIBRARY_LAYOUTS["grid"]
+        self.layout_fields = {
+            "status": Gtk.Label(label=status, justify=Gtk.Justification.CENTER),
+            "progress": Gtk.Label(label=entry.progress_label, justify=Gtk.Justification.CENTER),
+            "source": Gtk.Label(label=source_text, justify=Gtk.Justification.CENTER),
+            "airing": Gtk.Label(label=format_airing_countdown(*airing) if airing is not None else "", justify=Gtk.Justification.CENTER),
+        }
+        self.airing_label = self.layout_fields["airing"]
+        for column in layout["order"]:
+            if column == "title":
+                continue
+            field = self.layout_fields[column]
+            field.set_visible(column in layout["visible"] and (column != "airing" or airing is not None))
+            field.add_css_class("dim-label")
+            field.add_css_class("caption")
+            self.append(field)
 
         if entry.progress_fraction is not None:
             progress = Gtk.ProgressBar()
@@ -308,6 +318,12 @@ class AniyoriWindow(Adw.ApplicationWindow):
         self.notification_store = NotificationStore()
         self.network_settings_store = NetworkSettingsStore()
         self.profile_store = ProfileStore()
+        self.library_layout_store = LibraryLayoutStore()
+        try:
+            self.library_layouts = self.library_layout_store.load_all()
+        except (OSError, LibraryLayoutError) as error:
+            LOGGER.warning("Could not load saved library layout: %s", error)
+            self.library_layouts = {view: {"order": list(layout["order"]), "visible": list(layout["visible"]), "widths": dict(layout["widths"])} for view, layout in DEFAULT_LIBRARY_LAYOUTS.items()}
         self.release_preference_store = ReleasePreferenceStore()
         self.anime_release_preference_store = AnimeReleasePreferenceStore()
         self.release_scoring_store = ReleaseScoringSettingsStore()
@@ -337,6 +353,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
             ("notification-preferences", self._show_notification_preferences),
             ("network-settings", self._show_network_settings_dialog),
             ("profiles", self._show_profiles_dialog),
+            ("library-layout", self._show_library_layout_dialog),
             ("export-json", lambda: self._show_export_dialog("json")),
             ("export-csv", lambda: self._show_export_dialog("csv")),
             ("import-library", self._show_import_dialog),
@@ -386,6 +403,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
         primary_menu.append("Notification Preferences", "win.notification-preferences")
         primary_menu.append("Network Settings", "win.network-settings")
         primary_menu.append("Profiles & Portable Mode", "win.profiles")
+        primary_menu.append("Customize Library Layout", "win.library-layout")
         primary_menu.append("Export Library (JSON)", "win.export-json")
         primary_menu.append("Export Library (CSV)", "win.export-csv")
         primary_menu.append("Import Library", "win.import-library")
@@ -971,6 +989,112 @@ class AniyoriWindow(Adw.ApplicationWindow):
 
         add_button.connect("clicked", add_template)
         refresh()
+
+    def _show_library_layout_dialog(self):
+        """Edit and persist the list/grid layout preferences."""
+        try:
+            saved = self.library_layout_store.load_all()
+        except (OSError, LibraryLayoutError) as error:
+            self.toast_overlay.add_toast(Adw.Toast.new(f"Could not load library layout: {error}"))
+            return
+        dialog = Adw.AlertDialog(
+            heading="Customize Library Layout",
+            body="Choose visible metadata fields, their order, and widths. The title remains visible.",
+        )
+        content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
+        scroll = Gtk.ScrolledWindow()
+        scroll.set_min_content_height(300)
+        scroll.set_max_content_height(480)
+        sections = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
+        scroll.set_child(sections)
+        content.append(scroll)
+        controls = {}
+        for view, heading in (("list", "List view"), ("grid", "Grid view")):
+            section = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+            section_title = Gtk.Label(label=heading, xalign=0)
+            section_title.add_css_class("heading")
+            section.append(section_title)
+            controls[view] = {}
+            for column in saved[view]["order"]:
+                row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+                visible = Gtk.CheckButton(label=column.title())
+                visible.set_active(column in saved[view]["visible"])
+                if column == "title":
+                    visible.set_active(True)
+                    visible.set_sensitive(False)
+                row.append(visible)
+                row.append(Gtk.Label(label="Order"))
+                order = Gtk.SpinButton.new_with_range(1, len(saved[view]["order"]), 1)
+                order.set_value(saved[view]["order"].index(column) + 1)
+                order.set_width_chars(3)
+                row.append(order)
+                controls[view][column] = {"visible": visible, "order": order}
+                if view == "list":
+                    row.append(Gtk.Label(label="Width"))
+                    width = Gtk.SpinButton.new_with_range(80, 500, 10)
+                    width.set_value(saved[view]["widths"][column])
+                    width.set_width_chars(4)
+                    row.append(width)
+                    controls[view][column]["width"] = width
+                section.append(row)
+            if view == "grid":
+                width_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+                width_row.append(Gtk.Label(label="Card width (px)"))
+                card_width = Gtk.SpinButton.new_with_range(160, 360, 10)
+                card_width.set_value(saved[view]["widths"]["card_width"])
+                width_row.append(card_width)
+                controls[view]["card_width"] = card_width
+                section.append(width_row)
+            sections.append(section)
+        actions = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        reset_button = Gtk.Button(label="Reset Defaults")
+        save_button = Gtk.Button(label="Save Layout")
+        save_button.add_css_class("suggested-action")
+        actions.append(reset_button)
+        actions.append(save_button)
+        content.append(actions)
+        dialog.set_extra_child(content)
+        dialog.add_response("close", "Close")
+        dialog.set_default_response("close")
+        dialog.present(self)
+
+        def collect(view):
+            layout = {
+                "order": sorted(saved[view]["order"], key=lambda column: controls[view][column]["order"].get_value_as_int()),
+                "visible": [column for column in saved[view]["order"] if controls[view][column]["visible"].get_active()],
+                "widths": dict(saved[view]["widths"]),
+            }
+            if view == "list":
+                layout["widths"] = {column: controls[view][column]["width"].get_value_as_int() for column in saved[view]["order"]}
+            else:
+                layout["widths"]["card_width"] = controls[view]["card_width"].get_value_as_int()
+            return layout
+
+        def save_layout(_button):
+            try:
+                candidate = {view: collect(view) for view in ("list", "grid")}
+                self.library_layout_store.save("list", candidate["list"])
+                self.library_layout_store.save("grid", candidate["grid"])
+                self.library_layouts = self.library_layout_store.load_all()
+            except (OSError, LibraryLayoutError) as error:
+                self.toast_overlay.add_toast(Adw.Toast.new(f"Could not save library layout: {error}"))
+                return
+            self._render_library()
+            self.toast_overlay.add_toast(Adw.Toast.new("Library layout saved."))
+
+        def reset_layout(_button):
+            try:
+                self.library_layout_store.reset("list")
+                self.library_layout_store.reset("grid")
+                self.library_layouts = self.library_layout_store.load_all()
+            except (OSError, LibraryLayoutError) as error:
+                self.toast_overlay.add_toast(Adw.Toast.new(f"Could not reset library layout: {error}"))
+                return
+            self._render_library()
+            self.toast_overlay.add_toast(Adw.Toast.new("Library layout restored to defaults."))
+
+        save_button.connect("clicked", save_layout)
+        reset_button.connect("clicked", reset_layout)
 
     def _show_share_format_dialog(self):
         try:
@@ -3400,7 +3524,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
 
             airing = self._airing_by_id.get(key)
             selected = entry.storage_id in self._selected_entry_ids
-            widget_signature = (entry, airing, selected)
+            widget_signature = (entry, airing, selected, repr(self.library_layouts))
             if row is None or self._widget_entries.get(key) != widget_signature:
                 if row is not None:
                     if row.get_parent() is not None:
@@ -3418,6 +3542,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
                     self._toggle_entry_selection,
                     self._show_external_links,
                     self._show_episode_editor,
+                    self.library_layouts["list"],
                 )
                 card = AnimeCard(
                     entry,
@@ -3429,7 +3554,9 @@ class AniyoriWindow(Adw.ApplicationWindow):
                     self._toggle_entry_selection,
                     self._show_external_links,
                     self._show_episode_editor,
+                    self.library_layouts["grid"],
                 )
+                card.set_size_request(self.library_layouts["grid"]["widths"]["card_width"], 180)
                 self.list_box.insert(row, position)
                 self.grid_flow.insert(card, position)
                 self._row_widgets[key] = row
