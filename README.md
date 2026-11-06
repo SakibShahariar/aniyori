@@ -9,6 +9,10 @@ A native Linux anime tracker built with Python, GTK 4, PyGObject, and libadwaita
 - Offer compact-list and grid library views.
 - Keep the application lightweight, native, accessible, and keyboard-friendly.
 
+## Release notes
+
+The initial `v0.1.0` release notes are being prepared in [CHANGELOG.md](CHANGELOG.md). Publication is intentionally blocked until the mandatory live GTK desktop validation is recorded; no tag or release has been created.
+
 ## Development status
 
 **Early development.** The GTK/libadwaita library UI, SQLite storage, offline unit tests, and public AniList catalogue client are in place. AniList account sign-in, user-list import, and synchronization are not implemented yet.
