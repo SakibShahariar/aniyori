@@ -131,6 +131,21 @@ class EpisodeInventoryTests(unittest.TestCase):
         self.assertTrue(inventory.size_complete)
         self.assertEqual(len(inventory.source_paths), 3)
 
+    def test_hard_link_aliases_do_not_double_count_per_anime_size(self):
+        first = self.match("[Group] Frieren - 01.mkv", size_bytes=1024)
+        second = self.match("[Group] Frieren - 01-copy.mkv", size_bytes=1024)
+        first = LocalVideoMatch(
+            first.path, first.result, size_bytes=1024, file_identity=(1, 42)
+        )
+        second = LocalVideoMatch(
+            second.path, second.result, size_bytes=1024, file_identity=(1, 42)
+        )
+
+        inventory, = summarize_episode_inventory([first, second], [self.entry])
+
+        self.assertEqual(inventory.size_bytes, 1024)
+        self.assertEqual(len(inventory.source_paths), 2)
+
     def test_uses_legacy_aggregate_progress_when_explicit_state_is_absent(self):
         entry = AnimeEntry(
             title="Frieren", provider="anilist", provider_id="10",
