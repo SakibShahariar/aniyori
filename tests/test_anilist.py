@@ -287,3 +287,43 @@ class AniListClientTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+    def test_search_season_normalises_results_and_uses_season_variables(self):
+        payload = {"Page": {"media": [{
+            "id": 101, "title": {"romaji": "Seasonal Example", "english": "Seasonal Example"},
+            "episodes": 12, "format": "TV", "status": "RELEASING", "season": "FALL",
+            "seasonYear": 2026, "popularity": 12345, "averageScore": 82,
+            "startDate": {"year": 2026, "month": 10, "day": 1},
+            "coverImage": {"large": "https://example.test/cover.jpg"},
+            "genres": ["Adventure"], "siteUrl": "https://anilist.co/anime/101",
+        }]}}
+        with patch.object(self.client, "_request", return_value=payload) as request:
+            results = self.client.search_season("fall", 2026)
+        self.assertEqual(request.call_args.args[1], {"season": "FALL", "seasonYear": 2026, "perPage": 50})
+        self.assertEqual(results[0]["title"], "Seasonal Example")
+        self.assertEqual(results[0]["season"], "FALL")
+        self.assertEqual(results[0]["popularity"], 12345)
+        self.assertEqual(results[0]["average_score"], 82)
+        self.assertEqual(results[0]["genres"], ["Adventure"])
+
+    def test_search_season_cache_and_offline_fallback(self):
+        payload = {"Page": {"media": [{"id": 101, "title": {"romaji": "Cached"}}]}}
+        with patch.object(self.client, "_request", return_value=payload) as request:
+            first = self.client.search_season("WINTER", 2026)
+            second = self.client.search_season("WINTER", 2026)
+        self.assertEqual(first, second)
+        self.assertEqual(request.call_count, 1)
+        with patch.object(self.client, "_request", side_effect=AniListError("offline")):
+            self.assertEqual(self.client.search_season("WINTER", 2026, refresh=True), first)
+
+    def test_search_season_rejects_invalid_parameters_and_malformed_pages(self):
+        for season, year, per_page in (("MONSOON", 2026, 50), ("WINTER", 1969, 50), ("WINTER", 2026, 51), ("WINTER", True, 50)):
+            with self.subTest(season=season, year=year, per_page=per_page):
+                with self.assertRaises(ValueError):
+                    self.client.search_season(season, year, per_page)
+        for payload in ({"Page": None}, {"Page": {"media": {}}}, {"Page": {"media": [None]}}):
+            with self.subTest(payload=payload):
+                with patch.object(self.client, "_request", return_value=payload):
+                    with self.assertRaises(AniListError):
+                        self.client.search_season("WINTER", 2026, refresh=True)

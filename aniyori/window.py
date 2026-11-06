@@ -22,6 +22,7 @@ from .search import SearchGeneration
 from .services.search_history import SearchHistoryError, SearchHistoryStore
 from .services.anilist import AniListClient, AniListError
 from .services.airing import format_airing_countdown
+from .services.seasons import SEASONS, filter_season_results, season_for_date
 from .services.scan_locations import ScanLocationStore
 from .services.scan_library import scan_configured_library
 from .services.release_scoring import (
@@ -326,6 +327,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
         self.add_action(undo_action)
         for name, callback in [
             ("add-anime", lambda: self._show_add_dialog(None)),
+            ("season-discovery", self._show_season_discovery),
             ("focus-search", lambda: self.search.grab_focus()),
             ("quit", lambda: self.get_application().quit()),
             ("statistics", self._show_statistics_dialog),
@@ -375,6 +377,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
 
         primary_menu = Gio.Menu()
         primary_menu.append("Add Anime", "win.add-anime")
+        primary_menu.append("Season Discovery", "win.season-discovery")
         primary_menu.append("Search Library", "win.focus-search")
         primary_menu.append("Library Statistics", "win.statistics")
         primary_menu.append("Watch History", "win.watch-history")
@@ -3812,6 +3815,208 @@ class AniyoriWindow(Adw.ApplicationWindow):
         self.entries = self.storage.list_entries()
         self._render_library()
         self.toast_overlay.add_toast(Adw.Toast.new(f"Restored {entry.title}."))
+
+
+    def _show_season_discovery(self):
+        """Browse AniList seasonal charts without blocking the GTK main thread."""
+        dialog = Adw.AlertDialog(
+            heading="Season Discovery",
+            body="Browse seasonal anime, filter the catalogue, and add titles to your local library.",
+        )
+        content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
+        content.set_size_request(720, 560)
+        season_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        season_dropdown = Gtk.DropDown.new_from_strings(list(SEASONS))
+        current_season, current_year = season_for_date()
+        season_dropdown.set_selected(SEASONS.index(current_season))
+        year_values = list(range(max(1970, current_year - 5), min(2100, current_year + 2) + 1))
+        year_dropdown = Gtk.DropDown.new_from_strings([str(value) for value in year_values])
+        year_dropdown.set_selected(year_values.index(current_year))
+        load_button = Gtk.Button(label="Load season")
+        load_button.add_css_class("suggested-action")
+        for widget in (Gtk.Label(label="Season"), season_dropdown, Gtk.Label(label="Year"), year_dropdown, load_button):
+            season_row.append(widget)
+        content.append(season_row)
+
+        filter_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        search_entry = Gtk.SearchEntry()
+        search_entry.set_placeholder_text("Search titles or genres")
+        search_entry.set_hexpand(True)
+        genre_dropdown = Gtk.DropDown.new_from_strings(["All genres"])
+        format_dropdown = Gtk.DropDown.new_from_strings(["All formats", "TV", "TV_SHORT", "MOVIE", "SPECIAL", "OVA", "ONA", "MUSIC"])
+        status_dropdown = Gtk.DropDown.new_from_strings(["All statuses", "RELEASING", "NOT_YET_RELEASED", "FINISHED", "CANCELLED", "HIATUS"])
+        sort_dropdown = Gtk.DropDown.new_from_strings(["Popularity", "Score", "Title", "Start date"])
+        filter_row.append(search_entry)
+        filter_row.append(genre_dropdown)
+        content.append(filter_row)
+        second_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        for widget in (format_dropdown, status_dropdown, Gtk.Label(label="Sort"), sort_dropdown):
+            second_row.append(widget)
+        content.append(second_row)
+
+        status_label = Gtk.Label(label="Choose a season and load its chart.", xalign=0)
+        status_label.add_css_class("dim-label")
+        content.append(status_label)
+        flow = Gtk.FlowBox()
+        flow.set_selection_mode(Gtk.SelectionMode.NONE)
+        flow.set_homogeneous(True)
+        flow.set_min_children_per_line(2)
+        flow.set_max_children_per_line(4)
+        flow.set_row_spacing(10)
+        flow.set_column_spacing(10)
+        flow.set_valign(Gtk.Align.START)
+        scroll = Gtk.ScrolledWindow()
+        scroll.set_min_content_height(390)
+        scroll.set_child(flow)
+        content.append(scroll)
+        dialog.set_extra_child(content)
+        state = {"results": []}
+        generation = SearchGeneration()
+
+        def render_results(*_args):
+            child = flow.get_first_child()
+            while child is not None:
+                following = child.get_next_sibling()
+                flow.remove(child)
+                child = following
+            formats = ["", "TV", "TV_SHORT", "MOVIE", "SPECIAL", "OVA", "ONA", "MUSIC"]
+            statuses = ["", "RELEASING", "NOT_YET_RELEASED", "FINISHED", "CANCELLED", "HIATUS"]
+            sorts = ["popularity", "score", "title", "start_date"]
+            genre_values = [""] + sorted({
+                str(value) for item in state["results"]
+                for value in (item.get("genres") if isinstance(item.get("genres"), list) else [])
+            }, key=str.casefold)
+            gi, fi, si, oi = genre_dropdown.get_selected(), format_dropdown.get_selected(), status_dropdown.get_selected(), sort_dropdown.get_selected()
+            visible = filter_season_results(
+                state["results"], query=search_entry.get_text(),
+                genre=genre_values[gi] if gi < len(genre_values) else "",
+                format_name=formats[fi] if fi < len(formats) else "",
+                status=statuses[si] if si < len(statuses) else "",
+                sort_by=sorts[oi] if oi < len(sorts) else "popularity",
+            )
+            status_label.set_label(f"{len(visible)} of {len(state['results'])} anime")
+            for item in visible:
+                card = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+                card.add_css_class("card")
+                for side in ("top", "bottom", "start", "end"):
+                    getattr(card, "set_margin_" + side)(6)
+                poster = Gtk.Picture()
+                poster.set_size_request(112, 150)
+                poster.set_content_fit(Gtk.ContentFit.COVER)
+                poster.set_can_shrink(True)
+                poster.set_halign(Gtk.Align.CENTER)
+                _load_cover_async(poster, item.get("cover_image"))
+                card.append(poster)
+                title = Gtk.Label(label=item.get("title") or "Untitled anime", wrap=True)
+                title.add_css_class("heading")
+                title.set_justify(Gtk.Justification.CENTER)
+                card.append(title)
+                details = [str(item.get("format") or "Unknown format"), str(item.get("status") or "Unknown status").replace("_", " ").title()]
+                if item.get("episodes"):
+                    details.append(f"{item['episodes']} episodes")
+                if item.get("average_score") is not None:
+                    details.append(f"Score {item['average_score']}/100")
+                if item.get("genres"):
+                    details.append(", ".join(str(value) for value in item["genres"][:3]))
+                detail_label = Gtk.Label(label=" · ".join(details), wrap=True, justify=Gtk.Justification.CENTER)
+                detail_label.add_css_class("dim-label")
+                detail_label.add_css_class("caption")
+                card.append(detail_label)
+                actions = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+                if item.get("site_url"):
+                    actions.append(Gtk.LinkButton.new_with_label(item["site_url"], "AniList"))
+                add_button = Gtk.Button(label="Add to library")
+                add_button.add_css_class("suggested-action")
+
+                def add_result(_button, anime=item, target=add_button):
+                    media_id = anime.get("id")
+                    if isinstance(media_id, bool) or not isinstance(media_id, int) or media_id <= 0:
+                        self.toast_overlay.add_toast(Adw.Toast.new("AniList returned an invalid anime ID."))
+                        return
+                    if any(entry.provider == "anilist" and entry.provider_id == str(media_id) for entry in self.entries):
+                        target.set_label("Already added")
+                        target.set_sensitive(False)
+                        return
+                    try:
+                        entry = AnimeEntry(
+                            title=anime.get("title") or "Untitled anime",
+                            episodes_total=anime.get("episodes"),
+                            status=WatchStatus.PLANNING,
+                            provider="anilist",
+                            provider_id=str(media_id),
+                            cover_image=anime.get("cover_image"),
+                        )
+                    except ValueError as error:
+                        self.toast_overlay.add_toast(Adw.Toast.new(str(error)))
+                        return
+                    self._save_new_entry(entry)
+                    if any(saved.provider == "anilist" and saved.provider_id == str(media_id) for saved in self.entries):
+                        target.set_label("Added")
+                        target.set_sensitive(False)
+
+                add_button.connect("clicked", add_result)
+                if any(entry.provider == "anilist" and entry.provider_id == str(item.get("id")) for entry in self.entries):
+                    add_button.set_label("Already added")
+                    add_button.set_sensitive(False)
+                actions.append(add_button)
+                card.append(actions)
+                flow.append(card)
+
+        def update_genres(results):
+            genres = sorted({
+                str(value) for item in results
+                for value in (item.get("genres") if isinstance(item.get("genres"), list) else [])
+            }, key=str.casefold)
+            genre_dropdown.set_model(Gtk.StringList.new(["All genres", *genres]))
+            genre_dropdown.set_selected(0)
+
+        def apply_results(results, request_id):
+            if not generation.is_current(request_id):
+                return GLib.SOURCE_REMOVE
+            state["results"] = results
+            update_genres(results)
+            status_label.set_label(f"Loaded {len(results)} anime.")
+            load_button.set_sensitive(True)
+            load_button.set_label("Refresh season")
+            render_results()
+            return GLib.SOURCE_REMOVE
+
+        def show_error(message, request_id):
+            if not generation.is_current(request_id):
+                return GLib.SOURCE_REMOVE
+            state["results"] = []
+            render_results()
+            status_label.set_label("Could not load this season. " + message)
+            load_button.set_sensitive(True)
+            load_button.set_label("Retry")
+            return GLib.SOURCE_REMOVE
+
+        def load_season(_button=None):
+            si, yi = season_dropdown.get_selected(), year_dropdown.get_selected()
+            if si >= len(SEASONS) or yi >= len(year_values):
+                return
+            season, year = SEASONS[si], year_values[yi]
+            request_id = generation.begin()
+            load_button.set_sensitive(False)
+            load_button.set_label("Loading…")
+            status_label.set_label(f"Loading {season.title()} {year} from AniList…")
+            def worker():
+                try:
+                    results = AniListClient().search_season(season, year)
+                    GLib.idle_add(apply_results, results, request_id)
+                except (AniListError, ValueError) as error:
+                    GLib.idle_add(show_error, str(error), request_id)
+            threading.Thread(target=worker, daemon=True).start()
+
+        load_button.connect("clicked", load_season)
+        for dropdown in (genre_dropdown, format_dropdown, status_dropdown, sort_dropdown):
+            dropdown.connect("notify::selected", render_results)
+        search_entry.connect("search-changed", render_results)
+        dialog.add_response("close", "Close")
+        dialog.set_default_response("close")
+        dialog.set_close_response("close")
+        dialog.present(self)
+        load_season()
 
     def _show_add_dialog(self, _button):
         dialog = Adw.AlertDialog(

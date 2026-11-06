@@ -42,6 +42,28 @@ query SearchAnime($search: String!, $perPage: Int!) {
 }
 """
 
+SEASON_QUERY = """
+query SeasonAnime($season: MediaSeason!, $seasonYear: Int!, $perPage: Int!) {
+  Page(page: 1, perPage: $perPage) {
+    media(type: ANIME, season: $season, seasonYear: $seasonYear, sort: POPULARITY_DESC) {
+      id
+      title { romaji english native }
+      episodes
+      format
+      status
+      season
+      seasonYear
+      popularity
+      averageScore
+      startDate { year month day }
+      coverImage { medium large }
+      siteUrl
+      genres
+    }
+  }
+}
+"""
+
 
 DETAIL_QUERY = """
 query AnimeDetails($id: Int!) {
@@ -109,7 +131,11 @@ def _normalise_media(media: dict[str, Any]) -> dict[str, Any]:
         "episodes": media.get("episodes"),
         "format": media.get("format"),
         "status": media.get("status"),
+        "season": media.get("season"),
         "season_year": media.get("seasonYear"),
+        "popularity": media.get("popularity"),
+        "average_score": media.get("averageScore"),
+        "start_date": dict(media["startDate"]) if isinstance(media.get("startDate"), dict) else {},
         "description": media.get("description") or "",
         "cover_image": cover.get("large") or cover.get("medium"),
         "site_url": media.get("siteUrl"),
@@ -228,6 +254,36 @@ class AniListClient:
                 return cached[0]
             raise
         self.cache.set("search", cache_key, results)
+        return results
+
+
+    def search_season(self, season: str, year: int, per_page: int = 50, *, refresh: bool = False) -> list[dict[str, Any]]:
+        """Return popular anime for one AniList season, with offline cache fallback."""
+        season = season.upper() if isinstance(season, str) else ""
+        if season not in {"WINTER", "SPRING", "SUMMER", "FALL"}:
+            raise ValueError("season must be WINTER, SPRING, SUMMER, or FALL")
+        if isinstance(year, bool) or not isinstance(year, int) or not 1970 <= year <= 2100:
+            raise ValueError("year must be between 1970 and 2100")
+        if isinstance(per_page, bool) or not isinstance(per_page, int) or not 1 <= per_page <= 50:
+            raise ValueError("per_page must be between 1 and 50")
+        cache_key = f"{season}:{year}:{per_page}"
+        cached = self.cache.get("season", cache_key)
+        if cached is not None and cached[1] and not refresh:
+            return cached[0]
+        try:
+            data = self._request(SEASON_QUERY, {"season": season, "seasonYear": year, "perPage": per_page})
+            page = data.get("Page")
+            if not isinstance(page, dict):
+                raise AniListError("AniList season response did not contain a page")
+            media = page.get("media")
+            if not isinstance(media, list) or not all(isinstance(item, dict) for item in media):
+                raise AniListError("AniList season response contained invalid media results")
+            results = [_normalise_media(item) for item in media]
+        except AniListError:
+            if cached is not None:
+                return cached[0]
+            raise
+        self.cache.set("season", cache_key, results)
         return results
 
     def get_anime(self, media_id: int, *, refresh: bool = False) -> dict[str, Any]:
