@@ -2644,8 +2644,14 @@ class AniyoriWindow(Adw.ApplicationWindow):
                 downloaded = format_size(torrent["downloaded"])
                 total = format_size(torrent["size"])
                 speed = format_size(torrent["download_speed"]) + "/s"
+                progress_bar = Gtk.ProgressBar()
+                progress_bar.set_fraction(torrent["progress"])
+                progress_bar.set_show_text(True)
+                progress_bar.set_text(f"{torrent['progress'] * 100:.1f}%")
+                details.append(progress_bar)
+                upload_speed = format_size(torrent["upload_speed"]) + "/s up"
                 details.append(Gtk.Label(
-                    label=f"{torrent['state']} · {torrent['progress'] * 100:.1f}% · {downloaded} / {total} · {speed} · {format_eta(torrent['eta'])}",
+                    label=f"{torrent['state']} · {downloaded} / {total} · {speed} down · {upload_speed} · {format_eta(torrent['eta'])}",
                     xalign=0,
                 ))
                 row.append(details)
