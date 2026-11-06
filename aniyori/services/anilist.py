@@ -37,6 +37,7 @@ query SearchAnime($search: String!, $perPage: Int!) {
       seasonYear
       coverImage { medium large }
       siteUrl
+      trailer { id site thumbnail }
     }
   }
 }
@@ -60,6 +61,7 @@ query SeasonAnime($season: MediaSeason!, $seasonYear: Int!, $perPage: Int!) {
       siteUrl
       genres
       nextAiringEpisode { airingAt timeUntilAiring episode }
+      trailer { id site thumbnail }
     }
   }
 }
