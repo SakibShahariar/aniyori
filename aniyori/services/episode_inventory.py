@@ -53,6 +53,7 @@ def summarize_episode_inventory(
         lambda: defaultdict(set)
     )
     sizes: dict[str, int] = defaultdict(int)
+    size_identities: dict[str, set[object]] = defaultdict(set)
     sizes_complete: dict[str, bool] = defaultdict(lambda: size_complete)
     paths: dict[str, set[Path]] = defaultdict(set)
 
@@ -68,12 +69,15 @@ def summarize_episode_inventory(
         if key not in entries_by_id or parsed.episode < 1:
             continue
         paths[key].add(item.path)
-        if item.size_bytes is None:
-            sizes_complete[key] = False
-        elif isinstance(item.size_bytes, int) and not isinstance(item.size_bytes, bool) and item.size_bytes >= 0:
-            sizes[key] += item.size_bytes
-        else:
-            sizes_complete[key] = False
+        identity = item.file_identity if item.file_identity is not None else item.path
+        if identity not in size_identities[key]:
+            size_identities[key].add(identity)
+            if item.size_bytes is None:
+                sizes_complete[key] = False
+            elif isinstance(item.size_bytes, int) and not isinstance(item.size_bytes, bool) and item.size_bytes >= 0:
+                sizes[key] += item.size_bytes
+            else:
+                sizes_complete[key] = False
         if parsed.season is None:
             available[key].add(parsed.episode)
         elif parsed.season > 0:
