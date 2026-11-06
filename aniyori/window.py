@@ -4047,6 +4047,29 @@ class AniyoriWindow(Adw.ApplicationWindow):
         download_preferences_button = Gtk.Button(label='Per-anime Download Preferences')
         download_preferences_button.connect('clicked', lambda _button: self._show_anime_download_preferences_dialog(entry))
         content.append(download_preferences_button)
+        trailer_button = Gtk.Button(label="Watch Trailer")
+        trailer_button.set_halign(Gtk.Align.START)
+        trailer_button.set_visible(False)
+        content.append(trailer_button)
+        if entry.provider == "anilist" and entry.provider_id and str(entry.provider_id).isdigit():
+            def apply_trailer(url):
+                if url:
+                    trailer_button.set_visible(True)
+                    trailer_button.connect(
+                        "clicked",
+                        lambda _button, trailer_url=url: self._launch_trailer_async(trailer_url),
+                    )
+                return GLib.SOURCE_REMOVE
+
+            def load_trailer():
+                try:
+                    metadata = AniListClient().get_anime(int(entry.provider_id))
+                    trailer_url = metadata.get("trailer_url")
+                    GLib.idle_add(apply_trailer, trailer_url)
+                except (AniListError, ValueError):
+                    LOGGER.debug("Could not load trailer metadata for %s", entry.title, exc_info=True)
+
+            threading.Thread(target=load_trailer, daemon=True).start()
         dialog.set_extra_child(content)
         dialog.add_response("cancel", "Cancel")
         dialog.add_response("save", "Save changes")
