@@ -25,6 +25,10 @@ A native Linux anime tracker built with Python, GTK 4, PyGObject, and libadwaita
 
 Library entries remain local. The desktop interface still needs a launch and interaction test on a Linux session.
 
+## Season discovery
+
+Open **Season Discovery** from the main menu to browse the current, upcoming, or past AniList seasons. Choose a season and year, then search titles/genres, filter by genre, format, or airing status, and sort by popularity, score, title, or start date. Each result includes available cover art and metadata, an AniList link, and an **Add to library** action. Seasonal catalogue requests run in the background and use the local metadata cache as an offline fallback. This uses AniList's public catalogue; it does not sign in or synchronize an AniList account list.
+
 ## Privacy and local data
 
 Aniyori is currently a local library tracker. The library database and watch history are stored on your

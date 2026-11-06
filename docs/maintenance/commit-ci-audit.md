@@ -24,10 +24,10 @@ Persistent repository-specific record of commit-level CI checks and red-cross in
 
 - Repository: `SakibShahariar/aniyori`
 - Default branch: `main`
-- Checkpoint SHA: `4642fc335559b76a99503dc782a8acacc6fcde63`
+- Checkpoint SHA: `851b137ee55317a224e6bee073fdf1636bda8c62`
 - Initialized: 2026-11-02
 - Baseline: latest branch tip queried through combined commit-status endpoint; empty status list recorded as **unavailable**, not green/red. Older history was not retroactively audited during setup.
-- Next session: review commits after `4642fc335559b76a99503dc782a8acacc6fcde63`; carry forward any red or unresolved entries.
+- Next session: review commits after `851b137ee55317a224e6bee073fdf1636bda8c62`; carry forward any red or unresolved entries.
 
 ## Initial baseline
 
@@ -617,3 +617,20 @@ The first implementation commit passed compilation and the then-current test sui
 | Date | Reviewed range / checkpoint | Result summary |
 |---|---|---|
 | 2026-11-06 | `966f82c4b65102486cc585494d2e86c5f7f83d55` → `4642fc335559b76a99503dc782a8acacc6fcde63` | Reviewed seasonal discovery implementation and test-registration correction; both workflow runs completed green. |
+
+
+## Reviewed range: 2026-11-04 to 2026-11-06 (checkpoint reconciliation)
+
+| Commit SHA | Subject | CI result | Run |
+|---|---|---|---|
+| `833c9900d0a3f9bf59c8ec7fbe6e4cd53e7915c4` | test(backup): verify real watch history round trip (#46) | green | [41791369006](https://github.com/SakibShahariar/aniyori/actions/runs/41791369006) |
+| `792f6028818e4a40785c7ced4b493be976c74c38` | docs(agents): clarify acceptance criteria evidence | green | [41864277025](https://github.com/SakibShahariar/aniyori/actions/runs/41864277025) |
+| `816622bac5bfa6745eebbc0fd1101cee9d9f043e` | feat(discovery): add interactive seasonal anime charts (#36) | green | [42156887488](https://github.com/SakibShahariar/aniyori/actions/runs/42156887488) |
+| `4642fc335559b76a99503dc782a8acacc6fcde63` | test(discovery): register seasonal client tests (#36) | green | [42156934229](https://github.com/SakibShahariar/aniyori/actions/runs/42156934229) |
+| `851b137ee55317a224e6bee073fdf1636bda8c62` | docs(discovery): document seasonal charts and CI audit (#36) | green | [42157071212](https://github.com/SakibShahariar/aniyori/actions/runs/42157071212) |
+
+The backup round-trip and agent-guidance commits were missing from the previous incremental table; their individual Tests runs were checked and are recorded above. The seasonal implementation, test-registration correction, and feature documentation commits also completed the Tests workflow successfully. The first seasonal implementation run did not discover the newly added client tests; this was corrected in the follow-up commit and is documented in the prior review entry.
+
+| Date | Reviewed range / checkpoint | Result summary |
+|---|---|---|
+| 2026-11-06 | `966f82c4b65102486cc585494d2e86c5f7f83d55` → `851b137ee55317a224e6bee073fdf1636bda8c62` | Reconciled the backup test and agent-guidance commits, then verified the seasonal feature, its test-registration correction, and documentation; all observed runs green. |
