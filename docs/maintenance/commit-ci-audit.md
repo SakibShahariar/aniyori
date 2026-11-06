@@ -716,3 +716,15 @@ The trailer documentation and audit commit completed the Tests workflow successf
 
 - Reviewed checkpoint: `f553c8abb19ae397ea6c60624c9d4be4d9d5b2f5`
 - Commits after the previous checkpoint: `f553c8abb19ae397ea6c60624c9d4be4d9d5b2f5`; its Tests run completed green.
+
+
+## Reviewed range: 2026-11-06 (continued)
+
+| Commit SHA | Subject | CI result | Run |
+|---|---|---|---|
+| `71fd58df47f51145900690ee5923a60b4faaad8b` | docs(release): clarify GTK runtime requirements (#81) | green | [42166377099](https://github.com/SakibShahariar/aniyori/actions/runs/42166377099) |
+
+The release dependency review also confirmed that `Gtk.Picture.set_content_fit()` requires GTK 4.8. The README and draft changelog now state both actual API minimums: GTK 4.8+ and libadwaita 1.5+.
+
+- Reviewed checkpoint: `71fd58df47f51145900690ee5923a60b4faaad8b`
+- Commits after the previous checkpoint: `71fd58df47f51145900690ee5923a60b4faaad8b`; Tests completed green.

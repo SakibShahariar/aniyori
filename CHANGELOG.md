@@ -32,7 +32,7 @@ All notable user-facing changes for Aniyori are documented here.
 ### Requirements
 
 - Python 3.10 or newer
-- GTK 4
+- GTK 4.8 or newer
 - PyGObject
 - libadwaita 1.5 or newer
 - Optional qBittorrent API credential storage: `secret-tool` and an unlocked freedesktop Secret Service provider

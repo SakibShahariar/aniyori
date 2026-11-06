@@ -135,7 +135,7 @@ configuration directory alone does not remove the keyring entry.
 ## Requirements
 
 - Python 3.10+
-- GTK 4
+- GTK 4.8 or newer
 - PyGObject
 - libadwaita 1.5 or newer (required for `Adw.AlertDialog`)
 - Optional for qBittorrent WebUI integration: `secret-tool` and an unlocked
