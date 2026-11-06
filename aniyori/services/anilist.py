@@ -68,6 +68,18 @@ query SeasonAnime($season: MediaSeason!, $seasonYear: Int!, $perPage: Int!) {
 """
 
 
+AIRING_QUERY = """
+query AiringSchedules($ids: [Int!]!) {
+  Page(perPage: 50) {
+    media(type: ANIME, id_in: $ids) {
+      id
+      nextAiringEpisode { airingAt episode }
+    }
+  }
+}
+"""
+
+
 DETAIL_QUERY = """
 query AnimeDetails($id: Int!) {
   Media(id: $id, type: ANIME) {
@@ -288,6 +300,69 @@ class AniListClient:
             raise
         self.cache.set("season", cache_key, results)
         return results
+
+    def get_airing_schedules(self, media_ids) -> dict[int, tuple[int, int] | None]:
+        """Fetch next-airing metadata in batches, with cached fallback when offline."""
+        try:
+            ids = list(media_ids)
+        except TypeError:
+            raise ValueError("media_ids must be an iterable of positive integers") from None
+        if any(
+            isinstance(media_id, bool)
+            or not isinstance(media_id, int)
+            or media_id <= 0
+            for media_id in ids
+        ):
+            raise ValueError("media_ids must contain only positive integers")
+        ids = tuple(dict.fromkeys(ids))
+        if not ids:
+            return {}
+
+        schedules = {}
+        for offset in range(0, len(ids), 50):
+            batch = ids[offset:offset + 50]
+            try:
+                data = self._request(AIRING_QUERY, {"ids": list(batch)})
+                page = data.get("Page")
+                media = page.get("media") if isinstance(page, dict) else None
+                if not isinstance(media, list) or not all(
+                    isinstance(item, dict) for item in media
+                ):
+                    raise AniListError("AniList airing response contained invalid media results")
+                seen = set()
+                for item in media:
+                    media_id = item.get("id")
+                    if (
+                        isinstance(media_id, bool)
+                        or not isinstance(media_id, int)
+                        or media_id not in batch
+                        or media_id in seen
+                    ):
+                        raise AniListError("AniList airing response contained an invalid media ID")
+                    seen.add(media_id)
+                    normalized = _normalise_media(item)
+                    episode = normalized.get("next_episode")
+                    airing_at = normalized.get("next_airing_at")
+                    schedules[media_id] = (
+                        (episode, airing_at)
+                        if episode is not None and airing_at is not None
+                        else None
+                    )
+                for media_id in batch:
+                    schedules.setdefault(media_id, None)
+            except AniListError:
+                for media_id in batch:
+                    cached = self.cache.get("details", str(media_id))
+                    value = cached[0] if cached is not None else None
+                    episode = value.get("next_episode") if isinstance(value, dict) else None
+                    airing_at = value.get("next_airing_at") if isinstance(value, dict) else None
+                    schedules[media_id] = (
+                        (episode, airing_at)
+                        if isinstance(episode, int) and not isinstance(episode, bool)
+                        and isinstance(airing_at, int) and not isinstance(airing_at, bool)
+                        else None
+                    )
+        return schedules
 
     def get_anime(self, media_id: int, *, refresh: bool = False) -> dict[str, Any]:
         """Fetch one catalogue entry, falling back to cached metadata offline."""

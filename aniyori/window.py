@@ -3681,19 +3681,17 @@ class AniyoriWindow(Adw.ApplicationWindow):
         def worker():
             client = AniListClient()
             try:
+                schedules = client.get_airing_schedules(
+                    [int(provider_id) for _storage_id, provider_id in candidates]
+                )
                 for storage_id, provider_id in candidates:
-                    try:
-                        metadata = client.get_anime(int(provider_id), refresh=True)
-                        episode = metadata.get("next_episode")
-                        airing_at = metadata.get("next_airing_at")
-                        info = (episode, airing_at) if episode is not None and airing_at is not None else None
-                        GLib.idle_add(self._set_airing_info, storage_id, info)
-                    except (AniListError, ValueError):
-                        LOGGER.debug(
-                            "Could not refresh airing schedule for AniList ID %s",
-                            provider_id,
-                            exc_info=True,
-                        )
+                    GLib.idle_add(
+                        self._set_airing_info,
+                        storage_id,
+                        schedules.get(int(provider_id)),
+                    )
+            except (AniListError, ValueError):
+                LOGGER.debug("Could not refresh AniList airing schedules", exc_info=True)
             finally:
                 GLib.idle_add(self._finish_airing_refresh)
 

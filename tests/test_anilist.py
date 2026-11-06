@@ -9,7 +9,7 @@ from unittest.mock import patch
 from urllib.error import HTTPError, URLError
 
 from aniyori.services.anilist import (
-    MAX_ANILIST_RESPONSE_BYTES, SEARCH_QUERY, SEASON_QUERY, AniListClient, AniListError, _normalise_media,
+    MAX_ANILIST_RESPONSE_BYTES, AIRING_QUERY, SEARCH_QUERY, SEASON_QUERY, AniListClient, AniListError, _normalise_media,
 )
 from aniyori.services.metadata_cache import MetadataCache
 
@@ -270,6 +270,48 @@ class AniListClientTests(unittest.TestCase):
         self.client.cache.set("details", "21", {"id": 21})
         self.client.clear_cache()
         self.assertIsNone(self.client.cache.get("details", "21"))
+
+    def test_airing_schedules_batch_ids_and_normalise_next_episode(self):
+        payload = {
+            "Page": {
+                "media": [
+                    {"id": 21, "nextAiringEpisode": {"airingAt": 1_800_000_000, "episode": 13}},
+                    {"id": 22, "nextAiringEpisode": None},
+                ]
+            }
+        }
+        with patch.object(self.client, "_request", return_value=payload) as request:
+            result = self.client.get_airing_schedules([21, 22, 21])
+        request.assert_called_once_with(AIRING_QUERY, {"ids": [21, 22]})
+        self.assertEqual(result, {21: (13, 1_800_000_000), 22: None})
+
+    def test_airing_schedules_split_large_libraries_into_batches(self):
+        ids = list(range(1, 102))
+        with patch.object(
+            self.client, "_request", return_value={"Page": {"media": []}}
+        ) as request:
+            result = self.client.get_airing_schedules(ids)
+        self.assertEqual(request.call_count, 3)
+        self.assertEqual(len(result), 101)
+        self.assertTrue(all(value is None for value in result.values()))
+
+    def test_airing_schedules_use_cached_details_when_offline(self):
+        self.client.cache.set(
+            "details", "21",
+            {"id": 21, "next_episode": 8, "next_airing_at": 1_800_000_000},
+        )
+        with patch.object(self.client, "_request", side_effect=AniListError("offline")):
+            result = self.client.get_airing_schedules([21, 22])
+        self.assertEqual(result, {21: (8, 1_800_000_000), 22: None})
+
+    def test_airing_schedules_reject_invalid_ids_and_malformed_response(self):
+        for values in ([True], [0], ["21"], None):
+            with self.subTest(values=values):
+                with self.assertRaises(ValueError):
+                    self.client.get_airing_schedules(values)
+        with patch.object(self.client, "_request", return_value={"Page": {"media": {}}}):
+            with self.assertRaises(AniListError):
+                self.client.get_airing_schedules([21])
 
     def test_detail_uses_cache_and_refreshes_when_requested(self):
         cached = {"id": 21, "title": "Cached title"}
