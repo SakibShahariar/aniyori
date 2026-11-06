@@ -728,3 +728,16 @@ The release dependency review also confirmed that `Gtk.Picture.set_content_fit()
 
 - Reviewed checkpoint: `71fd58df47f51145900690ee5923a60b4faaad8b`
 - Commits after the previous checkpoint: `71fd58df47f51145900690ee5923a60b4faaad8b`; Tests completed green.
+
+
+## Reviewed range: 2026-11-06 (continued)
+
+| Commit SHA | Subject | CI result | Run |
+|---|---|---|---|
+| `3afedcb8dab683ec92f5c85982ca144e831b8c71` | docs(release): specify GTK minimum version (#81) | green | [42166540463](https://github.com/SakibShahariar/aniyori/actions/runs/42166540463) |
+| `b78993bed0db17b4aa92bc2250003e03795dca6d` | fix(library): reset list and grid layouts independently (#65) | green | [42166642882](https://github.com/SakibShahariar/aniyori/actions/runs/42166642882) |
+
+The GTK minimum-version documentation commit and the independent per-view layout-reset correction both completed source compilation and the full unit-test suite successfully. Issue #65 remains open only for live visual and small-window interaction validation.
+
+- Reviewed checkpoint: `b78993bed0db17b4aa92bc2250003e03795dca6d`
+- Commits after the previous checkpoint: `3afedcb8dab683ec92f5c85982ca144e831b8c71` and `b78993bed0db17b4aa92bc2250003e03795dca6d`; both Tests runs completed green.

@@ -33,7 +33,7 @@ Library entries remain local. The desktop interface still needs a launch and int
 
 ## Custom library layout
 
-Choose **Customize Library Layout** from the main menu to configure list and grid views independently. Show or hide status, progress, source, and airing metadata; reorder those fields; and adjust list-column widths or grid-card width. The title remains visible at the start of each item. **Reset Defaults** restores both views without changing the library data. Preferences are saved in `~/.config/aniyori/library-layout.json`.
+Choose **Customize Library Layout** from the main menu to configure list and grid views independently. Show or hide status, progress, source, and airing metadata; reorder those fields; and adjust list-column widths or grid-card width. The title remains visible at the start of each item. **Reset List Defaults** and **Reset Grid Defaults** restore only the selected view without changing the other view or the library data. Preferences are saved in `~/.config/aniyori/library-layout.json`.
 
 ## Season discovery
 
