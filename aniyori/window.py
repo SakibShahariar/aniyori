@@ -1020,6 +1020,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
         scroll.set_child(sections)
         content.append(scroll)
         controls = {}
+        reset_buttons = {}
         for view, heading in (("list", "List view"), ("grid", "Grid view")):
             section = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
             section_title = Gtk.Label(label=heading, xalign=0)
@@ -1058,12 +1059,14 @@ class AniyoriWindow(Adw.ApplicationWindow):
                 width_row.append(card_width)
                 controls[view]["card_width"] = card_width
                 section.append(width_row)
+            reset_button = Gtk.Button(label=f"Reset {view.title()} Defaults")
+            reset_button.set_halign(Gtk.Align.START)
+            reset_buttons[view] = reset_button
+            section.append(reset_button)
             sections.append(section)
         actions = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-        reset_button = Gtk.Button(label="Reset Defaults")
         save_button = Gtk.Button(label="Save Layout")
         save_button.add_css_class("suggested-action")
-        actions.append(reset_button)
         actions.append(save_button)
         content.append(actions)
         dialog.set_extra_child(content)
@@ -1095,19 +1098,20 @@ class AniyoriWindow(Adw.ApplicationWindow):
             self._render_library()
             self.toast_overlay.add_toast(Adw.Toast.new("Library layout saved."))
 
-        def reset_layout(_button):
+        def reset_layout(view):
             try:
-                self.library_layout_store.reset("list")
-                self.library_layout_store.reset("grid")
+                self.library_layout_store.reset(view)
                 self.library_layouts = self.library_layout_store.load_all()
             except (OSError, LibraryLayoutError) as error:
-                self.toast_overlay.add_toast(Adw.Toast.new(f"Could not reset library layout: {error}"))
+                self.toast_overlay.add_toast(Adw.Toast.new(f"Could not reset {view} layout: {error}"))
                 return
             self._render_library()
-            self.toast_overlay.add_toast(Adw.Toast.new("Library layout restored to defaults."))
+            dialog.close()
+            self.toast_overlay.add_toast(Adw.Toast.new(f"{view.title()} layout restored to defaults."))
 
         save_button.connect("clicked", save_layout)
-        reset_button.connect("clicked", reset_layout)
+        for view, reset_button in reset_buttons.items():
+            reset_button.connect("clicked", lambda _button, current_view=view: reset_layout(current_view))
 
     def _show_share_format_dialog(self):
         try:
