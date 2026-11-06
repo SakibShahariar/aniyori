@@ -355,6 +355,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
         self._release_refresh_running = False
         self.search_history_store = SearchHistoryStore()
         self._scan_cancel_event = None
+        self._scan_generation = 0
         self.current_filter = "all"
         self.library_sort_mode = "title"
         self._undo_entry: AnimeEntry | None = None
@@ -1307,7 +1308,14 @@ class AniyoriWindow(Adw.ApplicationWindow):
                 "Add Folder",
                 "Cancel",
             )
-            chooser.connect("response", self._on_scan_folder_selected, refresh_folders)
+            def folder_selected(current, response):
+                if response == Gtk.ResponseType.ACCEPT:
+                    self._scan_generation += 1
+                    if self._scan_cancel_event is not None:
+                        self._scan_cancel_event.set()
+                self._on_scan_folder_selected(current, response, refresh_folders)
+
+            chooser.connect("response", folder_selected)
             chooser.show()
 
         def remove_folder(_button):
@@ -1322,7 +1330,11 @@ class AniyoriWindow(Adw.ApplicationWindow):
                 index = selected.get_index()
                 if index < 0 or index >= len(locations):
                     return
-                self.scan_location_store.remove_location(locations[index])
+                removed = self.scan_location_store.remove_location(locations[index])
+                if removed:
+                    self._scan_generation += 1
+                    if self._scan_cancel_event is not None:
+                        self._scan_cancel_event.set()
             except (OSError, ValueError) as error:
                 self.toast_overlay.add_toast(
                     Adw.Toast.new(f"Could not remove scan folder: {error}")
@@ -1491,7 +1503,9 @@ class AniyoriWindow(Adw.ApplicationWindow):
 
         event = threading.Event()
         self._scan_cancel_event = event
+        generation = self._scan_generation
         scan_button.set_sensitive(False)
+        scan_button.set_label("Scanning…")
         cancel_button.set_sensitive(True)
         entries = tuple(self.entries)
         candidates = [
@@ -1506,11 +1520,25 @@ class AniyoriWindow(Adw.ApplicationWindow):
             result = None
             error = None
             try:
+                watched_episodes = {}
+                for entry in entries:
+                    if entry.provider != "anilist" or not entry.provider_id:
+                        continue
+                    progress = (
+                        self.storage.list_episode_progress(entry.storage_id)
+                        if entry.storage_id is not None else {}
+                    )
+                    watched_episodes[str(entry.provider_id)] = (
+                        {number for number, watched in progress.items() if watched}
+                        if progress else set(range(1, entry.episodes_watched + 1))
+                    )
                 result = scan_configured_library(
                     self.scan_location_store,
                     candidates,
                     entries,
                     exclusions=exclusions,
+                    watched_episodes=watched_episodes,
+                    configured_locations=locations,
                     is_cancelled=event.is_set,
                 )
             except Exception as caught:
@@ -1523,6 +1551,8 @@ class AniyoriWindow(Adw.ApplicationWindow):
                 event,
                 scan_button,
                 cancel_button,
+                generation,
+                entries,
             )
 
         threading.Thread(target=worker, daemon=True).start()
@@ -1533,17 +1563,31 @@ class AniyoriWindow(Adw.ApplicationWindow):
             self.toast_overlay.add_toast(Adw.Toast.new("Cancelling local scan…"))
 
     def _finish_configured_library_scan(
-        self, result, error, event, scan_button, cancel_button
+        self, result, error, event, scan_button, cancel_button, generation, entries
     ):
         if self._scan_cancel_event is event:
             self._scan_cancel_event = None
         scan_button.set_sensitive(True)
+        scan_button.set_label("Scan Now")
         cancel_button.set_sensitive(False)
+        if generation != self._scan_generation or tuple(self.entries) != entries:
+            self.toast_overlay.add_toast(
+                Adw.Toast.new("Scan results discarded because folders or the library changed. Scan again.")
+            )
+            return GLib.SOURCE_REMOVE
         if error is not None:
             self.toast_overlay.add_toast(Adw.Toast.new(f"Local scan failed: {error}"))
             return GLib.SOURCE_REMOVE
         if result is None:
             return GLib.SOURCE_REMOVE
+
+        def format_size(size_bytes):
+            value = float(size_bytes)
+            for unit in ("B", "KiB", "MiB", "GiB", "TiB"):
+                if value < 1024 or unit == "TiB":
+                    return f"{value:.1f} {unit}" if unit != "B" else f"{int(value)} B"
+                value /= 1024
+            return f"{value:.1f} TiB"
 
         lines = [
             f"Scanned {len(result.matches)} video file(s) across "
@@ -1551,22 +1595,68 @@ class AniyoriWindow(Adw.ApplicationWindow):
         ]
         if event.is_set():
             lines.append("The scan was cancelled; the results below may be partial.")
+        if result.size_complete:
+            lines.append(
+                f"Total video size: {format_size(result.total_size_bytes)} "
+                "(distinct paths; hard links counted per path)."
+            )
+        elif result.total_size_bytes:
+            lines.append(
+                f"Known video size: at least {format_size(result.total_size_bytes)} "
+                "(partial scan; some files or roots were unavailable)."
+            )
+        else:
+            lines.append("Total video size is unavailable because the scan was incomplete.")
+
+        if result.unavailable_locations:
+            lines.append("\nUnavailable or partially unreadable scan roots:")
+            lines.extend(str(path) for path in result.unavailable_locations)
+            lines.append(
+                "Missing-episode and next-unwatched results are withheld where an "
+                "unavailable root could hide files."
+            )
         if not result.inventory:
             lines.append("No AniList-backed library entries are available to summarize.")
         excluded = [item for item in result.matches if item.excluded_reason]
         if excluded:
             lines.append(f"\nExcluded files ({len(excluded)}):")
             lines.extend(f"{item.path.name}: {item.excluded_reason}" for item in excluded)
+
+        folder_actions = Gtk.Box(
+            orientation=Gtk.Orientation.VERTICAL, spacing=6
+        )
         for item in result.inventory:
             available = ", ".join(map(str, item.available_episodes)) or "none"
-            missing = ", ".join(map(str, item.missing_episodes)) or "none"
+            if item.missing_complete:
+                missing = ", ".join(map(str, item.missing_episodes)) or "none"
+            else:
+                missing = "unknown (incomplete scan or episode numbering/total)"
             next_episode = (
                 str(item.next_episode) if item.next_episode is not None else "unknown"
             )
+            next_unwatched = (
+                str(item.next_unwatched_episode)
+                if item.next_unwatched_episode is not None
+                else "none known"
+            )
+            if item.size_complete:
+                size = format_size(item.size_bytes)
+            elif item.size_bytes:
+                size = f"at least {format_size(item.size_bytes)} (partial)"
+            else:
+                size = "unavailable"
+            source = (
+                str(item.source_paths[0])
+                if item.source_paths else "no confidently matched file path"
+            )
+            if len(item.source_paths) > 1:
+                source += f" (+{len(item.source_paths) - 1} more)"
             lines.append(
                 f"\n{item.entry.title}\n"
                 f"Available: {available}\nMissing: {missing}\n"
-                f"Next episode: {next_episode}"
+                f"Next missing episode: {next_episode}\n"
+                f"Next available unwatched: {next_unwatched}\n"
+                f"Local size: {size}\nSource: {source}"
             )
             if item.seasoned_episodes:
                 seasons = "; ".join(
@@ -1574,15 +1664,42 @@ class AniyoriWindow(Adw.ApplicationWindow):
                     for season, episodes in item.seasoned_episodes
                 )
                 lines.append(f"Season-tagged files: {seasons}")
+            if item.source_paths:
+                button = Gtk.Button(label=f"Open {item.entry.title} folder")
+                button.set_halign(Gtk.Align.START)
+                button.connect(
+                    "clicked",
+                    lambda _button, folder=item.source_paths[0].parent:
+                        self._open_local_folder(folder),
+                )
+                folder_actions.append(button)
 
         dialog = Adw.AlertDialog(
             heading="Local Scan Results",
             body="\n".join(lines),
         )
+        if folder_actions.get_first_child() is not None:
+            folder_scroll = Gtk.ScrolledWindow()
+            folder_scroll.set_min_content_height(80)
+            folder_scroll.set_max_content_height(180)
+            folder_scroll.set_child(folder_actions)
+            dialog.set_extra_child(folder_scroll)
         dialog.add_response("close", "Close")
         dialog.set_default_response("close")
         dialog.present(self)
         return GLib.SOURCE_REMOVE
+
+    def _open_local_folder(self, folder):
+        try:
+            resolved = Path(folder).resolve(strict=True)
+            if not resolved.is_dir():
+                raise ValueError("The source folder is no longer available.")
+            if not Gio.AppInfo.launch_default_for_uri(resolved.as_uri(), None):
+                raise OSError("No file manager is available for this folder.")
+        except (OSError, RuntimeError, ValueError, GLib.Error) as error:
+            self.toast_overlay.add_toast(
+                Adw.Toast.new(f"Could not open local folder: {error}")
+            )
 
     def _show_backup_dialog(self):
         chooser = Gtk.FileChooserNative.new(
