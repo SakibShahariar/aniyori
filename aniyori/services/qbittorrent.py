@@ -364,11 +364,23 @@ class QBittorrentClient:
             fields["deleteFiles"] = "true" if delete_files else "false"
         self._login()
         try:
-            self._request(
-                f"/api/v2/torrents/{action}",
-                urlencode(fields).encode("utf-8"),
-                content_type="application/x-www-form-urlencoded",
-            )
+            payload = urlencode(fields).encode("utf-8")
+            endpoint = {"pause": "stop", "resume": "start", "delete": "delete"}[action]
+            try:
+                self._request(
+                    f"/api/v2/torrents/{endpoint}",
+                    payload,
+                    content_type="application/x-www-form-urlencoded",
+                )
+            except QBittorrentError as error:
+                legacy_endpoint = {"pause": "pause", "resume": "resume"}.get(action)
+                if legacy_endpoint is None or "HTTP 404" not in str(error):
+                    raise
+                self._request(
+                    f"/api/v2/torrents/{legacy_endpoint}",
+                    payload,
+                    content_type="application/x-www-form-urlencoded",
+                )
         finally:
             try:
                 self._request("/api/v2/auth/logout", b"")
