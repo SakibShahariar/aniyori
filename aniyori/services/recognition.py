@@ -21,6 +21,7 @@ class LocalVideoMatch:
     result: ReleaseMatchDecision
     excluded_reason: str | None = None
     size_bytes: int | None = None
+    file_identity: tuple[int, int] | Path | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -73,6 +74,7 @@ def recognize_local_videos_detailed(
                 result=result,
                 excluded_reason=reason,
                 size_bytes=scanned_file.size_bytes,
+                file_identity=scanned_file.file_identity,
             ))
             continue
         result = match_release_filename(
@@ -91,12 +93,11 @@ def recognize_local_videos_detailed(
             result=result,
             excluded_reason=reason,
             size_bytes=scanned_file.size_bytes,
+            file_identity=scanned_file.file_identity,
         ))
 
     matches = tuple(results)
-    total_size = sum(
-        item.size_bytes for item in scan.files if item.size_bytes is not None
-    )
+    total_size = scan.total_size_bytes
     return LocalVideoRecognitionResult(
         matches=matches,
         unavailable_roots=scan.unavailable_roots,
