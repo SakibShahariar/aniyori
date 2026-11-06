@@ -21,9 +21,9 @@ See the [live desktop validation checklist](docs/qa/live-desktop-checklist.md) f
 
 ## Current features
 
-- **Library:** manual and AniList-backed entries, aggregate and per-episode watched tracking, status filters, list/grid views, bulk status/progress/delete actions, library statistics, and monthly/yearly watch-history insights.
+- **Library:** manual and AniList-backed entries, aggregate and per-episode watched tracking, status filters, named list/grid view presets, bulk status/progress/delete actions, library statistics, and monthly/yearly watch-history insights.
 - **AniList:** cached catalogue search, seasonal discovery charts for current/upcoming/past seasons, title/genre search, format/status filters, popularity/score/title/date sorting, AniList recent and saved search queries, next-episode countdowns, batched background airing refresh (up to 50 AniList IDs per request), and offline metadata fallback, and validated trailer actions in catalogue details and seasonal cards.
-- **Local media:** configurable folders, recursive video discovery, filename recognition, available/missing/next episode summaries, and opt-in mpv/VLC playback progress detection.
+- **Local media:** configurable folders, recursive video discovery, filename recognition, availability and storage-size summaries, next available unwatched episodes, offline-root warnings, and opt-in mpv/VLC playback progress detection.
 - **Preferences:** saved share-format templates with live preview, release-attribute preferences, explainable release-quality scoring, and ordered smart release rules.
 - **Release discovery:** Nyaa.si search and configurable RSS/Atom feeds, release metadata, library matching, filtering, sorting, and rule-based selection.
 - **Download handoff:** validated magnet links through the desktop's default torrent application or explicit qBittorrent WebUI submission.
