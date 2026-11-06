@@ -109,6 +109,8 @@ def summarize_episode_inventory(
         else:
             if watched_episodes is not None and key in watched_episodes:
                 raw_watched = watched_episodes[key]
+            elif watched_episodes is not None and entry.provider_id in watched_episodes:
+                raw_watched = watched_episodes[entry.provider_id]
             else:
                 raw_watched = range(1, entry.episodes_watched + 1)
             watched = {
