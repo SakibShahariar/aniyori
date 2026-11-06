@@ -2655,13 +2655,23 @@ class AniyoriWindow(Adw.ApplicationWindow):
                     xalign=0,
                 ))
                 row.append(details)
-                paused = "paused" in torrent["state"].casefold() or "stopped" in torrent["state"].casefold()
-                toggle = Gtk.Button(label="Resume" if paused else "Pause")
-                toggle.connect(
-                    "clicked",
-                    lambda _button, info_hash=torrent["hash"], action="resume" if paused else "pause": run_action(action, info_hash),
-                )
-                row.append(toggle)
+                state = torrent["state"].casefold()
+                if state in {"error", "missingfiles"}:
+                    recheck = Gtk.Button(label="Recheck")
+                    recheck.set_tooltip_text("Verify the existing downloaded data")
+                    recheck.connect(
+                        "clicked",
+                        lambda _button, info_hash=torrent["hash"]: run_action("recheck", info_hash),
+                    )
+                    row.append(recheck)
+                else:
+                    paused = "paused" in state or "stopped" in state
+                    toggle = Gtk.Button(label="Resume" if paused else "Pause")
+                    toggle.connect(
+                        "clicked",
+                        lambda _button, info_hash=torrent["hash"], action="resume" if paused else "pause": run_action(action, info_hash),
+                    )
+                    row.append(toggle)
                 remove = Gtk.Button(label="Remove")
                 remove.set_tooltip_text("Remove from qBittorrent without deleting downloaded files")
                 remove.connect("clicked", lambda _button, item=torrent: confirm_remove(item))
@@ -2692,7 +2702,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
             if busy[0]:
                 return
             busy[0] = True
-            status.set_label({"pause": "Pausing torrent…", "resume": "Resuming torrent…", "remove": "Removing torrent…"}[action])
+            status.set_label({"pause": "Pausing torrent…", "resume": "Resuming torrent…", "recheck": "Rechecking torrent data…", "remove": "Removing torrent…"}[action])
 
             def worker():
                 try:
@@ -2704,6 +2714,8 @@ class AniyoriWindow(Adw.ApplicationWindow):
                         client.pause_torrent(info_hash)
                     elif action == "resume":
                         client.resume_torrent(info_hash)
+                    elif action == "recheck":
+                        client.recheck_torrent(info_hash)
                     elif action == "remove":
                         client.remove_torrent(info_hash, delete_files=False)
                     GLib.idle_add(refresh_after_action)
