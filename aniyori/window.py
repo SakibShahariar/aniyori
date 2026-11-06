@@ -2977,7 +2977,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
             heading="Library View Presets",
             body=(
                 "Save the current filter, sort order, list/grid mode, and both layouts. "
-                "Search text and selected anime are never included."
+                "Search text, selected anime, and saved-search history are never included."
             ),
         )
         content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
