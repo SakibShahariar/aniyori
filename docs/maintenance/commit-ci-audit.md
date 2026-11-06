@@ -776,3 +776,15 @@ Both commits completed the repository Tests workflow successfully. The reviewed 
 | 81b821c5be0586cb710085d5deb5eb5785f8ea39 | feat(playback): connect mpv and VLC MPRIS tracking (#32) | green | [42173842483](https://github.com/SakibShahariar/aniyori/actions/runs/42173842483) |
 
 The airing-reminder change, MPRIS helper and safeguards, and mpv/VLC GTK integration all completed the Tests workflow successfully. These checks cover compilation and unit tests; live mpv/VLC playback remains a manual desktop validation item under #32.
+
+
+## Reviewed range: 2026-11-06 (continued)
+
+| Commit SHA | Subject | CI result | Run |
+|---|---|---|---|
+| 2412b85e4a3730210fe36d60823e504491683054 | docs(playback): document opt-in player tracking and CI (#32) | green | [42174059051](https://github.com/SakibShahariar/aniyori/actions/runs/42174059051) |
+| ccf526e01efc29c36d858609a6dcf5aa76475080 | perf(airing): batch AniList schedule refreshes (#31) | red — malformed-response test exposed that the offline fallback swallowed a data-validation error | [42174409355](https://github.com/SakibShahariar/aniyori/actions/runs/42174409355) |
+| da53f0df294ae06fcadd56cd2a992b332a20cf8b | fix(airing): preserve malformed response errors (#31) | green — fallback now handles transport/API errors only; malformed payloads remain explicit errors | [42174549934](https://github.com/SakibShahariar/aniyori/actions/runs/42174549934) |
+
+The initial batching commit exposed an error-path regression: malformed responses were treated like offline transport failures. The corrective commit separated the request failure fallback from response validation. The complete Tests workflow passed on the correction.
+- Reviewed checkpoint: da53f0df294ae06fcadd56cd2a992b332a20cf8b
