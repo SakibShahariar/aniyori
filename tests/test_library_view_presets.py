@@ -1,0 +1,192 @@
+"""Tests for named library-view preset validation and persistence."""
+
+import json
+import tempfile
+import unittest
+from pathlib import Path
+
+from aniyori.services.library_layout import DEFAULT_LAYOUTS
+from aniyori.services.library_view_presets import (
+    PRESET_FORMAT,
+    PRESET_VERSION,
+    LibraryViewPresetError,
+    LibraryViewPresetStore,
+)
+
+
+def sample_settings():
+    return {
+        "filter": "watching",
+        "sort": "recently_updated",
+        "view": "grid",
+        "layouts": {
+            view: {
+                "order": list(layout["order"]),
+                "visible": list(layout["visible"]),
+                "widths": dict(layout["widths"]),
+            }
+            for view, layout in DEFAULT_LAYOUTS.items()
+        },
+    }
+
+
+class LibraryViewPresetStoreTests(unittest.TestCase):
+    def test_missing_file_returns_empty_state(self):
+        with tempfile.TemporaryDirectory() as directory:
+            store = LibraryViewPresetStore(Path(directory) / "presets.json")
+            self.assertEqual(store.load(), {"presets": [], "default": None})
+
+    def test_save_and_load_persists_supported_view_settings(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "presets.json"
+            store = LibraryViewPresetStore(path)
+            store.save_preset("Currently Watching", sample_settings())
+
+            loaded = store.load()
+            self.assertEqual(store.list_presets(), ("Currently Watching",))
+            self.assertEqual(
+                store.get_preset("currently watching"), sample_settings()
+            )
+            self.assertEqual(path.stat().st_mode & 0o777, 0o600)
+            self.assertEqual(loaded["default"], None)
+
+    def test_duplicate_names_are_case_insensitive(self):
+        with tempfile.TemporaryDirectory() as directory:
+            store = LibraryViewPresetStore(Path(directory) / "presets.json")
+            store.save_preset("Favorites", sample_settings())
+
+            with self.assertRaisesRegex(LibraryViewPresetError, "already exists"):
+                store.save_preset(" favorites ", sample_settings())
+
+    def test_rename_updates_default_and_duplicate_copies_settings(self):
+        with tempfile.TemporaryDirectory() as directory:
+            store = LibraryViewPresetStore(Path(directory) / "presets.json")
+            store.save_preset("Watching", sample_settings())
+            store.set_default("Watching")
+            store.rename_preset("Watching", "In Progress")
+            store.duplicate_preset("In Progress", "In Progress Copy")
+
+            state = store.load()
+            self.assertEqual(state["default"], "In Progress")
+            self.assertEqual(
+                store.get_preset("In Progress Copy"), sample_settings()
+            )
+            self.assertEqual(
+                store.list_presets(), ("In Progress", "In Progress Copy")
+            )
+
+    def test_delete_default_clears_default_without_touching_other_presets(self):
+        with tempfile.TemporaryDirectory() as directory:
+            store = LibraryViewPresetStore(Path(directory) / "presets.json")
+            store.save_preset("Watching", sample_settings())
+            store.save_preset("Everything", {
+                **sample_settings(), "filter": "all", "sort": "title"
+            })
+            store.set_default("Watching")
+
+            self.assertTrue(store.delete_preset("Watching"))
+            self.assertFalse(store.delete_preset("Watching"))
+            self.assertEqual(store.load()["default"], None)
+            self.assertEqual(store.list_presets(), ("Everything",))
+
+    def test_rejects_invalid_names_and_unsupported_settings(self):
+        with tempfile.TemporaryDirectory() as directory:
+            store = LibraryViewPresetStore(Path(directory) / "presets.json")
+            for name in ("", "   ", "x" * 49, "bad/name", "emoji 🚀"):
+                with self.subTest(name=name), self.assertRaises(LibraryViewPresetError):
+                    store.save_preset(name, sample_settings())
+
+            invalid = sample_settings()
+            invalid["filter"] = "genre"
+            with self.assertRaises(LibraryViewPresetError):
+                store.save_preset("Invalid Filter", invalid)
+            invalid = sample_settings()
+            invalid["sort"] = "random"
+            with self.assertRaises(LibraryViewPresetError):
+                store.save_preset("Invalid Sort", invalid)
+            invalid = sample_settings()
+            invalid["view"] = "kanban"
+            with self.assertRaises(LibraryViewPresetError):
+                store.save_preset("Invalid View", invalid)
+            invalid = sample_settings()
+            invalid["layouts"]["list"]["visible"] = ["status"]
+            with self.assertRaises(LibraryViewPresetError):
+                store.save_preset("Invalid Layout", invalid)
+
+    def test_unknown_default_is_rejected_and_can_be_cleared(self):
+        with tempfile.TemporaryDirectory() as directory:
+            store = LibraryViewPresetStore(Path(directory) / "presets.json")
+            with self.assertRaises(LibraryViewPresetError):
+                store.set_default("Missing")
+            store.save_preset("Watching", sample_settings())
+            self.assertEqual(store.set_default("Watching"), "Watching")
+            self.assertIsNone(store.set_default(None))
+
+    def test_legacy_unknown_options_degrade_to_supported_defaults(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "presets.json"
+            path.write_text(json.dumps({
+                "format": PRESET_FORMAT,
+                "version": PRESET_VERSION,
+                "default": "Legacy",
+                "presets": [{
+                    "name": "Legacy",
+                    "settings": {
+                        "filter": ["unsupported"],
+                        "sort": "future_sort",
+                        "view": "kanban",
+                        "layouts": {},
+                    },
+                }],
+            }), encoding="utf-8")
+
+            state = LibraryViewPresetStore(path).load()
+
+            self.assertEqual(state["default"], "Legacy")
+            self.assertEqual(
+                state["presets"][0]["settings"],
+                {
+                    "filter": "all",
+                    "sort": "title",
+                    "view": "list",
+                    "layouts": DEFAULT_LAYOUTS,
+                },
+            )
+
+    def test_duplicate_or_invalid_disk_entries_are_skipped(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "presets.json"
+            valid = {"name": "Watching", "settings": sample_settings()}
+            path.write_text(json.dumps({
+                "format": PRESET_FORMAT,
+                "version": PRESET_VERSION,
+                "default": "WATCHING",
+                "presets": [
+                    valid,
+                    {"name": "watching", "settings": sample_settings()},
+                    {"name": "bad/name", "settings": sample_settings()},
+                ],
+            }), encoding="utf-8")
+
+            state = LibraryViewPresetStore(path).load()
+
+            self.assertEqual(len(state["presets"]), 1)
+            self.assertEqual(state["default"], "Watching")
+
+    def test_corrupt_or_unsupported_store_is_reported_without_overwriting_it(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "presets.json"
+            path.write_text("{", encoding="utf-8")
+            store = LibraryViewPresetStore(path)
+
+            with self.assertRaisesRegex(LibraryViewPresetError, "unreadable"):
+                store.load()
+            self.assertEqual(path.read_text(encoding="utf-8"), "{")
+
+            path.write_text(json.dumps({"format": "wrong", "version": 1}), encoding="utf-8")
+            with self.assertRaisesRegex(LibraryViewPresetError, "unsupported"):
+                store.load()
+
+
+if __name__ == "__main__":
+    unittest.main()
