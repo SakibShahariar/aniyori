@@ -27,7 +27,7 @@ Library entries remain local. The desktop interface still needs a launch and int
 
 ## Season discovery
 
-Open **Season Discovery** from the main menu to browse the current, upcoming, or past AniList seasons. Choose a season and year, then search titles/genres, filter by genre, format, or airing status, and sort by popularity, score, title, or start date. Each result includes available cover art and metadata, an AniList link, and an **Add to library** action. Seasonal catalogue requests run in the background and use the local metadata cache as an offline fallback. This uses AniList's public catalogue; it does not sign in or synchronize an AniList account list.
+Open **Season Discovery** from the main menu to browse the current, upcoming, or past AniList seasons. Choose a season and year, then search titles/genres, filter by genre, format, or airing status, and sort by popularity, score, title, or next airing date. Each result includes available cover art and metadata, an AniList link, and an **Add to library** action. Seasonal catalogue requests run in the background and use the local metadata cache as an offline fallback. The Refresh season action bypasses a fresh cache entry. This uses AniList's public catalogue; it does not sign in or synchronize an AniList account list.
 
 ## Privacy and local data
 

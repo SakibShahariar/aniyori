@@ -24,10 +24,10 @@ Persistent repository-specific record of commit-level CI checks and red-cross in
 
 - Repository: `SakibShahariar/aniyori`
 - Default branch: `main`
-- Checkpoint SHA: `851b137ee55317a224e6bee073fdf1636bda8c62`
+- Checkpoint SHA: `e661a006d27d10037d25b27236aefb48165bf3a3`
 - Initialized: 2026-11-02
 - Baseline: latest branch tip queried through combined commit-status endpoint; empty status list recorded as **unavailable**, not green/red. Older history was not retroactively audited during setup.
-- Next session: review commits after `851b137ee55317a224e6bee073fdf1636bda8c62`; carry forward any red or unresolved entries.
+- Next session: review commits after `e661a006d27d10037d25b27236aefb48165bf3a3`; carry forward any red or unresolved entries.
 
 ## Initial baseline
 
@@ -634,3 +634,17 @@ The backup round-trip and agent-guidance commits were missing from the previous 
 | Date | Reviewed range / checkpoint | Result summary |
 |---|---|---|
 | 2026-11-06 | `966f82c4b65102486cc585494d2e86c5f7f83d55` → `851b137ee55317a224e6bee073fdf1636bda8c62` | Reconciled the backup test and agent-guidance commits, then verified the seasonal feature, its test-registration correction, and documentation; all observed runs green. |
+
+
+## Reviewed range: 2026-11-06 (continued)
+
+| Commit SHA | Subject | CI result | Run |
+|---|---|---|---|
+| `b3c8de3b6c0045c3d2d62b2c3db72f68349f04b2` | fix(discovery): bypass fresh cache on manual refresh (#36) | green | [42157258082](https://github.com/SakibShahariar/aniyori/actions/runs/42157258082) |
+| `e661a006d27d10037d25b27236aefb48165bf3a3` | fix(discovery): sort by next airing date (#36) | green | [42157349605](https://github.com/SakibShahariar/aniyori/actions/runs/42157349605) |
+
+The manual refresh action now bypasses a fresh season cache while changing to another season/year can still reuse cached data. The date sort uses AniList's next-airing timestamp when present and falls back to season start date. Both corrective commits passed the complete Tests workflow.
+
+| Date | Reviewed range / checkpoint | Result summary |
+|---|---|---|
+| 2026-11-06 | `851b137ee55317a224e6bee073fdf1636bda8c62` → `e661a006d27d10037d25b27236aefb48165bf3a3` | Reviewed manual-refresh and next-airing-sort fixes; both Tests runs completed green. |
