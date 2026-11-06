@@ -323,33 +323,6 @@ class AniListClient:
             batch = ids[offset:offset + 50]
             try:
                 data = self._request(AIRING_QUERY, {"ids": list(batch)})
-                page = data.get("Page")
-                media = page.get("media") if isinstance(page, dict) else None
-                if not isinstance(media, list) or not all(
-                    isinstance(item, dict) for item in media
-                ):
-                    raise AniListError("AniList airing response contained invalid media results")
-                seen = set()
-                for item in media:
-                    media_id = item.get("id")
-                    if (
-                        isinstance(media_id, bool)
-                        or not isinstance(media_id, int)
-                        or media_id not in batch
-                        or media_id in seen
-                    ):
-                        raise AniListError("AniList airing response contained an invalid media ID")
-                    seen.add(media_id)
-                    normalized = _normalise_media(item)
-                    episode = normalized.get("next_episode")
-                    airing_at = normalized.get("next_airing_at")
-                    schedules[media_id] = (
-                        (episode, airing_at)
-                        if episode is not None and airing_at is not None
-                        else None
-                    )
-                for media_id in batch:
-                    schedules.setdefault(media_id, None)
             except AniListError:
                 for media_id in batch:
                     cached = self.cache.get("details", str(media_id))
@@ -362,6 +335,35 @@ class AniListClient:
                         and isinstance(airing_at, int) and not isinstance(airing_at, bool)
                         else None
                     )
+                continue
+
+            page = data.get("Page")
+            media = page.get("media") if isinstance(page, dict) else None
+            if not isinstance(media, list) or not all(
+                isinstance(item, dict) for item in media
+            ):
+                raise AniListError("AniList airing response contained invalid media results")
+            seen = set()
+            for item in media:
+                media_id = item.get("id")
+                if (
+                    isinstance(media_id, bool)
+                    or not isinstance(media_id, int)
+                    or media_id not in batch
+                    or media_id in seen
+                ):
+                    raise AniListError("AniList airing response contained an invalid media ID")
+                seen.add(media_id)
+                normalized = _normalise_media(item)
+                episode = normalized.get("next_episode")
+                airing_at = normalized.get("next_airing_at")
+                schedules[media_id] = (
+                    (episode, airing_at)
+                    if episode is not None and airing_at is not None
+                    else None
+                )
+            for media_id in batch:
+                schedules.setdefault(media_id, None)
         return schedules
 
     def get_anime(self, media_id: int, *, refresh: bool = False) -> dict[str, Any]:
