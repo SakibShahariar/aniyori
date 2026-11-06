@@ -24,10 +24,10 @@ Persistent repository-specific record of commit-level CI checks and red-cross in
 
 - Repository: `SakibShahariar/aniyori`
 - Default branch: `main`
-- Checkpoint SHA: `12ffcfc1ebc4e9373283a93a92d3d4e6b546d774`
+- Checkpoint SHA: `4642fc335559b76a99503dc782a8acacc6fcde63`
 - Initialized: 2026-11-02
 - Baseline: latest branch tip queried through combined commit-status endpoint; empty status list recorded as **unavailable**, not green/red. Older history was not retroactively audited during setup.
-- Next session: review commits after `12ffcfc1ebc4e9373283a93a92d3d4e6b546d774`; carry forward any red or unresolved entries.
+- Next session: review commits after `4642fc335559b76a99503dc782a8acacc6fcde63`; carry forward any red or unresolved entries.
 
 ## Initial baseline
 
@@ -603,3 +603,17 @@ The episode editor is wired into both list and grid cards. The workflow compiled
 | `966f82c4b65102486cc585494d2e86c5f7f83d55` | test(backup): cover watch history restoration (#46) | green | [41791140752](https://github.com/SakibShahariar/aniyori/actions/runs/41791140752) |
 
 The backup round-trip now exercises Aniyori's real `LibraryStorage` schema and watch-history API rather than a synthetic table. It records an event before backup, adds another afterward, restores, and verifies only the original event is present.
+
+
+## Reviewed range: 2026-11-06
+
+| Commit SHA | Subject | CI result | Run |
+|---|---|---|---|
+| `816622bac5bfa6745eebbc0fd1101cee9d9f043e` | feat(discovery): add interactive seasonal anime charts (#36) | green | [42156887488](https://github.com/SakibShahariar/aniyori/actions/runs/42156887488) |
+| `4642fc335559b76a99503dc782a8acacc6fcde63` | test(discovery): register seasonal client tests (#36) | green | [42156934229](https://github.com/SakibShahariar/aniyori/actions/runs/42156934229) |
+
+The first implementation commit passed compilation and the then-current test suite, but review found that the newly appended seasonal client tests were below the module's direct test-runner guard and therefore were not discovered by unittest. The follow-up commit moved those tests into the existing test class before the guard. The follow-up Tests workflow passed with the tests registered. Both commits have observed green workflow results; the test-discovery caveat is preserved here rather than treating the first green run as evidence that those new tests had executed.
+
+| Date | Reviewed range / checkpoint | Result summary |
+|---|---|---|
+| 2026-11-06 | `966f82c4b65102486cc585494d2e86c5f7f83d55` → `4642fc335559b76a99503dc782a8acacc6fcde63` | Reviewed seasonal discovery implementation and test-registration correction; both workflow runs completed green. |
