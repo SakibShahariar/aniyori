@@ -33,6 +33,14 @@ class NotificationStoreTests(unittest.TestCase):
             self.assertIsNotNone(first)
             self.assertIsNone(store.add("webhook_error", "warning", "Delivery failed", "offline", dedupe_key="hook:1"))
 
+    def test_new_episode_reminders_are_opt_in_by_default(self):
+        with tempfile.TemporaryDirectory() as directory:
+            store = NotificationStore(Path(directory) / "notifications.json")
+            self.assertNotIn("new_episode", store.preferences().enabled_events)
+            self.assertIsNone(store.add("new_episode", "info", "New episode", "Episode 3 is airing"))
+            store.save_preferences(NotificationPreferences(EVENT_TYPES, False))
+            self.assertIsNotNone(store.add("new_episode", "info", "New episode", "Episode 3 is airing"))
+
     def test_preferences_filter_event_types_and_round_trip(self):
         with tempfile.TemporaryDirectory() as directory:
             store = NotificationStore(Path(directory) / "notifications.json")

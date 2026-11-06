@@ -8,6 +8,7 @@ import sqlite3
 import threading
 import shutil
 import subprocess
+import time
 from pathlib import Path
 from urllib.parse import urlsplit
 
@@ -315,6 +316,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
         self.entries: list[AnimeEntry] = self.storage.list_entries()
         self._airing_by_id = {}
         self._airing_refresh_running = False
+        self._airing_notification_timers = {}
         self._selected_entry_ids = set()
         self.scan_location_store = ScanLocationStore()
         self.recognition_exclusion_store = RecognitionExclusionStore()
@@ -1968,7 +1970,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
     def _show_notification_center(self):
         dialog = Adw.AlertDialog(
             heading="Notifications",
-            body="Recent matched releases, download failures, webhook errors, and backup events.",
+            body="Recent matched releases, new episode reminders, download failures, webhook errors, and backup events.",
         )
         content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
         listing = Gtk.ListBox()
@@ -2059,6 +2061,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
             "download_failure": "Download failures",
             "webhook_error": "Webhook delivery errors",
             "backup": "Backup and restore events",
+            "new_episode": "New episode airing reminders (off by default)",
         }
         checks = {}
         for event_type in EVENT_TYPES:
@@ -3499,6 +3502,9 @@ class AniyoriWindow(Adw.ApplicationWindow):
         current_ids = {storage_id for storage_id, _provider_id in candidates}
         for storage_id in set(self._airing_by_id) - current_ids:
             self._airing_by_id.pop(storage_id, None)
+            timer = self._airing_notification_timers.pop(storage_id, None)
+            if timer is not None:
+                GLib.source_remove(timer[2])
         if not candidates:
             return GLib.SOURCE_REMOVE
 
@@ -3537,11 +3543,64 @@ class AniyoriWindow(Adw.ApplicationWindow):
     def _set_airing_info(self, storage_id, airing):
         if airing is None:
             changed = self._airing_by_id.pop(storage_id, None) is not None
+            timer = self._airing_notification_timers.pop(storage_id, None)
+            if timer is not None:
+                GLib.source_remove(timer[2])
         else:
             changed = self._airing_by_id.get(storage_id) != airing
             self._airing_by_id[storage_id] = airing
+            self._schedule_airing_notification(storage_id, airing)
         if changed:
             self._render_library()
+        return GLib.SOURCE_REMOVE
+
+    def _schedule_airing_notification(self, storage_id, airing):
+        """Schedule an opt-in reminder without polling or blocking the GTK thread."""
+        episode, airing_at = airing
+        if (
+            isinstance(episode, bool) or not isinstance(episode, int) or episode <= 0
+            or isinstance(airing_at, bool) or not isinstance(airing_at, int) or airing_at <= 0
+        ):
+            return
+        previous = self._airing_notification_timers.get(storage_id)
+        if previous is not None and previous[:2] == airing:
+            return
+        if previous is not None:
+            GLib.source_remove(previous[2])
+        remaining = airing_at - int(time.time())
+        if remaining <= 0:
+            self._airing_notification_timers.pop(storage_id, None)
+            return
+        source_id = GLib.timeout_add_seconds(
+            min(remaining, 86_400),
+            self._on_airing_notification_timer,
+            storage_id,
+            episode,
+            airing_at,
+        )
+        self._airing_notification_timers[storage_id] = (episode, airing_at, source_id)
+
+    def _on_airing_notification_timer(self, storage_id, episode, airing_at):
+        """Fire a reminder at the scheduled time, rearming long waits safely."""
+        current = self._airing_by_id.get(storage_id)
+        if current != (episode, airing_at):
+            self._airing_notification_timers.pop(storage_id, None)
+            return GLib.SOURCE_REMOVE
+        remaining = airing_at - int(time.time())
+        if remaining > 0:
+            self._airing_notification_timers.pop(storage_id, None)
+            self._schedule_airing_notification(storage_id, current)
+            return GLib.SOURCE_REMOVE
+        self._airing_notification_timers.pop(storage_id, None)
+        entry = next((item for item in self.entries if item.storage_id == storage_id), None)
+        if entry is not None:
+            self._record_notification(
+                "new_episode",
+                "info",
+                "New episode airing",
+                f"{entry.title} episode {episode} is scheduled to air now.",
+                f"airing:{storage_id}:{episode}",
+            )
         return GLib.SOURCE_REMOVE
 
     def _update_airing_countdowns(self):

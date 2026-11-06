@@ -15,7 +15,8 @@ from typing import Iterable
 NOTIFICATION_FORMAT = "aniyori-notifications"
 NOTIFICATION_VERSION = 1
 MAX_NOTIFICATIONS = 1000
-EVENT_TYPES = ("release_match", "download_failure", "webhook_error", "backup")
+EVENT_TYPES = ("release_match", "download_failure", "webhook_error", "backup", "new_episode")
+DEFAULT_ENABLED_EVENTS = ("release_match", "download_failure", "webhook_error", "backup")
 SEVERITIES = ("info", "warning", "error")
 
 
@@ -37,7 +38,7 @@ class Notification:
 
 @dataclass(frozen=True, slots=True)
 class NotificationPreferences:
-    enabled_events: tuple[str, ...] = EVENT_TYPES
+    enabled_events: tuple[str, ...] = DEFAULT_ENABLED_EVENTS
     desktop_notifications: bool = False
     minimum_severity: str = "info"
 

@@ -754,3 +754,13 @@ The independent list/grid reset documentation and the trailer feature-summary co
 
 - Reviewed checkpoint: `b403130e9a41345899523ce98729598be4226d30`
 - Commits since the previous recorded checkpoint: `cffb134a2b46f1bd38057db70286401a04355d10` and `b403130e9a41345899523ce98729598be4226d30`; both Tests runs completed green.
+
+
+## Incremental review: 2026-11-06
+
+| Commit SHA | Subject | CI result | Run |
+|---|---|---|---|
+| fc573209083f765474e55129ba8b9df03a5a58f9 | docs(maintenance): update commit CI audit | green | [42170595201](https://github.com/SakibShahariar/aniyori/actions/runs/42170595201) |
+| a240267a020fd81ad80c50a35e7d3bf7cbc67506 | docs(qa): add live desktop validation checklist (#84) | green | [42170963371](https://github.com/SakibShahariar/aniyori/actions/runs/42170963371) |
+
+Both commits completed the repository Tests workflow successfully. The reviewed range is advanced through the current default-branch checkpoint a240267a020fd81ad80c50a35e7d3bf7cbc67506; the next substantive commit will record its own completed check.
