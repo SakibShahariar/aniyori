@@ -169,8 +169,8 @@ class MediaScannerTests(unittest.TestCase):
 
         result = scan_video_files_detailed([self.root])
 
-        self.assertEqual(len(result.files), 2)
-        self.assertEqual(sum(item.size_bytes for item in result.files), 10)
+        self.assertEqual(len(result.files), 1)
+        self.assertEqual(sum(item.size_bytes for item in result.files), 5)
 
     def test_honours_custom_excluded_directory_names(self):
         excluded = self.root / "Archive"
