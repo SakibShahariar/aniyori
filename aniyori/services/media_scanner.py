@@ -55,10 +55,9 @@ def scan_video_files_detailed(
 
     Directory and file symlinks are not followed. Every discovered file is
     resolved and checked against its canonical configured root before it is
-    accepted. Overlapping roots are deduplicated by canonical path. Distinct
-    Hard links and overlapping roots are deduplicated by device/inode when
-    the filesystem supplies a stable inode, so one physical file contributes
-    to size totals once.
+    accepted. Overlapping roots are deduplicated by canonical path. Hard-link
+    aliases remain visible as paths but contribute to size totals once by
+    device/inode when the filesystem supplies a stable inode.
     """
     if isinstance(roots, (str, Path)):
         roots = (roots,)
