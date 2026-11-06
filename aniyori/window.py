@@ -1598,7 +1598,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
         if result.size_complete:
             lines.append(
                 f"Total video size: {format_size(result.total_size_bytes)} "
-                "(distinct files; hard links counted once by inode)."
+                "(distinct files; hard links deduplicated by device/inode where available)."
             )
         elif result.total_size_bytes:
             lines.append(
