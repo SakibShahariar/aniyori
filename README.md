@@ -15,6 +15,8 @@ The initial `v0.1.0` release notes are being prepared in [CHANGELOG.md](CHANGELO
 
 ## Development status
 
+See the [live desktop validation checklist](docs/qa/live-desktop-checklist.md) for the remaining GTK, accessibility, integration, and release-gate checks.
+
 **Early development.** The GTK/libadwaita library UI, SQLite storage, offline unit tests, and public AniList catalogue client are in place. AniList account sign-in, user-list import, and synchronization are not implemented yet.
 
 ## Current features

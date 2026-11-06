@@ -1,0 +1,109 @@
+# Live desktop validation checklist
+
+This checklist collects the manual checks that automated unit tests cannot establish. It is a test plan, **not evidence that any item has passed**. Record the actual environment and observed result before checking off an issue's acceptance criteria.
+
+## Record the test environment
+
+- Distribution and version:
+- Desktop environment and version:
+- Display server: Wayland / X11:
+- GTK version (4.8+ required):
+- libadwaita version (1.5+ required):
+- Aniyori commit SHA:
+- Date and tester:
+- Optional services available: mpv, Secret Service provider, qBittorrent WebUI:
+
+Use a disposable test profile or a backup of any library data you care about. Do not use a production qBittorrent queue for destructive tests.
+
+## Startup and core library
+
+- [ ] Launch with `python3 main.py`; confirm the main window appears without traceback, warning dialog, or missing-resource error.
+- [ ] Add a manual anime, edit its title/status/progress, close the app, relaunch, and confirm the data persists.
+- [ ] Search and filter the library; switch between list and grid views and confirm the same entries remain available.
+- [ ] Exercise keyboard focus from the header through search, toolbar, library rows/cards, and menu; confirm focus remains visible and logical.
+- [ ] Resize the window down to the supported minimum and back; confirm controls remain reachable and content does not overlap.
+
+## Episode tracking and history — #24, #51
+
+- [ ] Open the Episodes editor for an entry with no explicit episode records but a legacy aggregate progress value; confirm the prior watched count is represented without losing progress.
+- [ ] Mark one episode watched, unwatch it, and mark it watched again; confirm aggregate progress and rewatch history are correct.
+- [ ] Open Watch History; filter by title, date, and action; remove a selected event and prune older events.
+- [ ] Restart and confirm history and per-episode state persist.
+
+## Custom library layout — #65
+
+- [ ] Open Customize Library Layout from the main menu.
+- [ ] Hide and show status, progress, source, and airing metadata independently in list and grid views.
+- [ ] Change metadata ordering; confirm the title remains visible and first.
+- [ ] Change list-column widths and grid-card width; resize the window and confirm usable layout.
+- [ ] Reset List Defaults; confirm the grid preferences are unchanged. Then reset Grid Defaults and confirm the list preferences are unchanged.
+- [ ] Restart and confirm saved preferences persist.
+
+## AniList discovery, trailers, and external links — #36, #37, #59
+
+- [ ] Open Season Discovery and switch among current, upcoming, and past seasons.
+- [ ] Search by title/genre, change filters and sort order, and use Refresh season.
+- [ ] Add a seasonal result to the library and confirm duplicate handling is clear.
+- [ ] For an anime with supported trailer metadata, use Watch Trailer; verify mpv launch when installed and the default URI handler fallback when it is not. Confirm entries without valid trailer metadata do not show a broken action.
+- [ ] Open Anime Links from a library row/card and from the episode editor. Confirm AniList, MyAnimeList, Kitsu, and configured custom links open the expected HTTPS pages.
+- [ ] Add/edit/remove a custom link template; confirm unsafe schemes and malformed templates are rejected.
+
+## Local media scanning and exclusions — #52
+
+- [ ] Add a test media folder and run Scan Now.
+- [ ] Confirm recognized, ambiguous, and unrecognized files are presented distinctly.
+- [ ] Add folder, filename, anime-title, and release-group exclusions; rescan and confirm excluded files show the matching reason and do not enter episode inventory.
+- [ ] Edit and remove exclusions; restart and confirm rules persist.
+
+## RSS discovery and smart rules — #43, #44, #54
+
+- [ ] Add a Nyaa.si RSS search feed and a generic RSS/Atom feed.
+- [ ] Refresh feeds; confirm one malformed/unavailable feed does not prevent other feeds from refreshing.
+- [ ] Inspect available size, swarm, release-group, resolution, source, and publication metadata.
+- [ ] Add Prefer, Include, and Exclude rules; test them against loaded results, reorder them, disable one, and confirm the first matching enabled rule and explanation are shown.
+- [ ] Confirm feed refresh and rule evaluation never submit a download automatically.
+
+## qBittorrent and credentials — #45, #56, #57, #63
+
+- [ ] Configure a local/test qBittorrent WebUI connection; test authentication before saving.
+- [ ] Confirm credentials are stored in the desktop Secret Service and do not appear in plaintext settings or logs.
+- [ ] With the Secret Service locked or unavailable, confirm API submission fails closed and the generic desktop magnet handoff remains available.
+- [ ] Submit a harmless test magnet explicitly; confirm it appears in the Download Queue.
+- [ ] Verify progress, size, transfer rates, ETA, pause, resume, recheck where applicable, and removal.
+- [ ] Remove a test queue item with the default option and confirm downloaded files are retained. Do not test delete-files against valuable data.
+- [ ] Set per-anime release preferences and disable downloads for one test entry; confirm ineligible releases cannot be handed off to qBittorrent or the desktop torrent handler.
+- [ ] Confirm queue polling stops when its window closes and errors can be retried manually.
+
+## Backup and restore — #46
+
+- [ ] Create a full backup and confirm the archive is created with restrictive permissions.
+- [ ] Restore into a disposable profile with the confirmation dialog; verify library entries, episode state, watch history, feeds, rules, and non-secret preferences.
+- [ ] Confirm a corrupt or unsafe archive is rejected without replacing the current library.
+- [ ] Confirm Secret Service passwords are not exported and must be configured again on another desktop.
+
+## Saved searches — #64
+
+- [ ] Run AniList and Nyaa searches; confirm recent queries appear in their own search domains.
+- [ ] Save, reuse, and remove a named search; clear recent history.
+- [ ] Confirm reusing a Nyaa search restores a feed but never submits a download.
+
+## Accessibility and desktop compatibility — #84
+
+- [ ] Complete core workflows using keyboard only; record any unreachable controls or focus traps.
+- [ ] Inspect accessible names, roles, and states for buttons, fields, menus, dialogs, and list/grid actions.
+- [ ] Test with Orca or an equivalent screen reader and record announcements that are missing or misleading.
+- [ ] Test high-contrast and large-text settings; verify labels, focus, dialogs, and actions remain usable.
+- [ ] Test on the supported GNOME session and record Wayland/X11 behavior. Do not claim compatibility with an environment that was not tested.
+- [ ] Capture genuine application screenshots for the library, search, settings, and release views for #82. Do not substitute mockups or generated imagery.
+
+## Release gate — #81
+
+- [ ] Run the complete Tests workflow for the exact candidate commit and confirm it completed green.
+- [ ] Complete the applicable checks above; record distribution, desktop/session, GTK/libadwaita versions, and results.
+- [ ] Confirm library data persists across restart and no startup/runtime errors remain.
+- [ ] Review the source tree, license, README install instructions, and draft CHANGELOG.
+- [ ] Only after all required checks pass, authorize and create the `v0.1.0` tag/release. Until then, do not publish a tag or release.
+
+## Reporting results
+
+For each checked item, record the date, environment, exact steps, observed outcome, and any issue/commit that resolves a failure. Leave the checkbox unchecked when the environment was unavailable, the result was ambiguous, or the behavior was not actually exercised.
