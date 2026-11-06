@@ -65,6 +65,18 @@ Use a disposable test profile or a backup of any library data you care about. Do
 - [ ] Add folder, filename, anime-title, and release-group exclusions; rescan and confirm excluded files show the matching reason and do not enter episode inventory.
 - [ ] Edit and remove exclusions; restart and confirm rules persist.
 
+## Local collection insights and offline roots — #87
+
+- [ ] Scan two overlapping roots and confirm each canonical file path contributes to aggregate size once.
+- [ ] Confirm per-anime size, aggregate size, source path, and Open Folder actions for matched files.
+- [ ] Mark an available local episode watched; confirm it is skipped when selecting the next available unwatched episode.
+- [ ] Unplug or unmount one configured drive and scan; confirm the root is reported unavailable and missing/next-unwatched claims are withheld.
+- [ ] Reconnect the drive and rescan; confirm its files and size return without changing library progress.
+- [ ] Test unreadable directories/files and files deleted during a scan; confirm partial results instead of a fatal error or fabricated size.
+- [ ] Test symlink roots, directory loops, file symlinks (including broken links), and links targeting paths outside a configured root; confirm they are not followed.
+- [ ] Create a hard link where supported; confirm distinct hard-link paths are counted separately in size totals, as documented in the results.
+- [ ] Cancel a large scan and change configured roots or library entries during a scan; confirm stale results are discarded and the UI remains responsive.
+
 ## Local player detection — #32
 
 - [ ] Enable Local Player Detection from the main menu; confirm it is off by default and can be disabled again.
