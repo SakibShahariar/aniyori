@@ -210,6 +210,20 @@ class LibraryViewPresetStore:
         self._write(state)
         return normalized_name
 
+    def update_preset(self, name: str, settings: dict) -> str:
+        key = _normalize_name(name).casefold()
+        normalized_settings = _normalize_preset(settings)
+        state = self.load()
+        target = next(
+            (item for item in state["presets"] if item["name"].casefold() == key),
+            None,
+        )
+        if target is None:
+            raise LibraryViewPresetError("The selected preset no longer exists.")
+        target["settings"] = normalized_settings
+        self._write(state)
+        return target["name"]
+
     def rename_preset(self, old_name: str, new_name: str) -> str:
         old_key = _normalize_name(old_name).casefold()
         normalized_name = _normalize_name(new_name)
