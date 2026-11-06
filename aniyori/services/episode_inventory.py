@@ -25,6 +25,7 @@ class EpisodeInventory:
     size_complete: bool = True
     missing_complete: bool = True
     source_paths: tuple[Path, ...] = ()
+    ambiguous_file_count: int = 0
 
 
 def summarize_episode_inventory(
@@ -52,6 +53,8 @@ def summarize_episode_inventory(
     seasoned: dict[str, dict[int, set[int]]] = defaultdict(
         lambda: defaultdict(set)
     )
+    episode_assignments: dict[str, dict[object, tuple[int | None, int] | None]] = defaultdict(dict)
+    ambiguous_identities: dict[str, set[object]] = defaultdict(set)
     sizes: dict[str, int] = defaultdict(int)
     size_identities: dict[str, set[object]] = defaultdict(set)
     sizes_complete: dict[str, bool] = defaultdict(lambda: size_complete)
@@ -78,10 +81,22 @@ def summarize_episode_inventory(
                 sizes[key] += item.size_bytes
             else:
                 sizes_complete[key] = False
-        if parsed.season is None:
-            available[key].add(parsed.episode)
-        elif parsed.season > 0:
-            seasoned[key][parsed.season].add(parsed.episode)
+        assignment = (parsed.season, parsed.episode)
+        if identity not in episode_assignments[key]:
+            episode_assignments[key][identity] = assignment
+        elif episode_assignments[key][identity] is not None and episode_assignments[key][identity] != assignment:
+            ambiguous_identities[key].add(identity)
+            episode_assignments[key][identity] = None
+
+    for key, assignments in episode_assignments.items():
+        for identity, assignment in assignments.items():
+            if assignment is None:
+                continue
+            season, episode = assignment
+            if season is None:
+                available[key].add(episode)
+            elif season > 0:
+                seasoned[key][season].add(episode)
 
     inventories = []
     for key, entry in sorted(
@@ -93,8 +108,14 @@ def summarize_episode_inventory(
             for season, numbers in sorted(seasoned[key].items())
         )
 
-        missing_complete = scan_complete and not season_groups and entry.episodes_total is not None
-        if not scan_complete or season_groups:
+        ambiguous_count = len(ambiguous_identities[key])
+        missing_complete = (
+            scan_complete
+            and not season_groups
+            and not ambiguous_count
+            and entry.episodes_total is not None
+        )
+        if not scan_complete or season_groups or ambiguous_count:
             missing = ()
             next_episode = None
         elif entry.episodes_total is not None:
@@ -108,7 +129,7 @@ def summarize_episode_inventory(
             missing = ()
             next_episode = episodes[-1] + 1 if episodes else None
 
-        if not scan_complete or season_groups:
+        if not scan_complete or season_groups or ambiguous_count:
             next_unwatched = None
         else:
             if watched_episodes is not None and key in watched_episodes:
@@ -136,6 +157,7 @@ def summarize_episode_inventory(
                 size_complete=sizes_complete[key],
                 missing_complete=missing_complete,
                 source_paths=tuple(sorted(paths[key], key=lambda path: str(path).casefold())),
+                ambiguous_file_count=ambiguous_count,
             )
         )
 
