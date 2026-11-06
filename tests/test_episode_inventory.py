@@ -23,7 +23,7 @@ class EpisodeInventoryTests(unittest.TestCase):
     def tearDown(self):
         self.temp_dir.cleanup()
 
-    def match(self, filename, candidates=None):
+    def match(self, filename, candidates=None, size_bytes=None):
         path = self.root / filename
         path.touch()
         return LocalVideoMatch(
@@ -31,6 +31,7 @@ class EpisodeInventoryTests(unittest.TestCase):
             result=match_release_filename(
                 filename, self.candidates if candidates is None else candidates
             ),
+            size_bytes=size_bytes,
         )
 
     def test_reports_available_missing_and_next_episode(self):
@@ -111,6 +112,59 @@ class EpisodeInventoryTests(unittest.TestCase):
         self.assertEqual(inventory.available_episodes, ())
         self.assertEqual(inventory.missing_episodes, (1, 2, 3, 4, 5))
         self.assertEqual(inventory.next_episode, 1)
+
+    def test_reports_next_available_unwatched_episode_and_file_size(self):
+        matches = [
+            self.match("[Group] Frieren - 01.mkv", size_bytes=1024),
+            self.match("[Group] Frieren - 02.mkv", size_bytes=2048),
+            self.match("[Group] Frieren - 03.mkv", size_bytes=4096),
+        ]
+
+        inventory, = summarize_episode_inventory(
+            matches,
+            [self.entry],
+            watched_episodes={"10": {1, 3}},
+        )
+
+        self.assertEqual(inventory.next_unwatched_episode, 2)
+        self.assertEqual(inventory.size_bytes, 7168)
+        self.assertTrue(inventory.size_complete)
+        self.assertEqual(len(inventory.source_paths), 3)
+
+    def test_uses_legacy_aggregate_progress_when_explicit_state_is_absent(self):
+        entry = AnimeEntry(
+            title="Frieren", provider="anilist", provider_id="10",
+            episodes_total=5, episodes_watched=2,
+        )
+        matches = [
+            self.match("[Group] Frieren - 01.mkv", size_bytes=10),
+            self.match("[Group] Frieren - 02.mkv", size_bytes=10),
+            self.match("[Group] Frieren - 03.mkv", size_bytes=10),
+        ]
+
+        inventory, = summarize_episode_inventory(matches, [entry])
+
+        self.assertEqual(inventory.next_unwatched_episode, 3)
+
+    def test_incomplete_scan_does_not_claim_missing_or_next_episode(self):
+        matches = [self.match("[Group] Frieren - 01.mkv", size_bytes=1024)]
+
+        inventory, = summarize_episode_inventory(
+            matches, [self.entry], scan_complete=False, size_complete=False
+        )
+
+        self.assertEqual(inventory.missing_episodes, ())
+        self.assertFalse(inventory.missing_complete)
+        self.assertIsNone(inventory.next_unwatched_episode)
+        self.assertFalse(inventory.size_complete)
+
+    def test_unknown_file_size_is_not_reported_as_a_complete_total(self):
+        matches = [self.match("[Group] Frieren - 01.mkv")]
+
+        inventory, = summarize_episode_inventory(matches, [self.entry])
+
+        self.assertEqual(inventory.size_bytes, 0)
+        self.assertFalse(inventory.size_complete)
 
     def test_only_anilist_entries_are_included(self):
         manual = AnimeEntry(title="Manual")
