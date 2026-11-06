@@ -9,17 +9,23 @@ from typing import Any
 
 from ..models import AnimeEntry
 from .episode_inventory import EpisodeInventory, summarize_episode_inventory
-from .recognition import LocalVideoMatch, recognize_local_videos
+from .recognition import (
+    LocalVideoMatch, recognize_local_videos_detailed,
+)
 from .scan_locations import ScanLocationStore
 
 
 @dataclass(frozen=True, slots=True)
 class LibraryScanResult:
-    """Snapshot of one scan, including its roots, file matches, and inventory."""
+    """Snapshot of one scan, including incomplete roots and size totals."""
 
     locations: tuple[Path, ...]
     matches: tuple[LocalVideoMatch, ...]
     inventory: tuple[EpisodeInventory, ...]
+    unavailable_locations: tuple[Path, ...] = ()
+    total_size_bytes: int = 0
+    size_complete: bool = True
+    scan_complete: bool = True
 
 
 def scan_configured_library(
@@ -33,6 +39,7 @@ def scan_configured_library(
     ambiguity_margin: float = 0.06,
     excluded_directories: Iterable[str] | None = None,
     exclusions: Iterable[Mapping[str, str]] = (),
+    watched_episodes: Mapping[int | str, Iterable[int]] | None = None,
     is_cancelled: Callable[[], bool] | None = None,
 ) -> LibraryScanResult:
     """Scan saved folders, recognize releases, and summarize episode coverage.
@@ -43,7 +50,7 @@ def scan_configured_library(
     """
     locations = location_store.list_locations()
     library_entries = tuple(entries)
-    matches = recognize_local_videos(
+    recognition = recognize_local_videos_detailed(
         locations,
         candidates,
         aliases=aliases,
@@ -54,9 +61,23 @@ def scan_configured_library(
         exclusions=exclusions,
         is_cancelled=is_cancelled,
     )
-    inventory = summarize_episode_inventory(matches, library_entries)
+    scan_complete = (
+        not recognition.unavailable_roots
+        and not (is_cancelled is not None and is_cancelled())
+    )
+    inventory = summarize_episode_inventory(
+        recognition.matches,
+        library_entries,
+        watched_episodes=watched_episodes,
+        scan_complete=scan_complete,
+        size_complete=recognition.size_complete,
+    )
     return LibraryScanResult(
         locations=locations,
-        matches=tuple(matches),
+        matches=recognition.matches,
         inventory=inventory,
+        unavailable_locations=recognition.unavailable_roots,
+        total_size_bytes=recognition.total_size_bytes,
+        size_complete=recognition.size_complete,
+        scan_complete=scan_complete,
     )
