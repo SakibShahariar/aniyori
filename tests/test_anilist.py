@@ -9,7 +9,7 @@ from unittest.mock import patch
 from urllib.error import HTTPError, URLError
 
 from aniyori.services.anilist import (
-    MAX_ANILIST_RESPONSE_BYTES, AniListClient, AniListError, _normalise_media,
+    MAX_ANILIST_RESPONSE_BYTES, SEARCH_QUERY, SEASON_QUERY, AniListClient, AniListError, _normalise_media,
 )
 from aniyori.services.metadata_cache import MetadataCache
 
@@ -284,6 +284,10 @@ class AniListClientTests(unittest.TestCase):
         request.assert_called_once()
         self.assertEqual(result["title"], "Fresh title")
 
+
+    def test_search_and_season_queries_request_trailer_metadata(self):
+        self.assertIn("trailer { id site thumbnail }", SEARCH_QUERY)
+        self.assertIn("trailer { id site thumbnail }", SEASON_QUERY)
 
     def test_search_season_normalises_results_and_uses_season_variables(self):
         payload = {"Page": {"media": [{
