@@ -193,7 +193,7 @@ class LibraryViewPresetStoreTests(unittest.TestCase):
                         "filter": ["unsupported"],
                         "sort": "future_sort",
                         "view": "kanban",
-                        "layouts": {},
+                        "layouts": {"list": {"order": [[]]}},
                     },
                 }],
             }), encoding="utf-8")
