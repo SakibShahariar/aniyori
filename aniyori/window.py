@@ -2936,6 +2936,16 @@ class AniyoriWindow(Adw.ApplicationWindow):
             self.toast_overlay.add_toast(Adw.Toast.new(f"Applied view preset: {name}"))
 
     def _apply_default_library_view(self):
+        try:
+            state = self.library_view_preset_store.load()
+            self.library_view_presets = state
+            if state["default"]:
+                self._apply_view_preset(
+                    state["default"], show_feedback=False
+                )
+                return
+        except (OSError, LibraryViewPresetError):
+            LOGGER.warning("Could not load the default library-view preset", exc_info=True)
         self._applying_view_preset = True
         try:
             try:
@@ -2964,9 +2974,9 @@ class AniyoriWindow(Adw.ApplicationWindow):
             ),
         )
         content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
-        names = list(self.library_view_preset_store.list_presets())
-        dropdown = Gtk.DropDown.new_from_strings(names or ["No saved presets"])
-        dropdown.set_sensitive(bool(names))
+        state = {"names": []}
+        dropdown = Gtk.DropDown.new_from_strings(["No saved presets"])
+        dropdown.set_sensitive(False)
         name_entry = Gtk.Entry()
         name_entry.set_placeholder_text("Preset name")
         default_label = Gtk.Label(xalign=0, wrap=True)
@@ -2977,14 +2987,17 @@ class AniyoriWindow(Adw.ApplicationWindow):
         content.append(status_label)
 
         def selected_name():
-            current_names = list(self.library_view_preset_store.list_presets())
             index = dropdown.get_selected()
-            return current_names[index] if index < len(current_names) else None
+            return state["names"][index] if index < len(state["names"]) else None
 
         def refresh(message=None):
             try:
                 self.library_view_presets = self.library_view_preset_store.load()
-                current_names = list(self.library_view_preset_store.list_presets())
+                current_names = sorted(
+                    (item["name"] for item in self.library_view_presets["presets"]),
+                    key=str.casefold,
+                )
+                state["names"] = current_names
                 dropdown.set_model(
                     Gtk.StringList.new(current_names or ["No saved presets"])
                 )
@@ -2995,6 +3008,9 @@ class AniyoriWindow(Adw.ApplicationWindow):
                 if message is not None:
                     status_label.set_label(message)
             except (OSError, LibraryViewPresetError) as error:
+                state["names"] = []
+                dropdown.set_model(Gtk.StringList.new(["No saved presets"]))
+                dropdown.set_selected(0)
                 dropdown.set_sensitive(False)
                 default_label.set_label("Default on startup: unavailable")
                 status_label.set_label(f"Could not read presets: {error}")
@@ -3101,9 +3117,8 @@ class AniyoriWindow(Adw.ApplicationWindow):
 
         def reset_view(_button):
             self._apply_default_library_view()
-            status_label.set_label("Returned to the normal library view.")
+            status_label.set_label("Returned to the default library view.")
 
-        action_rows = []
         for labels, callbacks in (
             (
                 ("Apply", apply_selected),
@@ -3125,9 +3140,8 @@ class AniyoriWindow(Adw.ApplicationWindow):
                     button.add_css_class("destructive-action")
                 button.connect("clicked", callback)
                 row.append(button)
-            action_rows.append(row)
             content.append(row)
-        reset_button = Gtk.Button(label="Return to Normal View")
+        reset_button = Gtk.Button(label="Return to Default View")
         reset_button.connect("clicked", reset_view)
         reset_button.set_halign(Gtk.Align.START)
         content.append(reset_button)
