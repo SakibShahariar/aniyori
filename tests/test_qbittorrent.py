@@ -214,15 +214,16 @@ class QBittorrentClientTests(unittest.TestCase):
         self.assertTrue(opener.requests[2][0].full_url.endswith("/api/v2/auth/logout"))
 
     def test_queue_actions_are_explicit_and_delete_preserves_files_by_default(self):
-        opener = _Opener(["Ok.", "Ok.", "Ok.", "Ok.", "Ok.", "Ok.", "Ok.", "Ok.", "Ok."])
+        opener = _Opener(["Ok."] * 12)
         client = QBittorrentClient("http://localhost:8080", "user", "password", opener=opener)
         client.pause_torrent("a" * 40)
         client.resume_torrent("a" * 40)
+        client.recheck_torrent("a" * 40)
         client.remove_torrent("a" * 40)
         action_requests = [item[0] for item in opener.requests if "/torrents/" in item[0].full_url]
         self.assertEqual(
             [request.full_url.rsplit("/", 1)[-1] for request in action_requests],
-            ["stop", "start", "delete"],
+            ["stop", "start", "recheck", "delete"],
         )
         self.assertEqual(
             __import__("urllib.parse", fromlist=["parse_qs"]).parse_qs(action_requests[-1].data.decode())["deleteFiles"],
