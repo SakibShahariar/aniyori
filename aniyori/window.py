@@ -1,5 +1,6 @@
 """Main library window for Aniyori."""
 
+import copy
 import hashlib
 import json
 import logging
@@ -65,6 +66,7 @@ from .services.notifications import (
 from .services.network import NetworkSettings, NetworkSettingsError, NetworkSettingsStore
 from .services.profiles import ProfileError, ProfileStore
 from .services.library_layout import DEFAULT_LAYOUTS as DEFAULT_LIBRARY_LAYOUTS, LibraryLayoutError, LibraryLayoutStore
+from .services.library_view_presets import LibraryViewPresetError, LibraryViewPresetStore
 
 LOGGER = logging.getLogger(__name__)
 
@@ -345,6 +347,12 @@ class AniyoriWindow(Adw.ApplicationWindow):
         except (OSError, LibraryLayoutError) as error:
             LOGGER.warning("Could not load saved library layout: %s", error)
             self.library_layouts = {view: {"order": list(layout["order"]), "visible": list(layout["visible"]), "widths": dict(layout["widths"])} for view, layout in DEFAULT_LIBRARY_LAYOUTS.items()}
+        self.library_view_preset_store = LibraryViewPresetStore()
+        try:
+            self.library_view_presets = self.library_view_preset_store.load()
+        except (OSError, LibraryViewPresetError) as error:
+            LOGGER.warning("Could not load saved library-view presets: %s", error)
+            self.library_view_presets = {"presets": [], "default": None}
         self.release_preference_store = ReleasePreferenceStore()
         self.anime_release_preference_store = AnimeReleasePreferenceStore()
         self.release_scoring_store = ReleaseScoringSettingsStore()
@@ -358,6 +366,8 @@ class AniyoriWindow(Adw.ApplicationWindow):
         self._scan_generation = 0
         self.current_filter = "all"
         self.library_sort_mode = "title"
+        self._active_view_preset = None
+        self._applying_view_preset = False
         self._undo_entry: AnimeEntry | None = None
         self._undo_toast = None
         undo_action = Gio.SimpleAction.new("undo-delete", None)
@@ -548,6 +558,12 @@ class AniyoriWindow(Adw.ApplicationWindow):
         releases_button.set_tooltip_text("Show monitored anime releases")
         releases_button.connect("clicked", lambda _button: self._show_release_results())
         toolbar.append(releases_button)
+        presets_button = Gtk.Button(label="Presets")
+        presets_button.set_tooltip_text("Save and switch named library views")
+        presets_button.connect(
+            "clicked", lambda _button: self._show_library_view_presets_dialog()
+        )
+        toolbar.append(presets_button)
 
         self.toast_overlay = Adw.ToastOverlay()
         self.toast_overlay.set_vexpand(True)
@@ -672,6 +688,13 @@ class AniyoriWindow(Adw.ApplicationWindow):
         self.view_switches["list"].set_active(True)
         self._render_library()
         self.filter_buttons["all"].set_active(True)
+        if self.library_view_presets["default"]:
+            try:
+                self._apply_view_preset(
+                    self.library_view_presets["default"], show_feedback=False
+                )
+            except (OSError, LibraryLayoutError, LibraryViewPresetError) as error:
+                LOGGER.warning("Could not apply the default library view preset: %s", error)
         self._refresh_airing_schedule()
         GLib.timeout_add_seconds(60, self._update_airing_countdowns)
         GLib.timeout_add_seconds(1800, self._periodic_airing_refresh)
@@ -1115,6 +1138,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
             except (OSError, LibraryLayoutError) as error:
                 self.toast_overlay.add_toast(Adw.Toast.new(f"Could not save library layout: {error}"))
                 return
+            self._active_view_preset = None
             self._render_library()
             self.toast_overlay.add_toast(Adw.Toast.new("Library layout saved."))
 
@@ -1125,6 +1149,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
             except (OSError, LibraryLayoutError) as error:
                 self.toast_overlay.add_toast(Adw.Toast.new(f"Could not reset {view} layout: {error}"))
                 return
+            self._active_view_preset = None
             self._render_library()
             dialog.close()
             self.toast_overlay.add_toast(Adw.Toast.new(f"{view.title()} layout restored to defaults."))
@@ -2850,6 +2875,8 @@ class AniyoriWindow(Adw.ApplicationWindow):
         about.present(self)
 
     def _on_filter_toggled(self, button, key):
+        if not self._applying_view_preset:
+            self._active_view_preset = None
         if not button.get_active():
             if self.current_filter == key:
                 button.set_active(True)
@@ -2861,6 +2888,8 @@ class AniyoriWindow(Adw.ApplicationWindow):
         self._render_library()
 
     def _on_library_sort_changed(self, dropdown, _property):
+        if not self._applying_view_preset:
+            self._active_view_preset = None
         selected = dropdown.get_selected()
         if selected < len(SORT_MODES):
             self.library_sort_mode = SORT_MODES[selected]
@@ -2869,8 +2898,245 @@ class AniyoriWindow(Adw.ApplicationWindow):
     def _on_view_toggled(self, button, key):
         if not button.get_active():
             return
+        if not self._applying_view_preset:
+            self._active_view_preset = None
         self.stack.set_visible_child_name(key)
 
+    def _capture_library_view_settings(self):
+        view = self.stack.get_visible_child_name()
+        if view not in ("list", "grid"):
+            view = "list"
+        return {
+            "filter": self.current_filter,
+            "sort": self.library_sort_mode,
+            "view": view,
+            "layouts": copy.deepcopy(self.library_layouts),
+        }
+
+    def _apply_view_preset(self, name, *, show_feedback=True):
+        settings = self.library_view_preset_store.get_preset(name)
+        self._applying_view_preset = True
+        try:
+            self.library_layouts = copy.deepcopy(settings["layouts"])
+            self.current_filter = settings["filter"]
+            for key, button in self.filter_buttons.items():
+                button.set_active(key == self.current_filter)
+            self.library_sort_mode = settings["sort"]
+            self.library_sort_dropdown.set_selected(
+                SORT_MODES.index(self.library_sort_mode)
+            )
+            view = settings["view"]
+            self.view_switches[view].set_active(True)
+            self.stack.set_visible_child_name(view)
+            self._active_view_preset = name
+            self._render_library()
+        finally:
+            self._applying_view_preset = False
+        if show_feedback:
+            self.toast_overlay.add_toast(Adw.Toast.new(f"Applied view preset: {name}"))
+
+    def _apply_default_library_view(self):
+        self._applying_view_preset = True
+        try:
+            try:
+                self.library_layouts = self.library_layout_store.load_all()
+            except (OSError, LibraryLayoutError) as error:
+                LOGGER.warning("Could not reload default library layouts: %s", error)
+                self.library_layouts = copy.deepcopy(DEFAULT_LIBRARY_LAYOUTS)
+            self.current_filter = "all"
+            self.library_sort_mode = "title"
+            for key, button in self.filter_buttons.items():
+                button.set_active(key == "all")
+            self.library_sort_dropdown.set_selected(SORT_MODES.index("title"))
+            self.view_switches["list"].set_active(True)
+            self.stack.set_visible_child_name("list")
+            self._active_view_preset = None
+            self._render_library()
+        finally:
+            self._applying_view_preset = False
+
+    def _show_library_view_presets_dialog(self):
+        dialog = Adw.AlertDialog(
+            heading="Library View Presets",
+            body=(
+                "Save the current filter, sort order, list/grid mode, and both layouts. "
+                "Search text and selected anime are never included."
+            ),
+        )
+        content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+        names = list(self.library_view_preset_store.list_presets())
+        dropdown = Gtk.DropDown.new_from_strings(names or ["No saved presets"])
+        dropdown.set_sensitive(bool(names))
+        name_entry = Gtk.Entry()
+        name_entry.set_placeholder_text("Preset name")
+        default_label = Gtk.Label(xalign=0, wrap=True)
+        status_label = Gtk.Label(xalign=0, wrap=True)
+        content.append(dropdown)
+        content.append(name_entry)
+        content.append(default_label)
+        content.append(status_label)
+
+        def selected_name():
+            current_names = list(self.library_view_preset_store.list_presets())
+            index = dropdown.get_selected()
+            return current_names[index] if index < len(current_names) else None
+
+        def refresh(message=None):
+            try:
+                self.library_view_presets = self.library_view_preset_store.load()
+                current_names = list(self.library_view_preset_store.list_presets())
+                dropdown.set_model(
+                    Gtk.StringList.new(current_names or ["No saved presets"])
+                )
+                dropdown.set_selected(0)
+                dropdown.set_sensitive(bool(current_names))
+                default_name = self.library_view_presets["default"] or "Normal library view"
+                default_label.set_label(f"Default on startup: {default_name}")
+                if message is not None:
+                    status_label.set_label(message)
+            except (OSError, LibraryViewPresetError) as error:
+                dropdown.set_sensitive(False)
+                default_label.set_label("Default on startup: unavailable")
+                status_label.set_label(f"Could not read presets: {error}")
+
+        def report_error(error):
+            status_label.set_label(str(error))
+
+        def apply_selected(_button):
+            name = selected_name()
+            if name is None:
+                report_error("Save a preset before applying one.")
+                return
+            try:
+                self._apply_view_preset(name)
+                status_label.set_label(f"Applied {name}.")
+            except (OSError, LibraryViewPresetError) as error:
+                report_error(error)
+
+        def save_current(_button):
+            try:
+                name = self.library_view_preset_store.save_preset(
+                    name_entry.get_text(), self._capture_library_view_settings()
+                )
+                self._active_view_preset = name
+                refresh(f"Saved {name}.")
+            except (OSError, LibraryViewPresetError) as error:
+                report_error(error)
+
+        def update_selected(_button):
+            name = selected_name()
+            if name is None:
+                report_error("Choose a preset to update.")
+                return
+            try:
+                self.library_view_preset_store.update_preset(
+                    name, self._capture_library_view_settings()
+                )
+                self._active_view_preset = name
+                refresh(f"Updated {name}.")
+            except (OSError, LibraryViewPresetError) as error:
+                report_error(error)
+
+        def rename_selected(_button):
+            name = selected_name()
+            if name is None:
+                report_error("Choose a preset to rename.")
+                return
+            try:
+                renamed = self.library_view_preset_store.rename_preset(
+                    name, name_entry.get_text()
+                )
+                if self._active_view_preset and self._active_view_preset.casefold() == name.casefold():
+                    self._active_view_preset = renamed
+                refresh(f"Renamed to {renamed}.")
+            except (OSError, LibraryViewPresetError) as error:
+                report_error(error)
+
+        def duplicate_selected(_button):
+            name = selected_name()
+            if name is None:
+                report_error("Choose a preset to duplicate.")
+                return
+            try:
+                duplicate = self.library_view_preset_store.duplicate_preset(
+                    name, name_entry.get_text()
+                )
+                refresh(f"Created {duplicate}.")
+            except (OSError, LibraryViewPresetError) as error:
+                report_error(error)
+
+        def delete_selected(_button):
+            name = selected_name()
+            if name is None:
+                report_error("Choose a preset to delete.")
+                return
+            try:
+                deleted = self.library_view_preset_store.delete_preset(name)
+                if not deleted:
+                    report_error("The selected preset no longer exists.")
+                    return
+                if self._active_view_preset and self._active_view_preset.casefold() == name.casefold():
+                    self._apply_default_library_view()
+                refresh(f"Deleted {name}.")
+            except (OSError, LibraryViewPresetError) as error:
+                report_error(error)
+
+        def set_default(_button):
+            name = selected_name()
+            if name is None:
+                report_error("Choose a preset to set as the default.")
+                return
+            try:
+                self.library_view_preset_store.set_default(name)
+                refresh(f"{name} will be applied on startup.")
+            except (OSError, LibraryViewPresetError) as error:
+                report_error(error)
+
+        def clear_default(_button):
+            try:
+                self.library_view_preset_store.set_default(None)
+                refresh("The normal library view will be used on startup.")
+            except (OSError, LibraryViewPresetError) as error:
+                report_error(error)
+
+        def reset_view(_button):
+            self._apply_default_library_view()
+            status_label.set_label("Returned to the normal library view.")
+
+        action_rows = []
+        for labels, callbacks in (
+            (
+                ("Apply", apply_selected),
+                ("Save Current", save_current),
+                ("Update Selected", update_selected),
+                ("Rename", rename_selected),
+            ),
+            (
+                ("Duplicate", duplicate_selected),
+                ("Delete", delete_selected),
+                ("Set Default", set_default),
+                ("Clear Default", clear_default),
+            ),
+        ):
+            row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+            for label, callback in zip(labels, callbacks):
+                button = Gtk.Button(label=label)
+                if label == "Delete":
+                    button.add_css_class("destructive-action")
+                button.connect("clicked", callback)
+                row.append(button)
+            action_rows.append(row)
+            content.append(row)
+        reset_button = Gtk.Button(label="Return to Normal View")
+        reset_button.connect("clicked", reset_view)
+        reset_button.set_halign(Gtk.Align.START)
+        content.append(reset_button)
+
+        dialog.set_extra_child(content)
+        dialog.add_response("close", "Close")
+        dialog.set_default_response("close")
+        refresh()
+        dialog.present(self)
 
     def _show_release_results(self):
         self.stack.set_visible_child_name("releases")
