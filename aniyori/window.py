@@ -124,6 +124,8 @@ class AnimeRow(Gtk.Box):
         title = Gtk.Label(label=entry.title, xalign=0)
         title.add_css_class("heading")
         title.set_ellipsize(3)
+        layout = layout or DEFAULT_LIBRARY_LAYOUTS["list"]
+        title.set_size_request(layout["widths"]["title"], -1)
         details.append(title)
 
         status_text = entry.status.value.replace("_", " ").title()
@@ -132,7 +134,6 @@ class AnimeRow(Gtk.Box):
             if entry.provider and entry.provider_id
             else f"Manual entry #{entry.storage_id}" if entry.storage_id is not None else "Manual entry"
         )
-        layout = layout or DEFAULT_LIBRARY_LAYOUTS["list"]
         metadata = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
         metadata.set_hexpand(True)
         self.layout_fields = {
@@ -159,6 +160,7 @@ class AnimeRow(Gtk.Box):
             progress.set_fraction(entry.progress_fraction)
             progress.set_valign(Gtk.Align.CENTER)
             progress.set_size_request(100, -1)
+            progress.set_visible("progress" in layout["visible"])
             self.append(progress)
 
         next_button = Gtk.Button(label="+1")
@@ -231,6 +233,7 @@ class AnimeCard(Gtk.Box):
         title.add_css_class("heading")
         title.set_max_width_chars(20)
         self.append(title)
+        layout = layout or DEFAULT_LIBRARY_LAYOUTS["grid"]
 
         status = entry.status.value.replace("_", " ").title()
         source_text = (
@@ -238,7 +241,6 @@ class AnimeCard(Gtk.Box):
             if entry.provider and entry.provider_id
             else f"Manual entry #{entry.storage_id}" if entry.storage_id is not None else "Manual entry"
         )
-        layout = layout or DEFAULT_LIBRARY_LAYOUTS["grid"]
         self.layout_fields = {
             "status": Gtk.Label(label=status, justify=Gtk.Justification.CENTER),
             "progress": Gtk.Label(label=entry.progress_label, justify=Gtk.Justification.CENTER),
@@ -260,6 +262,7 @@ class AnimeCard(Gtk.Box):
             progress.set_fraction(entry.progress_fraction)
             progress.set_margin_start(12)
             progress.set_margin_end(12)
+            progress.set_visible("progress" in layout["visible"])
             self.append(progress)
 
         next_button = Gtk.Button(label="+1 episode")
@@ -1027,6 +1030,8 @@ class AniyoriWindow(Adw.ApplicationWindow):
                 order = Gtk.SpinButton.new_with_range(1, len(saved[view]["order"]), 1)
                 order.set_value(saved[view]["order"].index(column) + 1)
                 order.set_width_chars(3)
+                if column == "title":
+                    order.set_sensitive(False)
                 row.append(order)
                 controls[view][column] = {"visible": visible, "order": order}
                 if view == "list":
