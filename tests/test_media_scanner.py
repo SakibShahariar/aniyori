@@ -1,10 +1,12 @@
 """Tests for deterministic local media file discovery."""
 
+import os
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
-from aniyori.services.media_scanner import scan_video_files
+from aniyori.services.media_scanner import scan_video_files, scan_video_files_detailed
 
 
 class MediaScannerTests(unittest.TestCase):
@@ -67,6 +69,79 @@ class MediaScannerTests(unittest.TestCase):
             self.skipTest("Symbolic links are unavailable on this platform")
 
         self.assertEqual(scan_video_files([self.root]), [real_file.absolute()])
+
+    def test_detailed_scan_reports_size_and_deduplicates_overlapping_roots(self):
+        media = self.root / "Anime" / "episode.mkv"
+        media.parent.mkdir()
+        media.write_bytes(b"video")
+
+        result = scan_video_files_detailed([self.root, media.parent])
+
+        self.assertEqual(len(result.files), 1)
+        self.assertEqual(result.files[0].path, media.resolve())
+        self.assertEqual(result.files[0].size_bytes, 5)
+        self.assertEqual(result.unavailable_roots, ())
+        self.assertTrue(result.size_complete)
+
+    def test_missing_root_is_reported_as_unavailable(self):
+        missing = self.root / "offline-drive" / "Anime"
+
+        result = scan_video_files_detailed([missing])
+
+        self.assertEqual(result.files, ())
+        self.assertEqual(result.unavailable_roots, (missing,))
+        self.assertFalse(result.size_complete)
+
+    def test_symlink_root_is_not_followed(self):
+        real = self.root / "real"
+        real.mkdir()
+        (real / "episode.mkv").touch()
+        linked = self.root / "linked"
+        try:
+            linked.symlink_to(real, target_is_directory=True)
+        except (OSError, NotImplementedError):
+            self.skipTest("Symbolic links are unavailable on this platform")
+
+        result = scan_video_files_detailed([linked])
+
+        self.assertEqual(result.files, ())
+        self.assertEqual(result.unavailable_roots, (linked,))
+        self.assertFalse(result.size_complete)
+
+    def test_walk_permission_errors_produce_partial_results(self):
+        media = self.root / "episode.mkv"
+        media.touch()
+
+        def failing_walk(root, *, topdown, followlinks, onerror):
+            onerror(PermissionError("permission denied"))
+            return iter(())
+
+        with patch("aniyori.services.media_scanner.os.walk", side_effect=failing_walk):
+            result = scan_video_files_detailed([self.root])
+
+        self.assertEqual(result.files, ())
+        self.assertEqual(result.unavailable_roots, (self.root,))
+        self.assertFalse(result.size_complete)
+
+    def test_cancelled_scan_is_marked_incomplete(self):
+        result = scan_video_files_detailed([self.root], is_cancelled=lambda: True)
+
+        self.assertEqual(result.files, ())
+        self.assertFalse(result.size_complete)
+
+    def test_hard_link_paths_are_counted_consistently(self):
+        original = self.root / "episode.mkv"
+        linked = self.root / "episode-copy.mkv"
+        original.write_bytes(b"12345")
+        try:
+            os.link(original, linked)
+        except (OSError, NotImplementedError):
+            self.skipTest("Hard links are unavailable on this platform")
+
+        result = scan_video_files_detailed([self.root])
+
+        self.assertEqual(len(result.files), 2)
+        self.assertEqual(sum(item.size_bytes for item in result.files), 10)
 
     def test_honours_custom_excluded_directory_names(self):
         excluded = self.root / "Archive"
