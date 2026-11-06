@@ -294,6 +294,7 @@ class AniListClientTests(unittest.TestCase):
             "coverImage": {"large": "https://example.test/cover.jpg"},
             "genres": ["Adventure"], "siteUrl": "https://anilist.co/anime/101",
             "nextAiringEpisode": {"airingAt": 1790812800, "timeUntilAiring": 3600, "episode": 5},
+            "trailer": {"id": "dQw4w9WgXcQ", "site": "youtube", "thumbnail": "https://example.test/trailer.jpg"},
         }]}}
         with patch.object(self.client, "_request", return_value=payload) as request:
             results = self.client.search_season("fall", 2026)
@@ -304,6 +305,8 @@ class AniListClientTests(unittest.TestCase):
         self.assertEqual(results[0]["average_score"], 82)
         self.assertEqual(results[0]["genres"], ["Adventure"])
         self.assertEqual(results[0]["next_airing_at"], 1790812800)
+        self.assertEqual(results[0]["trailer_url"], "https://www.youtube.com/watch?v=dQw4w9WgXcQ")
+        self.assertEqual(results[0]["trailer_thumbnail"], "https://example.test/trailer.jpg")
 
     def test_search_season_cache_and_offline_fallback(self):
         payload = {"Page": {"media": [{"id": 101, "title": {"romaji": "Cached"}}]}}
