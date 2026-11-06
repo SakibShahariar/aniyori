@@ -6,6 +6,7 @@ import logging
 import os
 import sqlite3
 import threading
+from datetime import datetime
 import shutil
 import subprocess
 import time
@@ -50,7 +51,7 @@ from .services.share_templates import (
 )
 from .services.covers import get_cached_cover
 from .storage import LibraryStorage
-from .statistics import calculate_library_statistics
+from .statistics import calculate_history_insights, calculate_library_statistics
 from .services.library_sort import SORT_MODES, sort_library_entries
 from .services.external_links import ExternalLinkError, ExternalLinkStore, links_for_entry
 from .services.webhooks import WebhookError, WebhookStore, deliver_webhooks
@@ -2540,18 +2541,118 @@ class AniyoriWindow(Adw.ApplicationWindow):
         ]
         estimated_hours = stats["estimated_minutes"] / 60
         body = (
-            f"Anime in library: {stats['anime_count']}\n"
-            f"Episodes watched: {stats['episodes_watched']}\n"
-            f"Known episode total: {stats['known_episodes_total']}\n"
-            f"Completed anime: {stats['completion_rate']}%\n"
+            f"Anime in library: {stats['anime_count']}\\n"
+            f"Episodes watched: {stats['episodes_watched']}\\n"
+            f"Known episode total: {stats['known_episodes_total']}\\n"
+            f"Completed anime: {stats['completion_rate']}%\\n"
             f"Estimated watch time: {estimated_hours:.1f} hours "
-            "(24 minutes per episode)\n\n"
-            + "\n".join(status_lines)
+            "(24 minutes per episode)\\n\\n"
+            + "\\n".join(status_lines)
         )
         dialog = Adw.AlertDialog(
             heading="Library Statistics",
             body=body,
         )
+
+        panel = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+        panel.set_margin_top(12)
+        panel.set_margin_bottom(4)
+        year_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        year_label = Gtk.Label(label="Viewing year", xalign=0)
+        year_label.set_hexpand(True)
+        current_year = datetime.now().astimezone().year
+        year_spin = Gtk.SpinButton.new_with_range(1900, current_year, 1)
+        year_spin.set_value(current_year)
+        year_row.append(year_label)
+        year_row.append(year_spin)
+        panel.append(year_row)
+
+        month_names = (
+            "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+            "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+        )
+        month_bars = []
+        month_grid = Gtk.Grid(column_spacing=10, row_spacing=6)
+        for index, month_name in enumerate(month_names):
+            label = Gtk.Label(label=month_name, xalign=0)
+            label.set_width_chars(4)
+            bar = Gtk.ProgressBar()
+            bar.set_hexpand(True)
+            bar.set_show_text(True)
+            bar.set_text("0 episode events")
+            month_grid.attach(label, 0, index, 1, 1)
+            month_grid.attach(bar, 1, index, 1, 1)
+            month_bars.append(bar)
+        panel.append(month_grid)
+
+        summary = Gtk.Label(xalign=0, wrap=True)
+        completed_label = Gtk.Label(xalign=0, wrap=True)
+        estimate_label = Gtk.Label(xalign=0, wrap=True)
+        for label in (summary, completed_label, estimate_label):
+            label.set_selectable(True)
+            panel.append(label)
+
+        local_timezone = datetime.now().astimezone().tzinfo
+
+        def update_history_year(_spin=None):
+            year = year_spin.get_value_as_int()
+            try:
+                events = self.storage.list_watch_history_for_year(
+                    year, local_timezone=local_timezone
+                )
+                insights = calculate_history_insights(
+                    events, year, local_timezone=local_timezone
+                )
+            except (OSError, ValueError) as error:
+                summary.set_label(f"Could not load watch history for {year}: {error}")
+                completed_label.set_label("")
+                estimate_label.set_label("")
+                for bar in month_bars:
+                    bar.set_fraction(0)
+                    bar.set_text("Unavailable")
+                return
+
+            maximum = max(
+                (month["episode_events"] for month in insights["months"]),
+                default=0,
+            )
+            for bar, month in zip(month_bars, insights["months"]):
+                count = month["episode_events"]
+                bar.set_fraction(count / maximum if maximum else 0)
+                bar.set_text(f"{count} episode events")
+                bar.set_tooltip_text(
+                    f"{month['event_count']} total events; "
+                    f"{month['rewatch_events']} rewatches; "
+                    f"{month['progress_changes']} progress changes; "
+                    f"{month['status_changes']} status changes"
+                )
+
+            if insights["event_count"]:
+                summary.set_label(
+                    f"Recorded episode events: {insights['episode_events']} "
+                    f"({insights['first_watch_events']} identified first watches, "
+                    f"{insights['rewatch_events']} rewatches); "
+                    f"progress changes: {insights['progress_changes']}; "
+                    f"status changes: {insights['status_changes']}; "
+                    f"active days: {insights['active_days']}."
+                )
+            else:
+                summary.set_label(f"No recorded watch-history events for {year}.")
+            titles = [item["title"] for item in insights["completed_anime"]]
+            completed_label.set_label(
+                f"Anime marked completed: {insights['completed_anime_count']}"
+                + (f" — {', '.join(titles)}" if titles else "")
+            )
+            hours = insights["estimated_minutes"] / 60
+            estimate_label.set_label(
+                f"Estimated time: {hours:.1f} hours "
+                f"({insights['minutes_per_episode']} minutes per recorded episode event; "
+                "an estimate, not measured playback)."
+            )
+
+        year_spin.connect("value-changed", update_history_year)
+        update_history_year()
+        dialog.set_extra_child(panel)
         dialog.add_response("close", "Close")
         dialog.set_default_response("close")
         dialog.present(self)
