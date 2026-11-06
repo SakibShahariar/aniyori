@@ -58,6 +58,41 @@ class ConfiguredLibraryScanTests(unittest.TestCase):
         self.assertEqual(result.matches, ())
         self.assertEqual(result.inventory[0].available_episodes, ())
 
+    def test_scan_reports_aggregate_size_and_next_unwatched_episode(self):
+        first = self.folder / "[Group] Frieren - 01.mkv"
+        second = self.folder / "[Group] Frieren - 03.mkv"
+        first.write_bytes(b"123")
+        second.write_bytes(b"12345")
+
+        result = scan_configured_library(
+            self.store,
+            self.candidates,
+            [self.entry],
+            watched_episodes={"10": {1}},
+        )
+
+        self.assertEqual(result.total_size_bytes, 8)
+        self.assertTrue(result.size_complete)
+        self.assertTrue(result.scan_complete)
+        self.assertEqual(result.inventory[0].size_bytes, 8)
+        self.assertEqual(result.inventory[0].next_unwatched_episode, 3)
+        self.assertEqual(result.inventory[0].source_paths, (first, second))
+
+    def test_unavailable_root_marks_inventory_partial_not_missing(self):
+        (self.folder / "[Group] Frieren - 01.mkv").touch()
+        self.store.add_location(self.root / "offline-drive" / "Anime")
+
+        result = scan_configured_library(
+            self.store, self.candidates, [self.entry]
+        )
+
+        self.assertFalse(result.scan_complete)
+        self.assertFalse(result.size_complete)
+        self.assertEqual(len(result.unavailable_locations), 1)
+        self.assertFalse(result.inventory[0].missing_complete)
+        self.assertEqual(result.inventory[0].missing_episodes, ())
+        self.assertIsNone(result.inventory[0].next_unwatched_episode)
+
     def test_scan_uses_catalogue_candidates_for_recognition(self):
         (self.folder / "[Group] Frieren - 01.mkv").touch()
         result = scan_configured_library(
