@@ -30,6 +30,16 @@ Use a disposable test profile or a backup of any library data you care about. Do
 - [ ] Open Watch History; filter by title, date, and action; remove a selected event and prune older events.
 - [ ] Restart and confirm history and per-episode state persist.
 
+## Yearly watch-history insights — #88
+
+- [ ] Open Library Statistics and confirm the existing library totals and status counts remain visible.
+- [ ] Switch among years with recorded activity and an empty year; confirm the monthly chart and empty-history explanation update.
+- [ ] Confirm monthly bars count all recorded history events and their tooltips distinguish episode, rewatch, progress, and status events.
+- [ ] Confirm completed anime are listed from completion-status history events and repeated completion events do not duplicate an anime.
+- [ ] Confirm estimated time states its per-episode assumption and is not presented as measured playback.
+- [ ] Check events around local New Year and a daylight-saving transition; confirm they appear under the correct local calendar date/year.
+- [ ] Open the statistics dialog with a large history; confirm the window remains responsive while yearly results load.
+
 ## Custom library layout — #65
 
 - [ ] Open Customize Library Layout from the main menu.
