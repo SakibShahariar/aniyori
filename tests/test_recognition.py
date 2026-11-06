@@ -5,7 +5,9 @@ import unittest
 from unittest.mock import patch
 from pathlib import Path
 
-from aniyori.services.recognition import recognize_local_videos
+from aniyori.services.recognition import (
+    recognize_local_videos, recognize_local_videos_detailed,
+)
 
 
 class LocalVideoRecognitionTests(unittest.TestCase):
@@ -36,6 +38,20 @@ class LocalVideoRecognitionTests(unittest.TestCase):
         self.assertEqual(by_name[files[0].name], "matched")
         self.assertEqual(by_name[files[1].name], "ambiguous")
         self.assertEqual(by_name[files[2].name], "unparsed")
+
+    def test_recognition_propagates_file_size_and_unavailable_roots(self):
+        media = self.root / "[Group] Frieren - 01.mkv"
+        media.write_bytes(b"12345")
+        missing = self.root / "offline-drive"
+
+        result = recognize_local_videos_detailed(
+            [self.root, missing], [{"id": 10, "title": "Frieren"}]
+        )
+
+        self.assertEqual(result.total_size_bytes, 5)
+        self.assertFalse(result.size_complete)
+        self.assertEqual(result.unavailable_roots, (missing,))
+        self.assertEqual(result.matches[0].size_bytes, 5)
 
     def test_catalogue_generator_is_reused_for_every_file(self):
         first = self.root / "[Group] Frieren - 01.mkv"
