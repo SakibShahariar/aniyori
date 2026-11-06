@@ -34,7 +34,7 @@ All notable user-facing changes for Aniyori are documented here.
 - Python 3.10 or newer
 - GTK 4
 - PyGObject
-- libadwaita
+- libadwaita 1.5 or newer
 - Optional qBittorrent API credential storage: `secret-tool` and an unlocked freedesktop Secret Service provider
 
 See the README for distribution package commands and launch instructions.

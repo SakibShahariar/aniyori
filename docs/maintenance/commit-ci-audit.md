@@ -704,3 +704,15 @@ The queue documentation/audit commit passed CI. The stale-airing-cache correctio
 
 - Reviewed checkpoint: `0700be008e716150d4df56224c36f128ffebaa7c`
 - Commits after the previous checkpoint through this SHA: all commits listed in this table; all seven Tests runs completed green.
+
+
+## Reviewed range: 2026-11-06 (continued)
+
+| Commit SHA | Subject | CI result | Run |
+|---|---|---|---|
+| `f553c8abb19ae397ea6c60624c9d4be4d9d5b2f5` | docs(discovery): document trailer actions and CI audit (#37) | green | [42166137742](https://github.com/SakibShahariar/aniyori/actions/runs/42166137742) |
+
+The trailer documentation and audit commit completed the Tests workflow successfully. This next release-documentation change records the actual minimum libadwaita API requirement: the application uses `Adw.AlertDialog`, which is available since libadwaita 1.5. The distribution commands are now scoped to current releases whose package repositories provide that API; the README launch command matches the repository's actual `main.py` entry point.
+
+- Reviewed checkpoint: `f553c8abb19ae397ea6c60624c9d4be4d9d5b2f5`
+- Commits after the previous checkpoint: `f553c8abb19ae397ea6c60624c9d4be4d9d5b2f5`; its Tests run completed green.

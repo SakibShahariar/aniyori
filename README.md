@@ -137,29 +137,40 @@ configuration directory alone does not remove the keyring entry.
 - Python 3.10+
 - GTK 4
 - PyGObject
-- libadwaita
+- libadwaita 1.5 or newer (required for `Adw.AlertDialog`)
 - Optional for qBittorrent WebUI integration: `secret-tool` and an unlocked
   freedesktop Secret Service provider (for example, GNOME Keyring or a compatible
   KWallet setup). Without these, use the desktop magnet-link handoff.
 
+The system-package instructions below target current releases with libadwaita 1.5+:
+Debian 13+, Ubuntu 26.04+, Fedora 43+, or Arch Linux rolling. Older Debian/Ubuntu
+releases may ship libadwaita versions too old for Aniyori's dialogs.
+
 Install system dependencies:
 
-**Debian / Ubuntu**
+**Debian 13+ / Ubuntu 26.04+**
 ```bash
 sudo apt install python3 python3-gi gir1.2-gtk-4.0 gir1.2-adw-1
 ```
 
-**Fedora**
+**Fedora 43+**
 ```bash
 sudo dnf install python3 python3-gobject gtk4 libadwaita
 ```
 
-**Arch Linux**
+**Arch Linux (rolling)**
 ```bash
 sudo pacman -S python python-gobject gtk4 libadwaita
 ```
 
-Run the application:
+For optional qBittorrent WebUI credential storage, also install the `secret-tool`
+command and configure an unlocked Secret Service provider:
+
+- Debian / Ubuntu: `sudo apt install libsecret-tools`
+- Fedora: `sudo dnf install libsecret`
+- Arch Linux: `sudo pacman -S libsecret`
+
+Run the application from the repository root:
 
 ```bash
 python3 main.py
