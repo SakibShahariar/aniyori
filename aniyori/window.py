@@ -2613,15 +2613,15 @@ class AniyoriWindow(Adw.ApplicationWindow):
                 return
 
             maximum = max(
-                (month["episode_events"] for month in insights["months"]),
+                (month["event_count"] for month in insights["months"]),
                 default=0,
             )
             for bar, month in zip(month_bars, insights["months"]):
-                count = month["episode_events"]
+                count = month["event_count"]
                 bar.set_fraction(count / maximum if maximum else 0)
-                bar.set_text(f"{count} episode events")
+                bar.set_text(f"{count} events")
                 bar.set_tooltip_text(
-                    f"{month['event_count']} total events; "
+                    f"{month['episode_events']} episode events; "
                     f"{month['rewatch_events']} rewatches; "
                     f"{month['progress_changes']} progress changes; "
                     f"{month['status_changes']} status changes"
@@ -2637,7 +2637,11 @@ class AniyoriWindow(Adw.ApplicationWindow):
                     f"active days: {insights['active_days']}."
                 )
             else:
-                summary.set_label(f"No recorded watch-history events for {year}.")
+                summary.set_label(
+                    f"No recorded watch-history events for {year}. "
+                    "This does not mean no episodes were watched; imported or older "
+                    "progress may predate history tracking."
+                )
             titles = [item["title"] for item in insights["completed_anime"]]
             completed_label.set_label(
                 f"Anime marked completed: {insights['completed_anime_count']}"
