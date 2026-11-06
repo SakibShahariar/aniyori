@@ -62,13 +62,21 @@ class MediaScannerTests(unittest.TestCase):
         real_file.touch()
         linked_file = self.root / "linked.mkv"
         linked_dir = self.root / "linked-dir"
+        loop_dir = real_dir / "loop"
+        outside_file = self.root.parent / f"{self.root.name}-outside.mkv"
+        outside_file.touch()
         try:
-            linked_file.symlink_to(real_file)
+            linked_file.symlink_to(outside_file)
             linked_dir.symlink_to(real_dir, target_is_directory=True)
+            loop_dir.symlink_to(real_dir, target_is_directory=True)
         except (OSError, NotImplementedError):
+            outside_file.unlink(missing_ok=True)
             self.skipTest("Symbolic links are unavailable on this platform")
 
-        self.assertEqual(scan_video_files([self.root]), [real_file.absolute()])
+        try:
+            self.assertEqual(scan_video_files([self.root]), [real_file.absolute()])
+        finally:
+            outside_file.unlink(missing_ok=True)
 
     def test_detailed_scan_reports_size_and_deduplicates_overlapping_roots(self):
         media = self.root / "Anime" / "episode.mkv"
