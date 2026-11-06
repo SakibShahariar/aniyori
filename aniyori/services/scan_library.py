@@ -40,6 +40,7 @@ def scan_configured_library(
     excluded_directories: Iterable[str] | None = None,
     exclusions: Iterable[Mapping[str, str]] = (),
     watched_episodes: Mapping[int | str, Iterable[int]] | None = None,
+    configured_locations: Iterable[str | Path] | None = None,
     is_cancelled: Callable[[], bool] | None = None,
 ) -> LibraryScanResult:
     """Scan saved folders, recognize releases, and summarize episode coverage.
@@ -48,7 +49,11 @@ def scan_configured_library(
     callers should run it in a worker thread and provide a thread-safe
     cancellation callback.
     """
-    locations = location_store.list_locations()
+    locations = (
+        tuple(Path(item) for item in configured_locations)
+        if configured_locations is not None
+        else location_store.list_locations()
+    )
     library_entries = tuple(entries)
     recognition = recognize_local_videos_detailed(
         locations,
