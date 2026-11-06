@@ -54,6 +54,10 @@ from .statistics import calculate_library_statistics
 from .services.library_sort import SORT_MODES, sort_library_entries
 from .services.external_links import ExternalLinkError, ExternalLinkStore, links_for_entry
 from .services.webhooks import WebhookError, WebhookStore, deliver_webhooks
+from .services.player_detection import (
+    PlayerDetectionSettings, PlayerDetectionSettingsStore,
+    match_playback_file, playback_finished, supported_player_names,
+)
 from .services.notifications import (
     EVENT_TYPES, NotificationError, NotificationPreferences, NotificationStore,
 )
@@ -324,6 +328,14 @@ class AniyoriWindow(Adw.ApplicationWindow):
         self.external_link_store = ExternalLinkStore()
         self.webhook_store = WebhookStore()
         self.notification_store = NotificationStore()
+        self.player_detection_store = PlayerDetectionSettingsStore()
+        try:
+            self.player_detection_settings = self.player_detection_store.load()
+        except (OSError, ValueError) as error:
+            LOGGER.warning("Could not load player detection settings: %s", error)
+            self.player_detection_settings = PlayerDetectionSettings()
+        self._player_poll_running = False
+        self._player_poll_source = None
         self.network_settings_store = NetworkSettingsStore()
         self.profile_store = ProfileStore()
         self.library_layout_store = LibraryLayoutStore()
@@ -359,6 +371,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
             ("manage-webhooks", self._show_webhook_manager),
             ("notifications", self._show_notification_center),
             ("notification-preferences", self._show_notification_preferences),
+            ("player-detection", self._show_player_detection_preferences),
             ("network-settings", self._show_network_settings_dialog),
             ("profiles", self._show_profiles_dialog),
             ("library-layout", self._show_library_layout_dialog),
@@ -410,6 +423,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
         primary_menu.append("Manage Webhooks", "win.manage-webhooks")
         primary_menu.append("Notifications", "win.notifications")
         primary_menu.append("Notification Preferences", "win.notification-preferences")
+        primary_menu.append("Local Player Detection", "win.player-detection")
         primary_menu.append("Network Settings", "win.network-settings")
         primary_menu.append("Profiles & Portable Mode", "win.profiles")
         primary_menu.append("Customize Library Layout", "win.library-layout")
@@ -659,6 +673,8 @@ class AniyoriWindow(Adw.ApplicationWindow):
         self._refresh_airing_schedule()
         GLib.timeout_add_seconds(60, self._update_airing_countdowns)
         GLib.timeout_add_seconds(1800, self._periodic_airing_refresh)
+        if self.player_detection_settings.enabled:
+            self._start_player_detection()
         self._refresh_release_feeds()
         GLib.timeout_add_seconds(1800, self._periodic_release_refresh)
 
@@ -2105,6 +2121,158 @@ class AniyoriWindow(Adw.ApplicationWindow):
                 return
             self.toast_overlay.add_toast(Adw.Toast.new("Notification preferences saved."))
         dialog.choose(self, None, response)
+
+    def _show_player_detection_preferences(self):
+        enabled = Gtk.CheckButton(label="Detect playback in mpv and VLC")
+        enabled.set_active(self.player_detection_settings.enabled)
+        description = Gtk.Label(
+            label=(
+                "When enabled, Aniyori checks supported MPRIS players in the background. "
+                "A confidently matched local video updates progress after at least 90% "
+                "of its duration. Unrecognized or ambiguous files are ignored."
+            ),
+            xalign=0,
+            wrap=True,
+        )
+        dialog = Adw.AlertDialog(
+            heading="Local Player Detection",
+            body="Playback detection is optional and disabled by default.",
+        )
+        content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+        content.append(enabled)
+        content.append(description)
+        dialog.set_extra_child(content)
+        dialog.add_response("cancel", "Cancel")
+        dialog.add_response("save", "Save")
+        dialog.set_response_appearance("save", Adw.ResponseAppearance.SUGGESTED)
+        dialog.set_default_response("save")
+        dialog.set_close_response("cancel")
+
+        def response(_dialog, result):
+            try:
+                selected = _dialog.choose_finish(result)
+            except GLib.Error:
+                LOGGER.warning("Could not finish player detection preferences dialog", exc_info=True)
+                return
+            if selected != "save":
+                return
+            settings = PlayerDetectionSettings(enabled.get_active())
+            try:
+                self.player_detection_store.save(settings)
+            except (OSError, ValueError) as error:
+                self.toast_overlay.add_toast(
+                    Adw.Toast.new("Could not save player detection settings: " + str(error))
+                )
+                return
+            self.player_detection_settings = settings
+            if settings.enabled:
+                self._start_player_detection()
+                self.toast_overlay.add_toast(Adw.Toast.new("Local player detection enabled."))
+            else:
+                self._stop_player_detection()
+                self.toast_overlay.add_toast(Adw.Toast.new("Local player detection disabled."))
+
+        dialog.choose(self, None, response)
+
+    def _start_player_detection(self):
+        if self._player_poll_source is None:
+            self._player_poll_source = GLib.timeout_add_seconds(10, self._poll_player_playback)
+
+    def _stop_player_detection(self):
+        if self._player_poll_source is not None:
+            GLib.source_remove(self._player_poll_source)
+            self._player_poll_source = None
+
+    def _poll_player_playback(self):
+        if not self.player_detection_settings.enabled or self._player_poll_running:
+            return GLib.SOURCE_CONTINUE
+        self._player_poll_running = True
+
+        def unpack(value):
+            return value.unpack() if hasattr(value, "unpack") else value
+
+        def worker():
+            states = []
+            try:
+                connection = Gio.bus_get_sync(Gio.BusType.SESSION, None)
+                names_reply = connection.call_sync(
+                    "org.freedesktop.DBus",
+                    "/org/freedesktop/DBus",
+                    "org.freedesktop.DBus",
+                    "ListNames",
+                    None,
+                    GLib.VariantType.new("(as)"),
+                    Gio.DBusCallFlags.NONE,
+                    1500,
+                    None,
+                )
+                names = names_reply.unpack()[0]
+                for bus_name in supported_player_names(names):
+                    try:
+                        reply = connection.call_sync(
+                            bus_name,
+                            "/org/mpris/MediaPlayer2",
+                            "org.freedesktop.DBus.Properties",
+                            "GetAll",
+                            GLib.Variant("(s)", ("org.mpris.MediaPlayer2.Player",)),
+                            GLib.VariantType.new("(a{sv})"),
+                            Gio.DBusCallFlags.NONE,
+                            1500,
+                            None,
+                        )
+                        properties = reply.unpack()[0]
+                        metadata = unpack(properties.get("Metadata") or {})
+                        uri = unpack(metadata.get("xesam:url"))
+                        status = unpack(properties.get("PlaybackStatus"))
+                        position = unpack(properties.get("Position", 0))
+                        duration = unpack(metadata.get("mpris:length", 0))
+                        if isinstance(uri, str) and status in {"Playing", "Paused", "Stopped"}:
+                            states.append((bus_name, uri, status, position, duration))
+                    except GLib.Error:
+                        LOGGER.debug("Could not query MPRIS player %s", bus_name, exc_info=True)
+            except (GLib.Error, OSError):
+                LOGGER.debug("Session bus or MPRIS player discovery is unavailable", exc_info=True)
+            GLib.idle_add(self._apply_player_playback, states)
+
+        threading.Thread(target=worker, daemon=True).start()
+        return GLib.SOURCE_CONTINUE
+
+    def _apply_player_playback(self, states):
+        self._player_poll_running = False
+        if not self.player_detection_settings.enabled:
+            return GLib.SOURCE_REMOVE
+        for bus_name, uri, status, position, duration in states:
+            if not playback_finished(position, duration):
+                continue
+            match = match_playback_file(uri, self.entries)
+            if match is None:
+                continue
+            storage_id, episode = match
+            entry = next(
+                (item for item in self.entries if item.storage_id == storage_id),
+                None,
+            )
+            if entry is None or episode <= entry.episodes_watched:
+                continue
+            try:
+                changed = self.storage.update_progress(
+                    storage_id,
+                    episode,
+                    source="player:" + bus_name.rsplit(".", 1)[-1],
+                )
+            except (OSError, ValueError) as error:
+                LOGGER.debug("Could not update player-detected progress: %s", error)
+                continue
+            if changed:
+                self.entries = self.storage.list_entries()
+                updated = next(
+                    (item for item in self.entries if item.storage_id == storage_id),
+                    None,
+                )
+                if updated is not None:
+                    self._dispatch_webhook_event(updated, "progress")
+                self._render_library()
+        return GLib.SOURCE_REMOVE
 
     def _dispatch_webhook_event(self, entry: AnimeEntry, event_type: str):
         """Deliver a watch-status event off the GTK thread; isolate endpoint failures."""
