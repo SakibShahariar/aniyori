@@ -3870,7 +3870,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
         scroll.set_child(flow)
         content.append(scroll)
         dialog.set_extra_child(content)
-        state = {"results": []}
+        state = {"results": [], "loaded_for": None}
         generation = SearchGeneration()
 
         def render_results(*_args):
@@ -3970,10 +3970,11 @@ class AniyoriWindow(Adw.ApplicationWindow):
             genre_dropdown.set_model(Gtk.StringList.new(["All genres", *genres]))
             genre_dropdown.set_selected(0)
 
-        def apply_results(results, request_id):
+        def apply_results(results, request_id, season_key):
             if not generation.is_current(request_id):
                 return GLib.SOURCE_REMOVE
             state["results"] = results
+            state["loaded_for"] = season_key
             update_genres(results)
             status_label.set_label(f"Loaded {len(results)} anime.")
             load_button.set_sensitive(True)
@@ -3996,14 +3997,18 @@ class AniyoriWindow(Adw.ApplicationWindow):
             if si >= len(SEASONS) or yi >= len(year_values):
                 return
             season, year = SEASONS[si], year_values[yi]
+            season_key = (season, year)
+            force_refresh = state["loaded_for"] == season_key
             request_id = generation.begin()
             load_button.set_sensitive(False)
             load_button.set_label("Loading…")
             status_label.set_label(f"Loading {season.title()} {year} from AniList…")
             def worker():
                 try:
-                    results = AniListClient().search_season(season, year)
-                    GLib.idle_add(apply_results, results, request_id)
+                    results = AniListClient().search_season(
+                        season, year, refresh=force_refresh
+                    )
+                    GLib.idle_add(apply_results, results, request_id, season_key)
                 except (AniListError, ValueError) as error:
                     GLib.idle_add(show_error, str(error), request_id)
             threading.Thread(target=worker, daemon=True).start()
