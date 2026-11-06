@@ -370,6 +370,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
             ("manage-release-feeds", self._show_release_feed_manager),
             ("manage-release-rules", self._show_release_rule_manager),
             ("configure-qbittorrent", self._show_qbittorrent_settings_dialog),
+            ("download-queue", self._show_download_queue),
             ("about", self._show_about_dialog),
         ]:
             action = Gio.SimpleAction.new(name, None)
@@ -419,6 +420,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
         primary_menu.append("Release Scoring Weights", "win.release-scoring")
         primary_menu.append("Manage Release Feeds", "win.manage-release-feeds")
         primary_menu.append("Manage Smart Release Rules", "win.manage-release-rules")
+        primary_menu.append("Download Queue", "win.download-queue")
         primary_menu.append("Configure qBittorrent", "win.configure-qbittorrent")
         primary_menu.append("About Aniyori", "win.about")
         primary_menu.append("Quit", "win.quit")
@@ -604,6 +606,9 @@ class AniyoriWindow(Adw.ApplicationWindow):
             "clicked", lambda _button: self._show_qbittorrent_settings_dialog()
         )
         release_controls.append(configure_qbittorrent_button)
+        queue_button = Gtk.Button(label="Download Queue")
+        queue_button.connect("clicked", lambda _button: self._show_download_queue())
+        release_controls.append(queue_button)
         self.release_page.append(release_controls)
         self.release_list_box = Gtk.ListBox()
         self.release_list_box.set_selection_mode(Gtk.SelectionMode.NONE)
@@ -2552,6 +2557,185 @@ class AniyoriWindow(Adw.ApplicationWindow):
             label.set_margin_bottom(24)
             label.add_css_class("dim-label")
             self.release_list_box.append(label)
+
+    def _show_download_queue(self):
+        """Show and manage the configured qBittorrent queue without blocking GTK."""
+        try:
+            settings = self.qbittorrent_settings_store.load()
+            if settings is None:
+                self.toast_overlay.add_toast(Adw.Toast.new("Configure qBittorrent first."))
+                self._show_qbittorrent_settings_dialog()
+                return
+            credentials = SecretServiceCredentialStore()
+        except (QBittorrentError, CredentialStoreError) as error:
+            self.toast_overlay.add_toast(Adw.Toast.new(str(error)))
+            return
+
+        dialog = Gtk.Window(transient_for=self, modal=True, title="Download Queue")
+        dialog.set_default_size(760, 520)
+        content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+        for side in ("top", "bottom", "start", "end"):
+            getattr(content, f"set_margin_{side}")(16)
+        heading = Gtk.Label(label="qBittorrent Downloads", xalign=0)
+        heading.add_css_class("title-2")
+        content.append(heading)
+        status = Gtk.Label(label="Loading queue…", xalign=0)
+        status.add_css_class("dim-label")
+        content.append(status)
+        toolbar = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        refresh_button = Gtk.Button(label="Refresh")
+        toolbar.append(refresh_button)
+        toolbar.append(Gtk.Label(label="Refreshes automatically every 10 seconds", xalign=0))
+        content.append(toolbar)
+        queue_list = Gtk.ListBox()
+        queue_list.set_selection_mode(Gtk.SelectionMode.NONE)
+        queue_list.add_css_class("boxed-list")
+        scroll = Gtk.ScrolledWindow()
+        scroll.set_vexpand(True)
+        scroll.set_child(queue_list)
+        content.append(scroll)
+        dialog.set_child(content)
+
+        busy = [False]
+        timer_id = [0]
+
+        def format_size(value):
+            amount = float(value)
+            for unit in ("B", "KiB", "MiB", "GiB", "TiB"):
+                if amount < 1024 or unit == "TiB":
+                    return f"{amount:.1f} {unit}"
+                amount /= 1024
+            return f"{amount:.1f} TiB"
+
+        def format_eta(value):
+            if value is None:
+                return "ETA unknown"
+            hours, remainder = divmod(value, 3600)
+            minutes, seconds = divmod(remainder, 60)
+            return f"ETA {hours}h {minutes}m" if hours else f"ETA {minutes}m {seconds}s"
+
+        def clear_rows():
+            child = queue_list.get_first_child()
+            while child is not None:
+                following = child.get_next_sibling()
+                queue_list.remove(child)
+                child = following
+
+        def render_queue(torrents, error=None):
+            busy[0] = False
+            refresh_button.set_sensitive(True)
+            clear_rows()
+            if error:
+                status.set_label(f"Queue refresh failed: {error}")
+                return GLib.SOURCE_REMOVE
+            status.set_label(f"{len(torrents)} torrent(s) · last refreshed just now")
+            if not torrents:
+                queue_list.append(Gtk.Label(label="The qBittorrent queue is empty.", margin_top=24, margin_bottom=24))
+                return GLib.SOURCE_REMOVE
+            for torrent in torrents:
+                row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
+                details = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=3)
+                details.set_hexpand(True)
+                name = Gtk.Label(label=torrent["name"], xalign=0)
+                name.set_ellipsize(3)
+                name.set_max_width_chars(64)
+                name.add_css_class("heading")
+                details.append(name)
+                downloaded = format_size(torrent["downloaded"])
+                total = format_size(torrent["size"])
+                speed = format_size(torrent["download_speed"]) + "/s"
+                details.append(Gtk.Label(
+                    label=f"{torrent['state']} · {torrent['progress'] * 100:.1f}% · {downloaded} / {total} · {speed} · {format_eta(torrent['eta'])}",
+                    xalign=0,
+                ))
+                row.append(details)
+                paused = "paused" in torrent["state"].casefold() or "stopped" in torrent["state"].casefold()
+                toggle = Gtk.Button(label="Resume" if paused else "Pause")
+                toggle.connect(
+                    "clicked",
+                    lambda _button, info_hash=torrent["hash"], action="resume" if paused else "pause": run_action(action, info_hash),
+                )
+                row.append(toggle)
+                remove = Gtk.Button(label="Remove")
+                remove.set_tooltip_text("Remove from qBittorrent without deleting downloaded files")
+                remove.connect("clicked", lambda _button, item=torrent: confirm_remove(item))
+                row.append(remove)
+                queue_list.append(row)
+            return GLib.SOURCE_REMOVE
+
+        def refresh(_button=None):
+            if busy[0]:
+                return GLib.SOURCE_REMOVE
+            busy[0] = True
+            refresh_button.set_sensitive(False)
+            status.set_label("Refreshing qBittorrent queue…")
+
+            def worker():
+                try:
+                    password = credentials.lookup("aniyori", self._qbittorrent_credential_account(settings))
+                    if not password:
+                        raise CredentialStoreError("Saved qBittorrent credentials are missing; configure the connection again.")
+                    torrents = QBittorrentClient(settings.server_url, settings.username, password).list_torrents()
+                    GLib.idle_add(render_queue, torrents, None)
+                except (QBittorrentError, CredentialStoreError, ValueError) as error:
+                    GLib.idle_add(render_queue, (), str(error))
+            threading.Thread(target=worker, daemon=True).start()
+            return GLib.SOURCE_REMOVE
+
+        def run_action(action, info_hash):
+            if busy[0]:
+                return
+            busy[0] = True
+            status.set_label(f"{action.title()}ing torrent…")
+
+            def worker():
+                try:
+                    password = credentials.lookup("aniyori", self._qbittorrent_credential_account(settings))
+                    if not password:
+                        raise CredentialStoreError("Saved qBittorrent credentials are missing; configure the connection again.")
+                    client = QBittorrentClient(settings.server_url, settings.username, password)
+                    if action == "pause":
+                        client.pause_torrent(info_hash)
+                    elif action == "resume":
+                        client.resume_torrent(info_hash)
+                    elif action == "remove":
+                        client.remove_torrent(info_hash, delete_files=False)
+                    GLib.idle_add(refresh)
+                except (QBittorrentError, CredentialStoreError, ValueError) as error:
+                    GLib.idle_add(render_queue, (), str(error))
+            threading.Thread(target=worker, daemon=True).start()
+
+        def confirm_remove(torrent):
+            confirmation = Adw.AlertDialog(
+                heading="Remove download?",
+                body=f"Remove ‘{torrent['name']}’ from qBittorrent? Downloaded files will be kept.",
+            )
+            confirmation.add_response("cancel", "Cancel")
+            confirmation.add_response("remove", "Remove")
+            confirmation.set_response_appearance("remove", Adw.ResponseAppearance.DESTRUCTIVE)
+            confirmation.set_default_response("cancel")
+            confirmation.choose(dialog, None, on_remove_response, torrent["hash"])
+
+        def on_remove_response(alert, result, info_hash):
+            try:
+                response = alert.choose_finish(result)
+            except GLib.Error:
+                LOGGER.warning("Could not finish download removal confirmation", exc_info=True)
+                return
+            if response == "remove":
+                run_action("remove", info_hash)
+
+        def on_close(_window):
+            if timer_id[0]:
+                GLib.source_remove(timer_id[0])
+                timer_id[0] = 0
+            return False
+
+        refresh_button.connect("clicked", refresh)
+        dialog.connect("close-request", on_close)
+        timer_id[0] = GLib.timeout_add_seconds(10, refresh)
+        dialog.present()
+        refresh()
 
     def _show_qbittorrent_settings_dialog(self):
         try:
