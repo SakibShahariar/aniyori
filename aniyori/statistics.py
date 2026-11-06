@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections import Counter
 from collections.abc import Iterable, Mapping
+from datetime import datetime, timezone, tzinfo
 
 from .models import AnimeEntry, WatchStatus
 
@@ -65,16 +66,18 @@ def calculate_history_insights(
     events, not inferred progress corrections. Estimated time is explicitly
     an estimate based on the configured average episode duration.
     """
-    from datetime import datetime, timezone, tzinfo
-
     if isinstance(year, bool) or not isinstance(year, int) or not 1 <= year <= 9999:
         raise ValueError("Year must be a valid calendar year.")
     if isinstance(minutes_per_episode, bool) or not isinstance(minutes_per_episode, int):
         raise ValueError("Minutes per episode must be a whole number.")
     if minutes_per_episode < 0:
         raise ValueError("Minutes per episode cannot be negative.")
-    if isinstance(events, (str, bytes)):
+    if isinstance(events, (str, bytes)) or events is None:
         raise ValueError("Watch-history events must be an iterable of records.")
+    try:
+        iter(events)
+    except TypeError as error:
+        raise ValueError("Watch-history events must be an iterable of records.") from error
 
     if local_timezone is None:
         local_timezone = datetime.now().astimezone().tzinfo or timezone.utc
@@ -100,16 +103,6 @@ def calculate_history_insights(
     for event in events:
         if not isinstance(event, Mapping):
             continue
-        event_id = event.get("id")
-        if (
-            isinstance(event_id, int)
-            and not isinstance(event_id, bool)
-            and event_id > 0
-        ):
-            if event_id in seen_ids:
-                continue
-            seen_ids.add(event_id)
-
         action = event.get("action")
         if action not in ("episode", "progress", "status"):
             continue
@@ -131,6 +124,16 @@ def calculate_history_insights(
         if local_timestamp.year != year:
             continue
 
+        event_id = event.get("id")
+        if (
+            isinstance(event_id, int)
+            and not isinstance(event_id, bool)
+            and event_id > 0
+        ):
+            if event_id in seen_ids:
+                continue
+            seen_ids.add(event_id)
+
         month = month_rows[local_timestamp.month - 1]
         month["event_count"] += 1
         active_days.add(local_timestamp.date())
@@ -150,7 +153,7 @@ def calculate_history_insights(
                 except ValueError:
                     pass
                 else:
-                    if current_count == previous_count + 1:
+                    if previous_count >= 0 and current_count == previous_count + 1:
                         month["first_watch_events"] += 1
         elif action == "progress":
             month["progress_changes"] += 1
@@ -161,13 +164,17 @@ def calculate_history_insights(
                 title = event.get("anime_title")
                 if not isinstance(title, str) or not title.strip():
                     continue
+                valid_anime_id = (
+                    isinstance(anime_id, int)
+                    and not isinstance(anime_id, bool)
+                    and anime_id > 0
+                )
                 key = (
                     ("id", anime_id)
-                    if isinstance(anime_id, int) and not isinstance(anime_id, bool) and anime_id > 0
-                    else ("title", title.strip().casefold())
+                    if valid_anime_id else ("title", title.strip().casefold())
                 )
                 completed.setdefault(key, {
-                    "id": anime_id if isinstance(anime_id, int) and not isinstance(anime_id, bool) else None,
+                    "id": anime_id if valid_anime_id else None,
                     "title": title.strip(),
                 })
 
