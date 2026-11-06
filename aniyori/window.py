@@ -2541,13 +2541,13 @@ class AniyoriWindow(Adw.ApplicationWindow):
         ]
         estimated_hours = stats["estimated_minutes"] / 60
         body = (
-            f"Anime in library: {stats['anime_count']}\n"
-            f"Episodes watched: {stats['episodes_watched']}\n"
-            f"Known episode total: {stats['known_episodes_total']}\n"
-            f"Completed anime: {stats['completion_rate']}%\n"
+            f"Anime in library: {stats['anime_count']}\\n"
+            f"Episodes watched: {stats['episodes_watched']}\\n"
+            f"Known episode total: {stats['known_episodes_total']}\\n"
+            f"Completed anime: {stats['completion_rate']}%\\n"
             f"Estimated watch time: {estimated_hours:.1f} hours "
-            "(24 minutes per episode)\n\n"
-            + "\n".join(status_lines)
+            "(24 minutes per episode)\\n\\n"
+            + "\\n".join(status_lines)
         )
         dialog = Adw.AlertDialog(
             heading="Library Statistics",
@@ -2579,13 +2579,13 @@ class AniyoriWindow(Adw.ApplicationWindow):
             bar = Gtk.ProgressBar()
             bar.set_hexpand(True)
             bar.set_show_text(True)
-            bar.set_text("0 episode events")
+            bar.set_text("Loading…")
             month_grid.attach(label, 0, index, 1, 1)
             month_grid.attach(bar, 1, index, 1, 1)
             month_bars.append(bar)
         panel.append(month_grid)
 
-        summary = Gtk.Label(xalign=0, wrap=True)
+        summary = Gtk.Label(label="Loading watch history…", xalign=0, wrap=True)
         completed_label = Gtk.Label(xalign=0, wrap=True)
         estimate_label = Gtk.Label(xalign=0, wrap=True)
         for label in (summary, completed_label, estimate_label):
@@ -2593,24 +2593,19 @@ class AniyoriWindow(Adw.ApplicationWindow):
             panel.append(label)
 
         local_timezone = datetime.now().astimezone().tzinfo
+        history_request = {"generation": 0}
 
-        def update_history_year(_spin=None):
-            year = year_spin.get_value_as_int()
-            try:
-                events = self.storage.list_watch_history_for_year(
-                    year, local_timezone=local_timezone
-                )
-                insights = calculate_history_insights(
-                    events, year, local_timezone=local_timezone
-                )
-            except (OSError, ValueError) as error:
+        def apply_history_year(generation, year, insights, error):
+            if generation != history_request["generation"]:
+                return GLib.SOURCE_REMOVE
+            if error:
                 summary.set_label(f"Could not load watch history for {year}: {error}")
                 completed_label.set_label("")
                 estimate_label.set_label("")
                 for bar in month_bars:
                     bar.set_fraction(0)
                     bar.set_text("Unavailable")
-                return
+                return GLib.SOURCE_REMOVE
 
             maximum = max(
                 (month["event_count"] for month in insights["months"]),
@@ -2653,13 +2648,43 @@ class AniyoriWindow(Adw.ApplicationWindow):
                 f"({insights['minutes_per_episode']} minutes per recorded episode event; "
                 "an estimate, not measured playback)."
             )
+            return GLib.SOURCE_REMOVE
+
+        def update_history_year(_spin=None):
+            history_request["generation"] += 1
+            generation = history_request["generation"]
+            year = year_spin.get_value_as_int()
+            summary.set_label(f"Loading watch history for {year}…")
+            completed_label.set_label("")
+            estimate_label.set_label("")
+            for bar in month_bars:
+                bar.set_fraction(0)
+                bar.set_text("Loading…")
+
+            def worker():
+                try:
+                    events = self.storage.list_watch_history_for_year(
+                        year, local_timezone=local_timezone
+                    )
+                    insights = calculate_history_insights(
+                        events, year, local_timezone=local_timezone
+                    )
+                    error = None
+                except (OSError, ValueError, sqlite3.Error) as exception:
+                    insights = None
+                    error = str(exception)
+                GLib.idle_add(
+                    apply_history_year, generation, year, insights, error
+                )
+
+            threading.Thread(target=worker, daemon=True).start()
 
         year_spin.connect("value-changed", update_history_year)
-        update_history_year()
         dialog.set_extra_child(panel)
         dialog.add_response("close", "Close")
         dialog.set_default_response("close")
         dialog.present(self)
+        update_history_year()
 
     def _show_about_dialog(self):
         about = Adw.AboutDialog(
