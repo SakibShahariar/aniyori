@@ -788,3 +788,29 @@ The airing-reminder change, MPRIS helper and safeguards, and mpv/VLC GTK integra
 
 The initial batching commit exposed an error-path regression: malformed responses were treated like offline transport failures. The corrective commit separated the request failure fallback from response validation. The complete Tests workflow passed on the correction.
 - Reviewed checkpoint: da53f0df294ae06fcadd56cd2a992b332a20cf8b
+
+
+## Reviewed range: 2026-11-06 (continued — status evidence unavailable)
+
+| Commit SHA | Subject | CI result | Run |
+|---|---|---|---|
+| `525be792c442574f2aa0521a15567be8c90260b5` | docs(airing): document batched schedule refresh and CI (#31) | unavailable | — |
+| `4a8185becf4c4be949e0034d38446f3c8b05ba54` | feat(history): add local yearly activity aggregation (#88) | unavailable | — |
+| `ac7093bb1308f47532b1e2c5dc320cc95534d0d5` | test(history): cover yearly activity aggregation (#88) | unavailable | — |
+| `1a6ca9d028c2ea91cd5fde90eab968e6dc217f57` | fix(history): validate yearly event inputs (#88) | unavailable | — |
+| `342edd2b9742847c8dfd05d23f46aae3bb87269e` | perf(history): query insights by local calendar year (#88) | unavailable | — |
+| `05a6c4d8c33a57b65986e87aa960fb9de4368795` | test(history): cover indexed local-year queries (#88) | unavailable | — |
+| `5d4c3f09b56013a38202465f5e4bf30926af8685` | feat(gui): add yearly watch-history insights (#88) | unavailable | — |
+| `a94f325de761c73d102662ca7b5c4384ae621e74` | fix(gui): count all monthly history activity (#88) | unavailable | — |
+| `216d01522f25fa22114bdfbde6e84ba4dbe08467` | fix(gui): preserve statistics dialog line breaks (#88) | unavailable | — |
+| `64bfe664ade920c9bc20f6b9d3c9df0ec40d0ba0` | perf(gui): calculate yearly history off the GTK thread (#88) | unavailable | — |
+| `9a44239ea9502db1e8588cb7310e59deb9af476b` | fix(gui): correct statistics dialog newlines (#88) | unavailable | — |
+| `14910a812fb1a305052c9a576681f593fb604921` | fix(history): harden malformed event handling (#88) | unavailable | — |
+| `a08cad5988a1db004aef044042f0f9bff61dfbba` | style(gui): organize statistics imports (#88) | unavailable | — |
+| `74d79bfe37460bd65caf906f9b32656ba0a98828` | style(history): clarify timezone typing (#88) | unavailable | — |
+| `968978d74f7fc1ce32223eada62550ad81d08e98` | test(history): cover malformed duplicate events (#88) | unavailable | — |
+| `71f5fd9bf58fbe3441745f7a5827b0488df16625` | docs(qa): add yearly history validation steps (#88) | unavailable | — |
+
+The combined commit-status lookup returned an empty status list for every SHA above. The available workflow-run lookup only exposes pull-request-triggered runs, so it did not provide push-triggered Tests run details for this range. **Unavailable is not green or red**; no CI pass is claimed. Recheck these exact SHAs when the Tests workflow run metadata is accessible.
+
+- Reviewed checkpoint: `71f5fd9bf58fbe3441745f7a5827b0488df16625`
