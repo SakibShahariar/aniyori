@@ -93,6 +93,20 @@ class ConfiguredLibraryScanTests(unittest.TestCase):
         self.assertEqual(result.inventory[0].missing_episodes, ())
         self.assertIsNone(result.inventory[0].next_unwatched_episode)
 
+    def test_configured_root_snapshot_is_not_changed_mid_scan(self):
+        snapshot = self.store.list_locations()
+        self.store.add_location(self.root / "added-after-snapshot")
+
+        result = scan_configured_library(
+            self.store,
+            self.candidates,
+            [self.entry],
+            configured_locations=snapshot,
+        )
+
+        self.assertEqual(result.locations, snapshot)
+        self.assertEqual(result.unavailable_locations, ())
+
     def test_scan_uses_catalogue_candidates_for_recognition(self):
         (self.folder / "[Group] Frieren - 01.mkv").touch()
         result = scan_configured_library(
