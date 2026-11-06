@@ -285,10 +285,6 @@ class AniListClientTests(unittest.TestCase):
         self.assertEqual(result["title"], "Fresh title")
 
 
-if __name__ == "__main__":
-    unittest.main()
-
-
     def test_search_season_normalises_results_and_uses_season_variables(self):
         payload = {"Page": {"media": [{
             "id": 101, "title": {"romaji": "Seasonal Example", "english": "Seasonal Example"},
@@ -327,3 +323,8 @@ if __name__ == "__main__":
                 with patch.object(self.client, "_request", return_value=payload):
                     with self.assertRaises(AniListError):
                         self.client.search_season("WINTER", 2026, refresh=True)
+
+
+if __name__ == "__main__":
+    unittest.main()
+
