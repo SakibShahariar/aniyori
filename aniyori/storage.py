@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import sqlite3
-from datetime import date
+from datetime import date, datetime, timezone, tzinfo
 from pathlib import Path
 from typing import Iterable, Mapping
 
@@ -660,6 +660,42 @@ class LibraryStorage:
                 "SELECT id, anime_id, anime_title, episode, action, source, details, created_at "
                 "FROM watch_history" + where + " ORDER BY created_at DESC, id DESC LIMIT ?",
                 (*parameters, limit),
+            ).fetchall()
+        return [dict(row) for row in rows]
+
+    def list_watch_history_for_year(
+        self, year: int, *, local_timezone: tzinfo | None = None
+    ) -> list[dict[str, object]]:
+        """Return only events belonging to a local calendar year.
+
+        SQLite CURRENT_TIMESTAMP values are UTC. Convert local year boundaries
+        to UTC before querying so large histories are filtered by the indexed
+        timestamp column rather than loading the entire history into memory.
+        """
+        if isinstance(year, bool) or not isinstance(year, int) or not 1 <= year <= 9999:
+            raise ValueError("Year must be a valid calendar year.")
+        if local_timezone is None:
+            local_timezone = datetime.now().astimezone().tzinfo or timezone.utc
+        if not isinstance(local_timezone, tzinfo):
+            raise ValueError("A valid local timezone is required.")
+
+        try:
+            start = datetime(year, 1, 1, tzinfo=local_timezone).astimezone(timezone.utc)
+            if year == 9999:
+                end_text = "9999-12-31 23:59:59.999999"
+            else:
+                end = datetime(year + 1, 1, 1, tzinfo=local_timezone).astimezone(timezone.utc)
+                end_text = end.strftime("%Y-%m-%d %H:%M:%S")
+        except (OverflowError, ValueError) as error:
+            raise ValueError("The selected year is outside the supported timezone range.") from error
+
+        start_text = start.strftime("%Y-%m-%d %H:%M:%S")
+        with self._connect() as connection:
+            rows = connection.execute(
+                "SELECT id, anime_id, anime_title, episode, action, source, details, created_at "
+                "FROM watch_history WHERE created_at >= ? AND created_at < ? "
+                "ORDER BY created_at DESC, id DESC",
+                (start_text, end_text),
             ).fetchall()
         return [dict(row) for row in rows]
 
