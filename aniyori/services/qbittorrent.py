@@ -355,7 +355,7 @@ class QBittorrentClient:
         """Run one explicit queue action; deletion preserves downloaded files by default."""
         if not isinstance(info_hash, str) or not re.fullmatch(r"(?i)(?:[0-9a-f]{40}|[0-9a-f]{64})", info_hash):
             raise ValueError("The torrent identifier is invalid.")
-        if action not in {"pause", "resume", "delete"}:
+        if action not in {"pause", "resume", "recheck", "delete"}:
             raise ValueError("The requested torrent action is invalid.")
         fields = {"hashes": info_hash.lower()}
         if action == "delete":
@@ -365,7 +365,7 @@ class QBittorrentClient:
         self._login()
         try:
             payload = urlencode(fields).encode("utf-8")
-            endpoint = {"pause": "stop", "resume": "start", "delete": "delete"}[action]
+            endpoint = {"pause": "stop", "resume": "start", "recheck": "recheck", "delete": "delete"}[action]
             try:
                 self._request(
                     f"/api/v2/torrents/{endpoint}",
@@ -394,6 +394,10 @@ class QBittorrentClient:
     def resume_torrent(self, info_hash: str) -> None:
         """Resume one torrent after explicit user action."""
         self._torrent_action("resume", info_hash)
+
+    def recheck_torrent(self, info_hash: str) -> None:
+        """Ask qBittorrent to verify the existing data for one torrent."""
+        self._torrent_action("recheck", info_hash)
 
     def remove_torrent(self, info_hash: str, *, delete_files: bool = False) -> None:
         """Remove one torrent; downloaded files are retained unless explicitly requested."""
