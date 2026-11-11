@@ -14,8 +14,8 @@ COLUMNS = ("title", "status", "progress", "source", "airing")
 DEFAULT_LAYOUTS = {
     "list": {
         "order": list(COLUMNS),
-        "visible": list(COLUMNS),
-        "widths": {"title": 300, "status": 100, "progress": 120, "source": 150, "airing": 170},
+        "visible": ["title", "status", "progress", "airing"],
+        "widths": {"title": 180, "status": 80, "progress": 100, "source": 120, "airing": 120},
     },
     "grid": {
         "order": list(COLUMNS),
