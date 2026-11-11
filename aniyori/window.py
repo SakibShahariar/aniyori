@@ -602,7 +602,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
         self.grid_flow = Gtk.FlowBox()
         self.grid_flow.set_selection_mode(Gtk.SelectionMode.NONE)
         self.grid_flow.set_homogeneous(True)
-        self.grid_flow.set_min_children_per_line(2)
+        self.grid_flow.set_min_children_per_line(1)
         self.grid_flow.set_max_children_per_line(6)
         self.grid_flow.set_row_spacing(12)
         self.grid_flow.set_column_spacing(12)
