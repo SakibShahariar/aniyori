@@ -23,6 +23,17 @@ Use a disposable test profile or a backup of any library data you care about. Do
 - [ ] Exercise keyboard focus from the header through search, toolbar, library rows/cards, and menu; confirm focus remains visible and logical.
 - [ ] Resize the window down to the supported minimum and back; confirm controls remain reachable and content does not overlap.
 
+## Main window and libadwaita preferences — #90
+
+- [ ] Inspect the header bar in the main window; confirm it uses the expected libadwaita toolbar backdrop while library content scrolls.
+- [ ] On a wide display, confirm the library content stays centered and does not stretch excessively.
+- [ ] Resize from the default window size down to the supported minimum; confirm filter controls and view/sort actions remain reachable without clipping or horizontal overflow.
+- [ ] Select multiple anime at the minimum width; confirm bulk status and progress actions remain visible and usable.
+- [ ] Open Notification Preferences, Local Player Detection, and Network Settings; confirm each uses a searchable, adaptive Preferences dialog with correctly grouped rows.
+- [ ] Change notification switches/severity and player-detection state; confirm settings persist and errors are reported without leaving the displayed control in a misleading state.
+- [ ] Change proxy, timeout, retry, and CA-bundle settings; confirm values are saved and restored after reopening the dialog.
+- [ ] Check all reviewed dialogs and the main window with keyboard-only navigation, dark mode, high contrast, and large text; confirm focus, labels, and controls remain usable.
+
 ## Episode tracking and history — #24, #51
 
 - [ ] Open the Episodes editor for an entry with no explicit episode records but a legacy aggregate progress value; confirm the prior watched count is represented without losing progress.
