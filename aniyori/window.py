@@ -100,7 +100,7 @@ def _apply_cover_texture(picture: Gtk.Picture, path: str):
 
 
 class AnimeRow(Gtk.Box):
-    def __init__(self, entry: AnimeEntry, on_progress, on_remove, on_edit, airing=None, selected=False, on_select=None, on_links=None, on_episodes=None, layout=None):
+    def __init__(self, entry: AnimeEntry, on_progress, on_remove, on_edit, airing=None, selected=False, on_select=None, on_links=None, on_episodes=None, layout=None, compact=False):
         super().__init__(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
         self.set_margin_top(10)
         self.set_margin_bottom(10)
@@ -124,6 +124,7 @@ class AnimeRow(Gtk.Box):
         poster.set_content_fit(Gtk.ContentFit.COVER)
         poster.set_paintable(placeholder.get_paintable())
         poster.set_valign(Gtk.Align.CENTER)
+        poster.set_visible(not compact)
         self.append(poster)
         _load_cover_async(poster, entry.cover_image)
 
@@ -136,7 +137,7 @@ class AnimeRow(Gtk.Box):
         title.add_css_class("heading")
         title.set_ellipsize(3)
         layout = layout or DEFAULT_LIBRARY_LAYOUTS["list"]
-        title.set_size_request(layout["widths"]["title"], -1)
+        title.set_size_request(140 if compact else layout["widths"]["title"], -1)
         details.append(title)
 
         status_text = entry.status.value.replace("_", " ").title()
@@ -158,12 +159,17 @@ class AnimeRow(Gtk.Box):
             if column == "title":
                 continue
             field = self.layout_fields[column]
-            field.set_visible(column in layout["visible"] and (column != "airing" or airing is not None))
+            field.set_visible(
+                not compact
+                and column in layout["visible"]
+                and (column != "airing" or airing is not None)
+            )
             field.set_size_request(layout["widths"].get(column, -1), -1)
             field.add_css_class("dim-label")
             field.add_css_class("caption")
             metadata.append(field)
         self.airing_label.add_css_class("accent")
+        metadata.set_visible(not compact)
         details.append(metadata)
 
         if entry.progress_fraction is not None:
@@ -171,7 +177,7 @@ class AnimeRow(Gtk.Box):
             progress.set_fraction(entry.progress_fraction)
             progress.set_valign(Gtk.Align.CENTER)
             progress.set_size_request(100, -1)
-            progress.set_visible("progress" in layout["visible"])
+            progress.set_visible("progress" in layout["visible"] and not compact)
             self.append(progress)
 
         next_button = Gtk.Button(label="+1")
@@ -368,6 +374,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
         self.library_sort_mode = "title"
         self._active_view_preset = None
         self._applying_view_preset = False
+        self._compact_layout = False
         self._undo_entry: AnimeEntry | None = None
         self._undo_toast = None
         undo_action = Gio.SimpleAction.new("undo-delete", None)
@@ -588,7 +595,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
         self.list_box.set_selection_mode(Gtk.SelectionMode.NONE)
         self.list_box.add_css_class("boxed-list")
         self.list_scroll = Gtk.ScrolledWindow()
-        self.list_scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        self.list_scroll.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
         self.list_scroll.set_child(self.list_box)
         self.stack.add_named(self.list_scroll, "list")
 
@@ -695,6 +702,17 @@ class AniyoriWindow(Adw.ApplicationWindow):
         self.empty_add.set_halign(Gtk.Align.CENTER)
         self.empty_add.connect("clicked", self._show_add_dialog)
         self.empty_state.append(self.empty_add)
+
+        compact_breakpoint = Adw.Breakpoint.new(
+            Adw.BreakpointCondition.parse("max-width: 720sp")
+        )
+        compact_breakpoint.connect(
+            "apply", lambda *_args: self._set_compact_layout(True)
+        )
+        compact_breakpoint.connect(
+            "unapply", lambda *_args: self._set_compact_layout(False)
+        )
+        self.add_breakpoint(compact_breakpoint)
 
         self.view_switches["list"].set_active(True)
         self._render_library()
@@ -4556,6 +4574,12 @@ class AniyoriWindow(Adw.ApplicationWindow):
         self._update_bulk_bar()
         self.toast_overlay.add_toast(Adw.Toast.new(f"Deleted {removed} anime."))
 
+    def _set_compact_layout(self, compact: bool):
+        if self._compact_layout == compact:
+            return
+        self._compact_layout = compact
+        self._render_library()
+
     def _render_library(self, *_args):
         list_scroll_value = self.list_scroll.get_vadjustment().get_value()
         grid_scroll_value = self.grid_scroll.get_vadjustment().get_value()
@@ -4598,7 +4622,9 @@ class AniyoriWindow(Adw.ApplicationWindow):
 
             airing = self._airing_by_id.get(key)
             selected = entry.storage_id in self._selected_entry_ids
-            widget_signature = (entry, airing, selected, repr(self.library_layouts))
+            widget_signature = (
+                entry, airing, selected, repr(self.library_layouts), self._compact_layout
+            )
             if row is None or self._widget_entries.get(key) != widget_signature:
                 if row is not None:
                     if row.get_parent() is not None:
@@ -4617,6 +4643,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
                     self._show_external_links,
                     self._show_episode_editor,
                     self.library_layouts["list"],
+                    self._compact_layout,
                 )
                 card = AnimeCard(
                     entry,
