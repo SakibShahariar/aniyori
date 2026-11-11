@@ -28,6 +28,8 @@ Use a disposable test profile or a backup of any library data you care about. Do
 - [ ] Inspect the header bar in the main window; confirm it uses the expected libadwaita toolbar backdrop while library content scrolls.
 - [ ] On a wide display, confirm the library content stays centered and does not stretch excessively.
 - [ ] Resize from the default window size down to the supported minimum; confirm filter controls and view/sort actions remain reachable without clipping or horizontal overflow.
+- [ ] Confirm the default list layout fits without horizontal scrolling; at narrow widths, verify poster/metadata/progress details collapse while the title and row actions remain reachable, then return when the window is widened.
+- [ ] Enable optional source metadata and widen custom columns; confirm the horizontal scrollbar makes intentionally wider custom layouts reachable.
 - [ ] Select multiple anime at the minimum width; confirm bulk status and progress actions remain visible and usable.
 - [ ] Open Notification Preferences, Local Player Detection, and Network Settings; confirm each uses a searchable, adaptive Preferences dialog with correctly grouped rows.
 - [ ] Change notification switches/severity and player-detection state; confirm settings persist and errors are reported without leaving the displayed control in a misleading state.
