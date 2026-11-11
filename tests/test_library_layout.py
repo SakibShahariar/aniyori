@@ -48,7 +48,7 @@ class LibraryLayoutStoreTests(unittest.TestCase):
             grid["widths"]["card_width"] = 300
             store.save("grid", grid)
             list_layout = store.load_all()["list"]
-            list_layout["visible"].remove("source")
+            list_layout["visible"].remove("airing")
             store.save("list", list_layout)
             store.reset("list")
             loaded = store.load_all()
