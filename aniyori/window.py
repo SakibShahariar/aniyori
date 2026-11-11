@@ -826,16 +826,17 @@ class AniyoriWindow(Adw.ApplicationWindow):
             saved = ()
 
         by_attribute = {item.attribute: item for item in saved}
-        dialog = Adw.AlertDialog(
-            heading="Release Preferences",
-            body=(
-                "Set preferred and rejected release attributes. Preferred values "
-                "improve ranking; rejected values exclude a release from eligible results."
-            ),
-        )
+        dialog = Adw.Dialog()
+        dialog.set_title("Release Preferences")
+        dialog.set_content_width(760)
+        dialog.set_content_height(620)
         content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
         help_label = Gtk.Label(
-            label="Enter comma-separated values. Lower priority numbers are evaluated first.",
+            label=(
+                "Set preferred and rejected release attributes. Preferred values improve "
+                "ranking; rejected values exclude a release from eligible results. Enter "
+                "comma-separated values. Lower priority numbers are evaluated first."
+            ),
             xalign=0,
             wrap=True,
         )
@@ -923,9 +924,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
         save_button = Gtk.Button(label="Save Preferences")
         save_button.add_css_class("suggested-action")
         content.append(save_button)
-        dialog.set_extra_child(content)
-        dialog.add_response("close", "Close")
-        dialog.set_default_response("close")
+        dialog.set_child(content)
         dialog.present(self)
 
         def save_preferences(_button):
@@ -1081,11 +1080,18 @@ class AniyoriWindow(Adw.ApplicationWindow):
         except (OSError, LibraryLayoutError) as error:
             self.toast_overlay.add_toast(Adw.Toast.new(f"Could not load library layout: {error}"))
             return
-        dialog = Adw.AlertDialog(
-            heading="Customize Library Layout",
-            body="Choose visible metadata fields, their order, and widths. The title remains visible.",
-        )
+        dialog = Adw.Dialog()
+        dialog.set_title("Customize Library Layout")
+        dialog.set_content_width(760)
+        dialog.set_content_height(620)
         content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
+        description = Gtk.Label(
+            label="Choose visible metadata fields, their order, and widths. The title remains visible.",
+            xalign=0,
+            wrap=True,
+        )
+        description.add_css_class("dim-label")
+        content.append(description)
         scroll = Gtk.ScrolledWindow()
         scroll.set_min_content_height(300)
         scroll.set_max_content_height(480)
@@ -1142,9 +1148,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
         save_button.add_css_class("suggested-action")
         actions.append(save_button)
         content.append(actions)
-        dialog.set_extra_child(content)
-        dialog.add_response("close", "Close")
-        dialog.set_default_response("close")
+        dialog.set_child(content)
         dialog.present(self)
 
         def collect(view):
@@ -2214,11 +2218,18 @@ class AniyoriWindow(Adw.ApplicationWindow):
         return GLib.SOURCE_REMOVE
 
     def _show_notification_center(self):
-        dialog = Adw.AlertDialog(
-            heading="Notifications",
-            body="Recent matched releases, new episode reminders, download failures, webhook errors, and backup events.",
-        )
+        dialog = Adw.Dialog()
+        dialog.set_title("Notifications")
+        dialog.set_content_width(720)
+        dialog.set_content_height(560)
         content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+        description = Gtk.Label(
+            label="Recent matched releases, new episode reminders, download failures, webhook errors, and backup events.",
+            xalign=0,
+            wrap=True,
+        )
+        description.add_css_class("dim-label")
+        content.append(description)
         listing = Gtk.ListBox()
         listing.set_selection_mode(Gtk.SelectionMode.SINGLE)
         listing.add_css_class("boxed-list")
@@ -2233,9 +2244,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
         actions.append(dismiss)
         actions.append(clear)
         content.append(actions)
-        dialog.set_extra_child(content)
-        dialog.add_response("close", "Close")
-        dialog.set_default_response("close")
+        dialog.set_child(content)
         dialog.present(self)
         rows = {}
         def refresh():
