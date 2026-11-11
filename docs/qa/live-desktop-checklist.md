@@ -30,6 +30,7 @@ Use a disposable test profile or a backup of any library data you care about. Do
 - [ ] Resize from the default window size down to the supported minimum; confirm filter controls and view/sort actions remain reachable without clipping or horizontal overflow.
 - [ ] Confirm the default list layout fits without horizontal scrolling; at narrow widths, verify poster/metadata/progress details collapse while the title and row actions remain reachable, then return when the window is widened.
 - [ ] Enable optional source metadata and widen custom columns; confirm the horizontal scrollbar makes intentionally wider custom layouts reachable.
+- [ ] In Grid view at the minimum window width, set card width to its maximum; confirm the grid falls back to one column rather than clipping cards.
 - [ ] Select multiple anime at the minimum width; confirm bulk status and progress actions remain visible and usable.
 - [ ] Open Releases at the minimum width; confirm search/sort filters and feed/rule/download actions remain reachable in their separate rows.
 - [ ] Open Notification Preferences, Local Player Detection, and Network Settings; confirm each uses a searchable, adaptive Preferences dialog with correctly grouped rows.
