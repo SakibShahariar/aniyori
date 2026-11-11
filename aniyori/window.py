@@ -407,11 +407,11 @@ class AniyoriWindow(Adw.ApplicationWindow):
             action.connect("activate", lambda _action, _parameter, callback=callback: callback())
             self.add_action(action)
 
-        root = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+        root = Adw.ToolbarView()
         self.set_content(root)
 
         header = Adw.HeaderBar()
-        root.append(header)
+        root.add_top_bar(header)
         header.set_title_widget(Adw.WindowTitle(title="Aniyori", subtitle="Your anime library"))
 
         self.search = Gtk.SearchEntry()
@@ -481,11 +481,21 @@ class AniyoriWindow(Adw.ApplicationWindow):
         body.set_margin_end(20)
         body.set_margin_top(12)
         body.set_margin_bottom(12)
-        root.append(body)
 
-        toolbar = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        body_clamp = Adw.Clamp()
+        body_clamp.set_maximum_size(1200)
+        body_clamp.set_child(body)
+        root.set_content(body_clamp)
+
+        toolbar = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
         toolbar.set_margin_bottom(12)
         body.append(toolbar)
+
+        filter_toolbar = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        toolbar.append(filter_toolbar)
+
+        options_toolbar = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        toolbar.append(options_toolbar)
 
         self.bulk_bar = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         self.bulk_bar.set_margin_bottom(10)
@@ -527,20 +537,17 @@ class AniyoriWindow(Adw.ApplicationWindow):
         ]:
             button = Gtk.ToggleButton(label=label)
             button.connect("toggled", self._on_filter_toggled, key)
-            toolbar.append(button)
+            filter_toolbar.append(button)
             self.filter_buttons[key] = button
         sort_label = Gtk.Label(label="Sort:")
         sort_label.add_css_class("dim-label")
-        toolbar.append(sort_label)
+        options_toolbar.append(sort_label)
         self.library_sort_dropdown = Gtk.DropDown.new_from_strings(
             ["Title", "Progress", "Recently Updated", "Next Airing"]
         )
         self.library_sort_dropdown.set_selected(0)
         self.library_sort_dropdown.connect("notify::selected", self._on_library_sort_changed)
-        toolbar.append(self.library_sort_dropdown)
-        spacer = Gtk.Box()
-        spacer.set_hexpand(True)
-        toolbar.append(spacer)
+        options_toolbar.append(self.library_sort_dropdown)
 
         self.view_switches = {}
         first_view_button = None
@@ -551,19 +558,19 @@ class AniyoriWindow(Adw.ApplicationWindow):
             else:
                 button.set_group(first_view_button)
             button.connect("toggled", self._on_view_toggled, key)
-            toolbar.append(button)
+            options_toolbar.append(button)
             self.view_switches[key] = button
 
         releases_button = Gtk.Button(label="Releases")
         releases_button.set_tooltip_text("Show monitored anime releases")
         releases_button.connect("clicked", lambda _button: self._show_release_results())
-        toolbar.append(releases_button)
+        options_toolbar.append(releases_button)
         presets_button = Gtk.Button(label="Presets")
         presets_button.set_tooltip_text("Save and switch named library views")
         presets_button.connect(
             "clicked", lambda _button: self._show_library_view_presets_dialog()
         )
-        toolbar.append(presets_button)
+        options_toolbar.append(presets_button)
 
         self.toast_overlay = Adw.ToastOverlay()
         self.toast_overlay.set_vexpand(True)
