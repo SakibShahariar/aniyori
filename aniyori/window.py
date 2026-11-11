@@ -830,7 +830,13 @@ class AniyoriWindow(Adw.ApplicationWindow):
         dialog.set_title("Release Preferences")
         dialog.set_content_width(760)
         dialog.set_content_height(620)
+        toolbar_view = Adw.ToolbarView()
+        header = Adw.HeaderBar()
+        toolbar_view.add_top_bar(header)
         content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+        for side in ("top", "bottom", "start", "end"):
+            getattr(content, f"set_margin_{side}")(16)
+        toolbar_view.set_content(content)
         help_label = Gtk.Label(
             label=(
                 "Set preferred and rejected release attributes. Preferred values improve "
@@ -924,7 +930,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
         save_button = Gtk.Button(label="Save Preferences")
         save_button.add_css_class("suggested-action")
         content.append(save_button)
-        dialog.set_child(content)
+        dialog.set_child(toolbar_view)
         dialog.present(self)
 
         def save_preferences(_button):
@@ -1084,7 +1090,13 @@ class AniyoriWindow(Adw.ApplicationWindow):
         dialog.set_title("Customize Library Layout")
         dialog.set_content_width(760)
         dialog.set_content_height(620)
+        toolbar_view = Adw.ToolbarView()
+        header = Adw.HeaderBar()
+        toolbar_view.add_top_bar(header)
         content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
+        for side in ("top", "bottom", "start", "end"):
+            getattr(content, f"set_margin_{side}")(16)
+        toolbar_view.set_content(content)
         description = Gtk.Label(
             label="Choose visible metadata fields, their order, and widths. The title remains visible.",
             xalign=0,
@@ -1148,7 +1160,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
         save_button.add_css_class("suggested-action")
         actions.append(save_button)
         content.append(actions)
-        dialog.set_child(content)
+        dialog.set_child(toolbar_view)
         dialog.present(self)
 
         def collect(view):
@@ -1205,7 +1217,13 @@ class AniyoriWindow(Adw.ApplicationWindow):
         dialog.set_title("Share Message Format")
         dialog.set_content_width(680)
         dialog.set_content_height(560)
+        toolbar_view = Adw.ToolbarView()
+        header = Adw.HeaderBar()
+        toolbar_view.add_top_bar(header)
         content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+        for side in ("top", "bottom", "start", "end"):
+            getattr(content, f"set_margin_{side}")(16)
+        toolbar_view.set_content(content)
         help_text = Gtk.Label(
             label=(
                 "Customize the text used by future sharing actions and preview it with "
@@ -1247,7 +1265,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
         actions.append(reset_button)
         actions.append(save_button)
         content.append(actions)
-        dialog.set_child(content)
+        dialog.set_child(toolbar_view)
         dialog.present(self)
 
         sample_entry = (
@@ -2221,7 +2239,13 @@ class AniyoriWindow(Adw.ApplicationWindow):
         dialog.set_title("Notifications")
         dialog.set_content_width(720)
         dialog.set_content_height(560)
+        toolbar_view = Adw.ToolbarView()
+        header = Adw.HeaderBar()
+        toolbar_view.add_top_bar(header)
         content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+        for side in ("top", "bottom", "start", "end"):
+            getattr(content, f"set_margin_{side}")(16)
+        toolbar_view.set_content(content)
         description = Gtk.Label(
             label="Recent matched releases, new episode reminders, download failures, webhook errors, and backup events.",
             xalign=0,
@@ -2243,7 +2267,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
         actions.append(dismiss)
         actions.append(clear)
         content.append(actions)
-        dialog.set_child(content)
+        dialog.set_child(toolbar_view)
         dialog.present(self)
         rows = {}
         def refresh():
@@ -2709,7 +2733,13 @@ class AniyoriWindow(Adw.ApplicationWindow):
         dialog.set_title("Watch History")
         dialog.set_content_width(760)
         dialog.set_content_height(600)
+        toolbar_view = Adw.ToolbarView()
+        header = Adw.HeaderBar()
+        toolbar_view.add_top_bar(header)
         content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+        for side in ("top", "bottom", "start", "end"):
+            getattr(content, f"set_margin_{side}")(16)
+        toolbar_view.set_content(content)
         description = Gtk.Label(
             label="Review episode, progress, and status events recorded by Aniyori. Player integrations can record events with their own source label.",
             xalign=0,
@@ -2745,7 +2775,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
         actions.append(remove_button)
         actions.append(prune_button)
         content.append(actions)
-        dialog.set_child(content)
+        dialog.set_child(toolbar_view)
         dialog.present(self)
         action_values = ('all', 'episode', 'progress', 'status')
         event_ids = {}
@@ -3415,7 +3445,13 @@ class AniyoriWindow(Adw.ApplicationWindow):
         dialog.set_title("Download Queue")
         dialog.set_content_width(760)
         dialog.set_content_height(520)
+        toolbar_view = Adw.ToolbarView()
+        header = Adw.HeaderBar()
+        toolbar_view.add_top_bar(header)
         content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+        for side in ("top", "bottom", "start", "end"):
+            getattr(content, f"set_margin_{side}")(16)
+        toolbar_view.set_content(content)
         for side in ("top", "bottom", "start", "end"):
             getattr(content, f"set_margin_{side}")(16)
         status = Gtk.Label(label="Loading queue…", xalign=0)
@@ -3433,7 +3469,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
         scroll.set_vexpand(True)
         scroll.set_child(queue_list)
         content.append(scroll)
-        dialog.set_child(content)
+        dialog.set_child(toolbar_view)
 
         busy = [False]
         timer_id = [0]
