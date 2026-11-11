@@ -3398,14 +3398,13 @@ class AniyoriWindow(Adw.ApplicationWindow):
             self.toast_overlay.add_toast(Adw.Toast.new(str(error)))
             return
 
-        dialog = Gtk.Window(transient_for=self, modal=True, title="Download Queue")
-        dialog.set_default_size(760, 520)
+        dialog = Adw.Dialog()
+        dialog.set_title("Download Queue")
+        dialog.set_content_width(760)
+        dialog.set_content_height(520)
         content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
         for side in ("top", "bottom", "start", "end"):
             getattr(content, f"set_margin_{side}")(16)
-        heading = Gtk.Label(label="qBittorrent Downloads", xalign=0)
-        heading.add_css_class("title-2")
-        content.append(heading)
         status = Gtk.Label(label="Loading queue…", xalign=0)
         status.add_css_class("dim-label")
         content.append(status)
@@ -3564,7 +3563,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
             confirmation.add_response("remove", "Remove")
             confirmation.set_response_appearance("remove", Adw.ResponseAppearance.DESTRUCTIVE)
             confirmation.set_default_response("cancel")
-            confirmation.choose(dialog, None, on_remove_response, torrent["hash"])
+            confirmation.choose(self, None, on_remove_response, torrent["hash"])
 
         def on_remove_response(alert, result, info_hash):
             try:
@@ -3582,9 +3581,9 @@ class AniyoriWindow(Adw.ApplicationWindow):
             return False
 
         refresh_button.connect("clicked", refresh)
-        dialog.connect("close-request", on_close)
+        dialog.connect("closed", on_close)
         timer_id[0] = GLib.timeout_add_seconds(10, refresh)
-        dialog.present()
+        dialog.present(self)
         refresh()
 
     def _show_qbittorrent_settings_dialog(self):
