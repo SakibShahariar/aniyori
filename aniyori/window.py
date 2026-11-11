@@ -2320,56 +2320,58 @@ class AniyoriWindow(Adw.ApplicationWindow):
         dialog.choose(self, None, response)
 
     def _show_player_detection_preferences(self):
-        enabled = Gtk.CheckButton(label="Detect playback in mpv and VLC")
-        enabled.set_active(self.player_detection_settings.enabled)
-        description = Gtk.Label(
-            label=(
+        dialog = Adw.PreferencesDialog()
+        page = Adw.PreferencesPage(
+            title="Playback",
+            icon_name="media-playback-start-symbolic",
+        )
+        group = Adw.PreferencesGroup(
+            title="Local Player Detection",
+            description=(
                 "When enabled, Aniyori checks supported MPRIS players in the background. "
                 "A confidently matched local video updates progress after at least 90% "
                 "of its duration. Unrecognized or ambiguous files are ignored."
             ),
-            xalign=0,
-            wrap=True,
         )
-        dialog = Adw.AlertDialog(
-            heading="Local Player Detection",
-            body="Playback detection is optional and disabled by default.",
+        enabled = Adw.SwitchRow(
+            title="Detect playback in mpv and VLC",
+            subtitle="Update watch progress when a local episode finishes playing.",
         )
-        content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
-        content.append(enabled)
-        content.append(description)
-        dialog.set_extra_child(content)
-        dialog.add_response("cancel", "Cancel")
-        dialog.add_response("save", "Save")
-        dialog.set_response_appearance("save", Adw.ResponseAppearance.SUGGESTED)
-        dialog.set_default_response("save")
-        dialog.set_close_response("cancel")
+        enabled.set_active(self.player_detection_settings.enabled)
+        group.add(enabled)
+        page.add(group)
+        dialog.add(page)
 
-        def response(_dialog, result):
-            try:
-                selected = _dialog.choose_finish(result)
-            except GLib.Error:
-                LOGGER.warning("Could not finish player detection preferences dialog", exc_info=True)
+        restoring = False
+
+        def on_enabled_changed(row, *_args):
+            nonlocal restoring
+            if restoring:
                 return
-            if selected != "save":
-                return
-            settings = PlayerDetectionSettings(enabled.get_active())
+
+            settings = PlayerDetectionSettings(row.get_active())
             try:
                 self.player_detection_store.save(settings)
             except (OSError, ValueError) as error:
-                self.toast_overlay.add_toast(
+                LOGGER.warning("Could not save player detection settings: %s", error)
+                restoring = True
+                row.set_active(self.player_detection_settings.enabled)
+                restoring = False
+                dialog.add_toast(
                     Adw.Toast.new("Could not save player detection settings: " + str(error))
                 )
                 return
+
             self.player_detection_settings = settings
             if settings.enabled:
                 self._start_player_detection()
-                self.toast_overlay.add_toast(Adw.Toast.new("Local player detection enabled."))
+                dialog.add_toast(Adw.Toast.new("Local player detection enabled."))
             else:
                 self._stop_player_detection()
-                self.toast_overlay.add_toast(Adw.Toast.new("Local player detection disabled."))
+                dialog.add_toast(Adw.Toast.new("Local player detection disabled."))
 
-        dialog.choose(self, None, response)
+        enabled.connect("notify::active", on_enabled_changed)
+        dialog.present(self)
 
     def _start_player_detection(self):
         if self._player_poll_source is None:
