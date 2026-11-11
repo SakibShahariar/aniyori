@@ -2106,60 +2106,74 @@ class AniyoriWindow(Adw.ApplicationWindow):
         try:
             saved = self.network_settings_store.load()
         except (OSError, NetworkSettingsError) as error:
-            self.toast_overlay.add_toast(Adw.Toast.new("Could not load network settings: " + str(error)))
+            self.toast_overlay.add_toast(
+                Adw.Toast.new("Could not load network settings: " + str(error))
+            )
             return
-        dialog = Adw.AlertDialog(
-            heading="Network Settings",
-            body="Configure an optional HTTP(S) proxy, request timeout, safe retry count, and an optional custom CA bundle. TLS certificate validation is always enabled; Aniyori does not offer an insecure verification bypass.",
+
+        dialog = Adw.PreferencesDialog()
+        page = Adw.PreferencesPage(
+            title="Network",
+            icon_name="network-server-symbolic",
         )
-        content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
-        proxy = Gtk.Entry()
-        proxy.set_placeholder_text("Proxy URL (optional), e.g. http://127.0.0.1:8080")
+        group = Adw.PreferencesGroup(
+            title="Connection",
+            description=(
+                "Configure an optional HTTP(S) proxy, request timeout, safe retry count, "
+                "and an optional custom CA bundle. TLS certificate validation is always "
+                "enabled. Passwords in proxy URLs are not supported."
+            ),
+        )
+
+        proxy = Adw.EntryRow(title="Proxy URL")
         proxy.set_text(saved.proxy_url or "")
-        content.append(proxy)
-        timeout = Gtk.SpinButton.new_with_range(1, 120, 1)
+        group.add(proxy)
+
+        timeout = Adw.SpinRow.new_with_range(1, 120, 1)
+        timeout.set_title("Request timeout (seconds)")
         timeout.set_value(saved.timeout_seconds)
-        content.append(Gtk.Label(label="Request timeout (seconds)", xalign=0))
-        content.append(timeout)
-        retries = Gtk.SpinButton.new_with_range(0, 5, 1)
+        group.add(timeout)
+
+        retries = Adw.SpinRow.new_with_range(0, 5, 1)
+        retries.set_title("Retries for safe read-only requests")
         retries.set_value(saved.retries)
-        content.append(Gtk.Label(label="Retries for safe read-only requests", xalign=0))
-        content.append(retries)
-        ca_bundle = Gtk.Entry()
-        ca_bundle.set_placeholder_text("Custom CA bundle path (optional)")
+        group.add(retries)
+
+        ca_bundle = Adw.EntryRow(title="Custom CA bundle path")
         ca_bundle.set_text(saved.ca_bundle_path or "")
-        content.append(ca_bundle)
-        content.append(Gtk.Label(
-            label="A custom CA bundle is useful for enterprise/self-hosted HTTPS. Certificate checks remain mandatory. Passwords in proxy URLs are not supported.",
-            xalign=0, wrap=True,
-        ))
-        dialog.set_extra_child(content)
-        dialog.add_response("cancel", "Cancel")
-        dialog.add_response("save", "Save")
-        dialog.set_response_appearance("save", Adw.ResponseAppearance.SUGGESTED)
-        dialog.set_default_response("save")
-        dialog.set_close_response("cancel")
-        def response(_dialog, result):
-            try:
-                selected = _dialog.choose_finish(result)
-            except GLib.Error:
-                LOGGER.warning("Could not finish network settings dialog", exc_info=True)
-                return
-            if selected != "save":
-                return
+        group.add(ca_bundle)
+
+        save_row = Adw.ActionRow(title="Save network settings")
+        save_button = Gtk.Button(label="Save")
+        save_button.add_css_class("suggested-action")
+        save_button.set_valign(Gtk.Align.CENTER)
+        save_row.add_suffix(save_button)
+        save_row.set_activatable_widget(save_button)
+        group.add(save_row)
+
+        page.add(group)
+        dialog.add(page)
+
+        def save_settings(_button):
             settings = NetworkSettings(
                 proxy.get_text().strip() or None,
-                timeout.get_value_as_int(),
-                retries.get_value_as_int(),
+                int(timeout.get_value()),
+                int(retries.get_value()),
                 ca_bundle.get_text().strip() or None,
             )
             try:
                 self.network_settings_store.save(settings)
             except (OSError, NetworkSettingsError) as error:
-                self.toast_overlay.add_toast(Adw.Toast.new("Could not save network settings: " + str(error)))
+                dialog.add_toast(
+                    Adw.Toast.new("Could not save network settings: " + str(error))
+                )
                 return
-            self.toast_overlay.add_toast(Adw.Toast.new("Network settings saved. They apply to new requests."))
-        dialog.choose(self, None, response)
+            dialog.add_toast(
+                Adw.Toast.new("Network settings saved. They apply to new requests.")
+            )
+
+        save_button.connect("clicked", save_settings)
+        dialog.present(self)
 
     def _record_notification(
         self, event_type, severity, title, message, dedupe_key=None
