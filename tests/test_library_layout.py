@@ -15,6 +15,14 @@ class LibraryLayoutStoreTests(unittest.TestCase):
             layouts = LibraryLayoutStore(Path(directory) / "layout.json").load_all()
             self.assertEqual(layouts, DEFAULT_LAYOUTS)
 
+    def test_default_list_layout_keeps_optional_source_hidden_and_widths_compact(self):
+        layout = DEFAULT_LAYOUTS["list"]
+        self.assertNotIn("source", layout["visible"])
+        self.assertEqual(
+            sum(layout["widths"][column] for column in layout["visible"]),
+            480,
+        )
+
     def test_list_and_grid_layouts_persist_independently(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "layout.json"
