@@ -33,6 +33,7 @@ Use a disposable test profile or a backup of any library data you care about. Do
 - [ ] Select multiple anime at the minimum width; confirm bulk status and progress actions remain visible and usable.
 - [ ] Open Releases at the minimum width; confirm search/sort filters and feed/rule/download actions remain reachable in their separate rows.
 - [ ] Open Notification Preferences, Local Player Detection, and Network Settings; confirm each uses a searchable, adaptive Preferences dialog with correctly grouped rows.
+- [ ] Open Download Queue at wide and narrow sizes; confirm the adaptive dialog remains usable and closing it stops its automatic refresh timer.
 - [ ] Change notification switches/severity and player-detection state; confirm settings persist and errors are reported without leaving the displayed control in a misleading state.
 - [ ] Change proxy, timeout, retry, and CA-bundle settings; confirm values are saved and restored after reopening the dialog.
 - [ ] Check all reviewed dialogs and the main window with keyboard-only navigation, dark mode, high contrast, and large text; confirm focus, labels, and controls remain usable.
