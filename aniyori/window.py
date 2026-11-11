@@ -2262,62 +2262,95 @@ class AniyoriWindow(Adw.ApplicationWindow):
         try:
             saved = self.notification_store.preferences()
         except (OSError, NotificationError) as error:
-            self.toast_overlay.add_toast(Adw.Toast.new("Could not load notification preferences: " + str(error)))
+            self.toast_overlay.add_toast(
+                Adw.Toast.new("Could not load notification preferences: " + str(error))
+            )
             return
-        dialog = Adw.AlertDialog(
-            heading="Notification Preferences",
-            body="Choose which event types are saved. Desktop notifications are optional and depend on your desktop environment.",
-        )
-        content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+
         labels = {
             "release_match": "New matched releases",
             "download_failure": "Download failures",
             "webhook_error": "Webhook delivery errors",
             "backup": "Backup and restore events",
-            "new_episode": "New episode airing reminders (off by default)",
+            "new_episode": "New episode airing reminders",
         }
+        dialog = Adw.PreferencesDialog()
+        page = Adw.PreferencesPage(
+            title="Notifications",
+            icon_name="preferences-system-notifications-symbolic",
+        )
+        events_group = Adw.PreferencesGroup(
+            title="Saved Events",
+            description="Choose which events Aniyori keeps in the notification center.",
+        )
         checks = {}
         for event_type in EVENT_TYPES:
-            check = Gtk.CheckButton(label=labels[event_type])
-            check.set_active(event_type in saved.enabled_events)
-            checks[event_type] = check
-            content.append(check)
-        desktop = Gtk.CheckButton(label="Show desktop notifications")
+            row = Adw.SwitchRow(title=labels[event_type])
+            row.set_active(event_type in saved.enabled_events)
+            checks[event_type] = row
+            events_group.add(row)
+        page.add(events_group)
+
+        delivery_group = Adw.PreferencesGroup(
+            title="Desktop Notifications",
+            description=(
+                "Desktop notifications are optional and depend on support from "
+                "your desktop environment."
+            ),
+        )
+        desktop = Adw.SwitchRow(title="Show desktop notifications")
         desktop.set_active(saved.desktop_notifications)
-        content.append(desktop)
-        severity_label = Gtk.Label(label="Minimum notification severity", xalign=0)
-        content.append(severity_label)
+        delivery_group.add(desktop)
+        page.add(delivery_group)
+
+        display_group = Adw.PreferencesGroup(title="Display")
+        severity_row = Adw.ActionRow(title="Minimum notification severity")
         severity_dropdown = Gtk.DropDown.new_from_strings([
             "All notifications", "Warnings and errors", "Errors only",
         ])
         severity_dropdown.set_selected(("info", "warning", "error").index(saved.minimum_severity))
-        content.append(severity_dropdown)
-        dialog.set_extra_child(content)
-        dialog.add_response("cancel", "Cancel")
-        dialog.add_response("save", "Save")
-        dialog.set_response_appearance("save", Adw.ResponseAppearance.SUGGESTED)
-        dialog.set_default_response("save")
-        dialog.set_close_response("cancel")
-        def response(_dialog, result):
-            try:
-                selected = _dialog.choose_finish(result)
-            except GLib.Error:
-                LOGGER.warning("Could not finish notification preferences dialog", exc_info=True)
+        severity_row.add_suffix(severity_dropdown)
+        severity_row.set_activatable_widget(severity_dropdown)
+        display_group.add(severity_row)
+        page.add(display_group)
+        dialog.add(page)
+
+        restoring = False
+
+        def save_preferences(*_args):
+            nonlocal saved, restoring
+            if restoring:
                 return
-            if selected != "save":
-                return
+
             preferences = NotificationPreferences(
-                tuple(event for event, check in checks.items() if check.get_active()),
+                tuple(event for event, row in checks.items() if row.get_active()),
                 desktop.get_active(),
                 ("info", "warning", "error")[severity_dropdown.get_selected()],
             )
             try:
                 self.notification_store.save_preferences(preferences)
             except (OSError, NotificationError) as error:
-                self.toast_overlay.add_toast(Adw.Toast.new("Could not save notification preferences: " + str(error)))
+                LOGGER.warning("Could not save notification preferences: %s", error)
+                restoring = True
+                for event, row in checks.items():
+                    row.set_active(event in saved.enabled_events)
+                desktop.set_active(saved.desktop_notifications)
+                severity_dropdown.set_selected(
+                    ("info", "warning", "error").index(saved.minimum_severity)
+                )
+                restoring = False
+                dialog.add_toast(
+                    Adw.Toast.new("Could not save notification preferences: " + str(error))
+                )
                 return
-            self.toast_overlay.add_toast(Adw.Toast.new("Notification preferences saved."))
-        dialog.choose(self, None, response)
+
+            saved = preferences
+
+        for row in checks.values():
+            row.connect("notify::active", save_preferences)
+        desktop.connect("notify::active", save_preferences)
+        severity_dropdown.connect("notify::selected", save_preferences)
+        dialog.present(self)
 
     def _show_player_detection_preferences(self):
         dialog = Adw.PreferencesDialog()
