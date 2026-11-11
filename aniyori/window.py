@@ -1201,14 +1201,15 @@ class AniyoriWindow(Adw.ApplicationWindow):
             )
             saved_template = DEFAULT_SHARE_TEMPLATE
 
-        dialog = Adw.AlertDialog(
-            heading="Share Message Format",
-            body="Customize the text used by future sharing actions and preview it with a library entry.",
-        )
+        dialog = Adw.Dialog()
+        dialog.set_title("Share Message Format")
+        dialog.set_content_width(680)
+        dialog.set_content_height(560)
         content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
         help_text = Gtk.Label(
             label=(
-                "Variables: {title}, {episode}, {total_episodes}, {progress}, "
+                "Customize the text used by future sharing actions and preview it with "
+                "a library entry. Variables: {title}, {episode}, {total_episodes}, {progress}, "
                 "{status}, {timestamp}. Use [[if field]]…[[/if]] for optional "
                 "sections, or [[upper:title]], [[lower:status]], [[title:status]], "
                 "and [[default:total_episodes:TBA]] for basic formatting."
@@ -1246,9 +1247,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
         actions.append(reset_button)
         actions.append(save_button)
         content.append(actions)
-        dialog.set_extra_child(content)
-        dialog.add_response("close", "Close")
-        dialog.set_default_response("close")
+        dialog.set_child(content)
         dialog.present(self)
 
         sample_entry = (
@@ -2706,11 +2705,18 @@ class AniyoriWindow(Adw.ApplicationWindow):
         refresh()
 
     def _show_watch_history_dialog(self):
-        dialog = Adw.AlertDialog(
-            heading='Watch History',
-            body='Review episode, progress, and status events recorded by Aniyori. Player integrations can record events with their own source label.',
-        )
+        dialog = Adw.Dialog()
+        dialog.set_title("Watch History")
+        dialog.set_content_width(760)
+        dialog.set_content_height(600)
         content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+        description = Gtk.Label(
+            label="Review episode, progress, and status events recorded by Aniyori. Player integrations can record events with their own source label.",
+            xalign=0,
+            wrap=True,
+        )
+        description.add_css_class("dim-label")
+        content.append(description)
         filters = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         anime_filter = Gtk.Entry()
         anime_filter.set_placeholder_text('Filter anime title')
@@ -2739,9 +2745,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
         actions.append(remove_button)
         actions.append(prune_button)
         content.append(actions)
-        dialog.set_extra_child(content)
-        dialog.add_response('close', 'Close')
-        dialog.set_default_response('close')
+        dialog.set_child(content)
         dialog.present(self)
         action_values = ('all', 'episode', 'progress', 'status')
         event_ids = {}
