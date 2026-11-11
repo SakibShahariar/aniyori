@@ -613,14 +613,18 @@ class AniyoriWindow(Adw.ApplicationWindow):
         self.stack.add_named(self.grid_scroll, "grid")
 
         self.release_page = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
-        release_controls = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        release_controls = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+        release_filter_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        release_actions_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        release_controls.append(release_filter_row)
+        release_controls.append(release_actions_row)
         self.release_search_entry = Gtk.SearchEntry()
         self.release_search_entry.set_placeholder_text("Filter releases…")
         self.release_search_entry.set_hexpand(True)
         self.release_search_entry.connect(
             "search-changed", lambda _entry: self._render_release_results()
         )
-        release_controls.append(self.release_search_entry)
+        release_filter_row.append(self.release_search_entry)
         self.release_sort_dropdown = Gtk.DropDown.new_from_strings(
             ["Best match", "Newest", "Most seeders", "Title"]
         )
@@ -628,7 +632,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
         self.release_sort_dropdown.connect(
             "notify::selected", lambda *_args: self._render_release_results()
         )
-        release_controls.append(self.release_sort_dropdown)
+        release_filter_row.append(self.release_sort_dropdown)
         self.release_eligible_only_check = Gtk.CheckButton(label="Eligible only")
         self.release_eligible_only_check.set_tooltip_text(
             "Hide releases rejected by preferences or below the minimum score."
@@ -636,34 +640,31 @@ class AniyoriWindow(Adw.ApplicationWindow):
         self.release_eligible_only_check.connect(
             "toggled", lambda _button: self._render_release_results()
         )
-        release_controls.append(self.release_eligible_only_check)
-        release_spacer = Gtk.Box()
-        release_spacer.set_hexpand(True)
-        release_controls.append(release_spacer)
+        release_filter_row.append(self.release_eligible_only_check)
         refresh_releases_button = Gtk.Button(label="Refresh")
         refresh_releases_button.connect(
             "clicked", lambda _button: self._refresh_release_feeds()
         )
-        release_controls.append(refresh_releases_button)
+        release_actions_row.append(refresh_releases_button)
         manage_releases_button = Gtk.Button(label="Manage Feeds")
         manage_releases_button.connect(
             "clicked", lambda _button: self._show_release_feed_manager()
         )
-        release_controls.append(manage_releases_button)
+        release_actions_row.append(manage_releases_button)
         manage_rules_button = Gtk.Button(label="Manage Rules")
         manage_rules_button.connect(
             "clicked", lambda _button: self._show_release_rule_manager()
         )
-        release_controls.append(manage_rules_button)
+        release_actions_row.append(manage_rules_button)
         configure_qbittorrent_button = Gtk.Button(label="qBittorrent")
         configure_qbittorrent_button.set_tooltip_text("Configure your qBittorrent WebUI connection")
         configure_qbittorrent_button.connect(
             "clicked", lambda _button: self._show_qbittorrent_settings_dialog()
         )
-        release_controls.append(configure_qbittorrent_button)
+        release_actions_row.append(configure_qbittorrent_button)
         queue_button = Gtk.Button(label="Download Queue")
         queue_button.connect("clicked", lambda _button: self._show_download_queue())
-        release_controls.append(queue_button)
+        release_actions_row.append(queue_button)
         self.release_page.append(release_controls)
         self.release_list_box = Gtk.ListBox()
         self.release_list_box.set_selection_mode(Gtk.SelectionMode.NONE)
