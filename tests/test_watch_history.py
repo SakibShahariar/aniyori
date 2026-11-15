@@ -139,6 +139,23 @@ class WatchHistoryTests(unittest.TestCase):
             {1: True, 2: True, 3: True},
         )
 
+    def test_reducing_episode_total_rehomes_watched_state_within_range(self):
+        self.storage.set_episode_watched(self.entry.storage_id, 1)
+        self.storage.set_episode_watched(self.entry.storage_id, 3)
+        edited = AnimeEntry(
+            title=self.entry.title,
+            episodes_total=2,
+            episodes_watched=2,
+            status=WatchStatus.COMPLETED,
+            storage_id=self.entry.storage_id,
+        )
+
+        self.assertTrue(self.storage.update_entry(edited))
+        self.assertEqual(
+            self.storage.list_episode_progress(self.entry.storage_id),
+            {1: True, 2: True, 3: False},
+        )
+
     def test_episode_tracking_rejects_invalid_or_out_of_range_values(self):
         for episode in (0, -1, 13, True):
             with self.subTest(episode=episode), self.assertRaises(ValueError):
