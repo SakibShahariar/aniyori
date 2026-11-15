@@ -1270,3 +1270,19 @@ The two cache-signature failures were caused by a stale unit-test call that pass
 - Reviewed through: `0dca386db2be0b69232c7708dbf083d21db7c104`
 - New checkpoint: `0dca386db2be0b69232c7708dbf083d21db7c104`
 - Outstanding: large-library performance benchmark and real GTK checks for layout/preset behavior and episode editor consistency.
+
+
+### Episode-total reconciliation follow-up — 2026-11-15
+
+The combined-status endpoint returned no status records for these commits. Exact push-triggered workflow runs were retrieved by commit SHA through the Actions API and inspected:
+
+| Commit SHA | Subject | CI result | Run / evidence |
+|---|---|---|---|
+| `4db32f35c2844e9086723f6e257bd39ef57faa6b` | fix(storage): respect episode totals when syncing progress (#24) | success | [43711985329](https://github.com/SakibShahariar/aniyori/actions/runs/43711985329) |
+| `aea573026c25d08ad6744a30d2e21f488c169d1c` | test(storage): cover episode total reduction (#24) | success | [43712012334](https://github.com/SakibShahariar/aniyori/actions/runs/43712012334), 476 tests |
+| `3093c365d70a4513f50462235c0004a8768211e5` | docs(qa): cover reduced episode totals (#24) | success | [43712078974](https://github.com/SakibShahariar/aniyori/actions/runs/43712078974), 476 tests |
+
+- Previous checkpoint: `0dca386db2be0b69232c7708dbf083d21db7c104`
+- Reviewed through: `3093c365d70a4513f50462235c0004a8768211e5`
+- New checkpoint: `3093c365d70a4513f50462235c0004a8768211e5`
+- Outstanding: verify episode-editor behavior and reduced-total reconciliation in a real GTK session.
