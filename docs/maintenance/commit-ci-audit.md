@@ -887,3 +887,38 @@ The combined commit-status lookup returned an empty status list for every SHA ab
 The combined commit-status lookup returned an empty status list for every SHA above. No push-triggered Tests run details were exposed by the connected workflow-run surface. These entries are **unavailable**, not assumed green or red. Recheck these exact SHAs when Actions run metadata is accessible.
 
 - Reviewed checkpoint: `13a833c803d560f37db7b1808f1667307b34b77c`
+
+## Reviewed range: 2026-11-15 — AniList account integration (#22)
+
+Reviewed the 24 commits after checkpoint `13a833c803d560f37db7b1808f1667307b34b77c` through `d2c7064940b80a24442e4cca183b934477976eea`. Every commit has an observed completed-success GitHub Actions Tests run. The combined-status endpoint returned empty status lists; the push-triggered workflow-run records below are the evidence used for the green classifications.
+
+| Commit SHA | Subject | CI result | Workflow run |
+|---|---|---|---|
+| `a87ef1f269cdb39b3cc9d69566139d40abca90bb` | feat(anilist): add desktop OAuth account helpers (#22) | green | [43699199565](https://github.com/SakibShahariar/aniyori/actions/runs/43699199565) |
+| `970b42a8f4df52116e3d54fdf03d17c2b8ee6197` | test(anilist): cover desktop OAuth helpers (#22) | green | [43699212965](https://github.com/SakibShahariar/aniyori/actions/runs/43699212965) |
+| `5d254d033222f7652e7e04f87141ad98a033b34b` | feat(anilist): add authenticated library API support (#22) | green | [43699231326](https://github.com/SakibShahariar/aniyori/actions/runs/43699231326) |
+| `81ef8eb8150fabd97dd69168cba695bb2d5a3437` | test(anilist): cover authenticated library operations (#22) | green | [43699251785](https://github.com/SakibShahariar/aniyori/actions/runs/43699251785) |
+| `bd3730f5346fa2319112099ef763924567112ea2` | fix(anilist): reject malformed list status values (#22) | green | [43699258790](https://github.com/SakibShahariar/aniyori/actions/runs/43699258790) |
+| `6da2cc9a3a08595a758db40cdf693ac03ba3660f` | feat(anilist): add account connection and import dialog (#22) | green | [43699293660](https://github.com/SakibShahariar/aniyori/actions/runs/43699293660) |
+| `361f6c1861a4d45c6a6c6c3f2042690c02863139` | feat(anilist): expose account integration in app menu (#22) | green | [43699306774](https://github.com/SakibShahariar/aniyori/actions/runs/43699306774) |
+| `20f9b9dd2e0c1c9462cfa128775becc5df169cba` | feat(anilist): map imported entries safely (#22) | green | [43699323626](https://github.com/SakibShahariar/aniyori/actions/runs/43699323626) |
+| `e569e6ef083b4cc264834caf344c7b4a94316b95` | refactor(anilist): centralize library import mapping (#22) | green | [43699330668](https://github.com/SakibShahariar/aniyori/actions/runs/43699330668) |
+| `d0fa66e6ef80fd451c33fca2f020155f3f00a3ba` | test(anilist): cover remote library import mapping (#22) | green | [43699339194](https://github.com/SakibShahariar/aniyori/actions/runs/43699339194) |
+| `57d93b14fda15404b2e496a7383f8e963370070f` | feat(anilist): detect sync conflicts without overwrites (#22) | green | [43699366709](https://github.com/SakibShahariar/aniyori/actions/runs/43699366709) |
+| `6aa647ac3fe78c9722cc1e7dbb77fb78ede665fc` | test(anilist): cover conservative sync conflict planning (#22) | green | [43699377034](https://github.com/SakibShahariar/aniyori/actions/runs/43699377034) |
+| `d34c7c162649203c2a14dcc56b3136b41d3ddec5` | feat(anilist): add conflict-reviewed two-way sync (#22) | green | [43699409719](https://github.com/SakibShahariar/aniyori/actions/runs/43699409719) |
+| `9cd7a3107fade477dca3e979c3c98a224f7bde43` | fix(anilist): validate sync targets and preserve local IDs (#22) | green | [43699454474](https://github.com/SakibShahariar/aniyori/actions/runs/43699454474) |
+| `ff2af202073408fad6bb1d73af5f6dab806320ee` | refactor(anilist): use validated sync decisions (#22) | green | [43699462389](https://github.com/SakibShahariar/aniyori/actions/runs/43699462389) |
+| `e070ff23d15c26e3f9c195f8e98da287c0be6439` | test(anilist): cover explicit sync resolution paths (#22) | green | [43699473272](https://github.com/SakibShahariar/aniyori/actions/runs/43699473272) |
+| `b6ec1ed81c6812f69a9b6f4a287d4aaf10acdd5f` | fix(anilist): preview imported titles before sync (#22) | green | [43699480093](https://github.com/SakibShahariar/aniyori/actions/runs/43699480093) |
+| `b8d67e5ff58a93625f44317c8f891e24005722cc` | fix(anilist): keep account controls responsive and consistent (#22) | green | [43699514091](https://github.com/SakibShahariar/aniyori/actions/runs/43699514091) |
+| `83a87f98dae0aaf40f5c011e3c68c480cfee76eb` | fix(anilist): bound remote watch progress values (#22) | green | [43699535307](https://github.com/SakibShahariar/aniyori/actions/runs/43699535307) |
+| `b299eab0f786a1a71343c8c10ce52dac952240dc` | fix(anilist): validate imported media identity (#22) | green | [43699539348](https://github.com/SakibShahariar/aniyori/actions/runs/43699539348) |
+| `4724969e77723a745220bef539df0a981b9f188e` | test(anilist): cover malformed account and media identity data (#22) | green | [43699555195](https://github.com/SakibShahariar/aniyori/actions/runs/43699555195) |
+| `b310b6d428d264f7e1c132ad8ff0bf425e1e549e` | fix(anilist): reject control characters in bearer tokens (#22) | green | [43699592133](https://github.com/SakibShahariar/aniyori/actions/runs/43699592133) |
+| `c9c4651dd803c33b778e1962d5f52dac952240dc` | fix(anilist): bound sync progress to local limits (#22) | green | [43699595394](https://github.com/SakibShahariar/aniyori/actions/runs/43699595394) |
+| `d2c7064940b80a24442e4cca183b934477976eea` | test(anilist): cover token and progress bounds (#22) | green | [43699609759](https://github.com/SakibShahariar/aniyori/actions/runs/43699609759) |
+
+No regression or red run was observed in this range.
+
+- Reviewed checkpoint: `d2c7064940b80a24442e4cca183b934477976eea`

@@ -6,12 +6,13 @@ Aniyori brings your watchlist, seasonal discovery, local media collection, and r
 
 > **Early development · v0.1.0 not released**
 >
-> The local library, AniList public catalogue, media scanning, release discovery, and download handoff are implemented. AniList account sign-in and list synchronization are not yet available. A real Linux desktop validation is still required before the first release.
+> The local library, AniList public catalogue, media scanning, release discovery, and download handoff are implemented. AniList account connection, list import, and conflict-reviewed synchronization are implemented in source; bundling the project OAuth Client ID and live desktop validation remain outstanding.
 
 ## Features
 
 - **Anime library** — Track series and episodes, organize list and grid views, filter and sort entries, and review watch-history statistics.
 - **Discover anime** — Search the public AniList catalogue, browse current and past seasons, view details, and add titles to your library.
+- **AniList account** — Import your list and review two-way watch-status and episode-progress changes before applying them.
 - **Local media** — Scan folders, recognize episode filenames, inspect available files, and optionally detect progress from mpv or VLC.
 - **Find releases** — Search Nyaa.si and configurable RSS/Atom feeds; match releases to your library and apply customizable rules.
 - **Download handoff** — Send a selected magnet link to your desktop torrent app or a configured qBittorrent WebUI. Downloads are never submitted automatically.
@@ -50,6 +51,7 @@ For qBittorrent WebUI password storage, install `secret-tool` and configure a de
 
 ## Documentation
 
+- [AniList account setup and sync](docs/anilist-account.md)
 - [Privacy and local data](docs/privacy.md)
 - [Live desktop validation checklist](docs/qa/live-desktop-checklist.md)
 - [Changelog and release notes](CHANGELOG.md)
