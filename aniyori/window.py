@@ -226,9 +226,9 @@ class AnimeRow(Gtk.Box):
 
 
 class AnimeCard(Gtk.Box):
-    def __init__(self, entry: AnimeEntry, on_progress, on_remove, on_edit, airing=None, selected=False, on_select=None, on_links=None, on_episodes=None, layout=None):
+    def __init__(self, entry: AnimeEntry, on_progress, on_remove, on_edit, airing=None, selected=False, on_select=None, on_links=None, on_episodes=None, layout=None, on_details=None):
         super().__init__(orientation=Gtk.Orientation.VERTICAL, spacing=10)
-        self.set_size_request(180, 180)
+        self.set_size_request(180, -1)
         self.set_margin_top(12)
         self.set_margin_bottom(12)
         self.set_margin_start(12)
@@ -250,18 +250,24 @@ class AnimeCard(Gtk.Box):
         placeholder = Gtk.Image.new_from_icon_name("video-x-generic-symbolic")
         placeholder.set_pixel_size(42)
         poster = Gtk.Picture()
-        poster.set_size_request(112, 148)
+        poster.set_size_request(140, 184)
         poster.set_can_shrink(True)
         poster.set_content_fit(Gtk.ContentFit.COVER)
         poster.set_paintable(placeholder.get_paintable())
+        poster.update_property(
+            [Gtk.AccessibleProperty.LABEL], [f"Cover art for {entry.title}"]
+        )
         poster.set_halign(Gtk.Align.CENTER)
-        poster.set_margin_top(14)
+        poster.set_margin_top(10)
         self.append(poster)
         _load_cover_async(poster, entry.cover_image)
 
         title = Gtk.Label(label=entry.title, wrap=True, justify=Gtk.Justification.CENTER)
         title.add_css_class("heading")
-        title.set_max_width_chars(20)
+        title.set_max_width_chars(22)
+        title.set_lines(2)
+        title.set_ellipsize(3)
+        title.set_tooltip_text(entry.title)
         self.append(title)
         layout = layout or DEFAULT_LIBRARY_LAYOUTS["grid"]
 
@@ -295,7 +301,7 @@ class AnimeCard(Gtk.Box):
             progress.set_visible("progress" in layout["visible"])
             self.append(progress)
 
-        next_button = Gtk.Button(label="+1 episode")
+        next_button = Gtk.Button(label="+1")
         can_increment = not (
             entry.status == WatchStatus.COMPLETED
             and entry.episodes_total is not None
@@ -305,12 +311,26 @@ class AnimeCard(Gtk.Box):
         next_button.set_tooltip_text(
             "Mark one more episode watched" if can_increment else "All known episodes are completed"
         )
+        next_button.update_property(
+            [Gtk.AccessibleProperty.LABEL], [next_button.get_tooltip_text()]
+        )
         next_button.set_halign(Gtk.Align.CENTER)
         next_button.connect("clicked", lambda _button: on_progress(entry))
         self.append(next_button)
 
         actions = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
         actions.set_halign(Gtk.Align.CENTER)
+        details_button = Gtk.Button(label="Details")
+        details_button.set_hexpand(True)
+        details_button.set_tooltip_text("View anime details and actions")
+        details_button.update_property(
+            [Gtk.AccessibleProperty.LABEL], ["View anime details and actions"]
+        )
+        details_button.connect(
+            "clicked",
+            lambda _button: (on_details or on_edit)(entry),
+        )
+        actions.append(details_button)
         for icon_name, tooltip, callback in (
             ("view-list-symbolic", "Edit watched state for individual episodes",
              lambda _button: on_episodes(entry) if on_episodes else None),
@@ -5090,8 +5110,9 @@ class AniyoriWindow(Adw.ApplicationWindow):
                     self._show_external_links,
                     self._show_episode_editor,
                     self.library_layouts["grid"],
+                    self._show_anime_details,
                 )
-                card.set_size_request(self.library_layouts["grid"]["widths"]["card_width"], 180)
+                card.set_size_request(self.library_layouts["grid"]["widths"]["card_width"], -1)
                 self.list_box.insert(row, position)
                 self.grid_flow.insert(card, position)
                 self._row_widgets[key] = row
