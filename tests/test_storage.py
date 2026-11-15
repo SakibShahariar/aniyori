@@ -386,5 +386,42 @@ class LibraryStorageTests(unittest.TestCase):
         self.assertEqual(updated[unrelated.storage_id].episodes_watched, 7)
 
 
+    def test_undo_preserves_preexisting_watch_history_rows(self):
+        self.storage.add(AnimeEntry(title="History undo", episodes_total=12))
+        entry = self.storage.list_entries()[0]
+        event_id = self.storage.record_watch_event(
+            entry.storage_id, episode=1, details="Earlier session"
+        )
+        before = self.storage.capture_undo_state((entry.storage_id,))
+
+        self.storage.update_progress(entry.storage_id, 2)
+        after = self.storage.capture_undo_state((entry.storage_id,))
+        self.storage.restore_undo_state(before, after)
+
+        history = self.storage.list_watch_history()
+        self.assertEqual([event["id"] for event in history], [event_id])
+        self.assertEqual(history[0]["details"], "Earlier session")
+
+    def test_bulk_undo_restores_each_selected_entry_and_its_episode_map(self):
+        self.storage.add(AnimeEntry(title="Bulk first", episodes_total=12))
+        self.storage.add(AnimeEntry(title="Bulk second", episodes_total=24))
+        first, second = self.storage.list_entries()
+        self.storage.set_episode_watched(first.storage_id, 3, True)
+        before = self.storage.capture_undo_state((first.storage_id, second.storage_id))
+
+        self.storage.update_progress_many({
+            first.storage_id: 2,
+            second.storage_id: 4,
+        })
+        after = self.storage.capture_undo_state((first.storage_id, second.storage_id))
+        self.storage.restore_undo_state(before, after)
+
+        updated = {entry.storage_id: entry for entry in self.storage.list_entries()}
+        self.assertEqual(updated[first.storage_id].episodes_watched, 1)
+        self.assertEqual(updated[second.storage_id].episodes_watched, 0)
+        self.assertEqual(self.storage.list_episode_progress(first.storage_id), {1: True, 2: False, 3: True})
+        self.assertEqual(self.storage.list_episode_progress(second.storage_id), {})
+
+
 if __name__ == "__main__":
     unittest.main()
