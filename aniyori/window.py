@@ -820,7 +820,12 @@ class AniyoriWindow(Adw.ApplicationWindow):
         intro.add_css_class("dim-label")
         self.home_page.append(intro)
 
-        actions = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        actions = Gtk.FlowBox()
+        actions.set_selection_mode(Gtk.SelectionMode.NONE)
+        actions.set_row_spacing(8)
+        actions.set_column_spacing(8)
+        actions.set_min_children_per_line(1)
+        actions.set_max_children_per_line(3)
         add = Gtk.Button(label="Add Anime")
         add.add_css_class("suggested-action")
         add.connect("clicked", self._show_add_dialog)
@@ -833,7 +838,12 @@ class AniyoriWindow(Adw.ApplicationWindow):
         actions.append(sync)
         self.home_page.append(actions)
 
-        stats = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        stats = Gtk.FlowBox()
+        stats.set_selection_mode(Gtk.SelectionMode.NONE)
+        stats.set_row_spacing(8)
+        stats.set_column_spacing(8)
+        stats.set_min_children_per_line(1)
+        stats.set_max_children_per_line(4)
         counts = {}
         for status in WatchStatus:
             counts[status] = sum(1 for entry in self.entries if entry.status == status)
@@ -842,6 +852,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
             (WatchStatus.COMPLETED, "Completed"),
             (WatchStatus.PLANNING, "Planning"),
             (WatchStatus.PAUSED, "Paused"),
+            (WatchStatus.DROPPED, "Dropped"),
         ):
             tile = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
             tile.add_css_class("card")
