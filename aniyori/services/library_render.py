@@ -19,3 +19,8 @@ def library_stack_page(view, has_visible_entries):
 def library_view_for_preset(grid_active):
     """Return the selected library view even while its empty-state page is shown."""
     return "grid" if grid_active else "list"
+
+
+def library_filter_changes_preset(current_filter, selected_filter, applying_preset):
+    """Only a real user filter change should detach the active preset."""
+    return not applying_preset and current_filter != selected_filter
