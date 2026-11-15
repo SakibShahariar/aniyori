@@ -1146,3 +1146,21 @@ The following commits were checked individually. Every combined status lookup re
 - Reviewed through: `9004593e4b3a6b754ec8c95ce8497d31720b4a88`
 - New checkpoint: `9004593e4b3a6b754ec8c95ce8497d31720b4a88`
 - The Home page now labels the section Recently Added and orders it using the database's immutable `created_at` field, not `updated_at`.
+
+
+### Dashboard ordering and totals follow-up
+
+Each commit below was checked through the combined status endpoint. All returned empty status lists and are recorded as **unavailable**, not green. No push-triggered run result was exposed.
+
+| Commit SHA | Subject | CI result | Run / evidence |
+|---|---|---|---|
+| `5b02392466c23a3035b655a66b147d419fb3f814` | feat(ui): prioritize recently watched dashboard entries (#91) | unavailable | Combined status lookup returned no entries |
+| `8469ae959a98eae1e8d89a4083c07b2028b5c25f` | test(ui): verify continue watching recency order (#91) | unavailable | Combined status lookup returned no entries |
+| `af38cc6e7db594c9025559eb0b4389aab714dcdf` | fix(ui): order continue watching by recent activity (#91) | unavailable | Combined status lookup returned no entries |
+| `1854444ad9efe8316cd788c04ca7d4f2bcdf55a5` | feat(ui): show total library count on dashboard (#91) | unavailable | Combined status lookup returned no entries |
+| `695fb5dc6e499c7a1f06d99352a41f8b5753020e` | docs(qa): verify dashboard ordering and totals (#91) | unavailable | Combined status lookup returned no entries |
+
+- Previous checkpoint: `9004593e4b3a6b754ec8c95ce8497d31720b4a88`
+- Reviewed through: `695fb5dc6e499c7a1f06d99352a41f8b5753020e`
+- New checkpoint: `695fb5dc6e499c7a1f06d99352a41f8b5753020e`
+- Outstanding: obtain actual push-triggered Actions results and execute the desktop checklist before treating the redesign as validated.
