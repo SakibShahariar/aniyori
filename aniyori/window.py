@@ -1503,6 +1503,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
                 label = Gtk.Label(label=f"{item['name']} — {item['url']}", xalign=0)
                 label.set_ellipsize(3)
                 label.set_hexpand(True)
+                row.append(label)
                 edit = Gtk.Button.new_from_icon_name("document-edit-symbolic")
                 edit.set_tooltip_text(f"Edit {item['name']}")
                 edit.connect("clicked", lambda _button, position=index: edit_template(position))
@@ -4597,7 +4598,6 @@ class AniyoriWindow(Adw.ApplicationWindow):
                 label = Gtk.Label(label=feed.name, xalign=0)
                 label.set_hexpand(True)
                 label.set_ellipsize(3)
-                row.append(label)
                 state = Gtk.Label(label="Enabled" if feed.enabled else "Disabled")
                 state.add_css_class("dim-label")
                 toggle_button = Gtk.Button(label="Disable" if feed.enabled else "Enable")
@@ -4607,7 +4607,6 @@ class AniyoriWindow(Adw.ApplicationWindow):
                 )
                 edit_button = Gtk.Button(label="Edit")
                 edit_button.connect("clicked", lambda _button, item=feed: begin_edit(item))
-                row.append(edit_button)
                 remove_button = Gtk.Button.new_from_icon_name("user-trash-symbolic")
                 remove_button.set_tooltip_text("Remove feed")
                 remove_button.connect(
