@@ -5,6 +5,7 @@ import unittest
 from aniyori.dashboard import (
     continue_watching_entries,
     count_library_statuses,
+    recently_added_entries,
     recently_updated_entries,
 )
 from aniyori.models import AnimeEntry, WatchStatus
@@ -58,6 +59,25 @@ class DashboardSelectionTests(unittest.TestCase):
         )
 
         self.assertEqual([entry.title for entry in selected], ["Newer", "Older"])
+
+    def test_recently_added_uses_creation_timestamps_not_update_order(self):
+        older = AnimeEntry(title="Older", storage_id=1)
+        newer = AnimeEntry(title="Newer", storage_id=2)
+        selected = recently_added_entries(
+            [older, newer],
+            {1: "2026-01-01 10:00:00", 2: "2026-02-01 10:00:00"},
+        )
+        self.assertEqual([entry.title for entry in selected], ["Newer", "Older"])
+
+    def test_recently_added_excludes_entries_without_creation_timestamps(self):
+        saved = AnimeEntry(title="Saved", storage_id=1)
+        missing = AnimeEntry(title="Missing timestamp", storage_id=2)
+        unsaved = AnimeEntry(title="Unsaved")
+        selected = recently_added_entries(
+            [saved, missing, unsaved],
+            {1: "2026-01-01 10:00:00"},
+        )
+        self.assertEqual([entry.title for entry in selected], ["Saved"])
 
     def test_recently_updated_excludes_unsaved_entries_and_respects_limit(self):
         entries = [
