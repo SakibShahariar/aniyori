@@ -63,6 +63,9 @@ Use a disposable test profile or a backup of any library data you care about. Do
 - [ ] Test empty library, no watching entries, unknown episode totals, and entries with no cover art.
 - [ ] Activate Add Anime, Discover This Season, AniList Account, Scan Library, Statistics, and View My List; confirm each opens the existing workflow.
 - [ ] Confirm dashboard card cover art has an accessible name and all actions remain keyboard reachable.
+- [ ] In My List grid view, confirm poster dimensions match Home cards, titles remain readable at two lines, and card heights follow their content without clipping.
+- [ ] Confirm grid cards expose a primary Details action alongside the compact +1 progress action and contextual episode, external-link, edit, and remove controls.
+- [ ] Confirm poster placeholders, accessible names, tooltips, and keyboard focus remain correct when covers are missing or titles are long.
 - [ ] Repeat at the supported minimum size, with large text, dark/light themes, and high contrast; verify no horizontal overflow outside the intentionally scrollable poster strips.
 
 ## Episode tracking and history — #24, #51
