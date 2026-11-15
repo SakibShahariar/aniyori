@@ -10,7 +10,7 @@ gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
 from gi.repository import Adw, Gio, GLib, Gtk
 
-from .services.anilist import AniListClient, AniListError
+from .services.anilist import AniListClient
 from .services.anilist_account import (
     AniListAccountError,
     AniListAccountSettingsStore,
@@ -150,31 +150,32 @@ def show_anilist_account_dialog(parent) -> None:
             current = current_settings()
             viewer_id = current.get("viewer_id")
             viewer_name = current.get("viewer_name")
-            token_available = False
             if viewer_id is not None and credential_store is not None:
-                token_available = bool(
-                    credential_store.lookup("aniyori", f"anilist:{viewer_id}")
-                )
-            if token_available:
-                account_label.set_text(f"Connected as {viewer_name} (AniList ID {viewer_id})")
+                account_label.set_text(f"AniList account: {viewer_name} (ID {viewer_id})")
                 import_button.set_sensitive(True)
                 sync_button.set_sensitive(True)
                 disconnect_button.set_sensitive(True)
-                status_label.set_text("Your AniList token is stored in the desktop keyring.")
+                status_label.set_text(
+                    "The access token is retrieved from the desktop keyring when an account action starts."
+                )
             elif viewer_id is not None:
                 account_label.set_text("AniList account needs to be reconnected.")
                 import_button.set_sensitive(False)
                 sync_button.set_sensitive(False)
                 disconnect_button.set_sensitive(False)
-                status_label.set_text("No usable token was found in the desktop keyring.")
+                status_label.set_text(initial_keyring_error or "The desktop keyring is unavailable.")
             else:
                 account_label.set_text("Not connected to AniList")
                 import_button.set_sensitive(False)
+                sync_button.set_sensitive(False)
                 disconnect_button.set_sensitive(False)
-                status_label.set_text(initial_keyring_error or "Your local library remains available offline.")
+                status_label.set_text(
+                    initial_keyring_error or "Your local library remains available offline."
+                )
         except (AniListAccountError, CredentialStoreError) as error:
             account_label.set_text("AniList account status unavailable")
             import_button.set_sensitive(False)
+            sync_button.set_sensitive(False)
             disconnect_button.set_sensitive(False)
             status_label.set_text(str(error))
 
@@ -272,7 +273,6 @@ def show_anilist_account_dialog(parent) -> None:
             added = 0
             skipped = 0
             for remote in remote_entries:
-                media = remote["media"]
                 media_id = str(remote["media_id"])
                 if media_id in existing_ids:
                     skipped += 1
