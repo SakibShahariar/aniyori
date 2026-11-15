@@ -5029,7 +5029,6 @@ class AniyoriWindow(Adw.ApplicationWindow):
                 self._dispatch_webhook_event(updated, "status")
         self._clear_bulk_selection()
         self._render_library()
-        self.toast_overlay.add_toast(Adw.Toast.new(f"Updated status for {changed} anime."))
 
     def _apply_bulk_progress(self, _button):
         entries = self._selected_entries()
@@ -5062,7 +5061,6 @@ class AniyoriWindow(Adw.ApplicationWindow):
                 self._dispatch_webhook_event(updated_entry, "progress")
         self._clear_bulk_selection()
         self._render_library()
-        self.toast_overlay.add_toast(Adw.Toast.new(f"Updated progress for {changed} anime."))
 
     def _confirm_bulk_delete(self, _button):
         entries = self._selected_entries()
@@ -5370,7 +5368,6 @@ class AniyoriWindow(Adw.ApplicationWindow):
             self._render_library()
             updated_entry = next((item for item in self.entries if item.storage_id == entry.storage_id), entry)
             self._dispatch_webhook_event(updated_entry, "progress")
-            self.toast_overlay.add_toast(Adw.Toast.new(f"Progress updated: {entry.title}"))
         else:
             self.toast_overlay.add_toast(
                 Adw.Toast.new("That anime could not be updated. Try again.")
@@ -5773,7 +5770,6 @@ class AniyoriWindow(Adw.ApplicationWindow):
         if edited.episodes_watched != original.episodes_watched or edited.status != original.status:
             self._dispatch_webhook_event(edited, "status" if edited.status != original.status else "progress")
         self._render_library()
-        self.toast_overlay.add_toast(Adw.Toast.new(f"Updated {edited.title}."))
 
     def _confirm_remove_entry(self, entry: AnimeEntry):
         dialog = Adw.AlertDialog(
