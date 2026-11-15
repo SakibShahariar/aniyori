@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Iterable, Mapping
 
 from .models import MAX_EPISODE_COUNT, AnimeEntry, WatchStatus
+from .timezones import get_local_timezone
 
 
 def default_database_path() -> Path:
@@ -881,7 +882,7 @@ class LibraryStorage:
         if isinstance(year, bool) or not isinstance(year, int) or not 1 <= year <= 9999:
             raise ValueError("Year must be a valid calendar year.")
         if local_timezone is None:
-            local_timezone = datetime.now().astimezone().tzinfo or timezone.utc
+            local_timezone = get_local_timezone()
         if not isinstance(local_timezone, tzinfo):
             raise ValueError("A valid local timezone is required.")
 
