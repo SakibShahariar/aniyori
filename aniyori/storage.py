@@ -540,6 +540,7 @@ class LibraryStorage:
             raise ValueError("Undo requires one or more valid library storage IDs.")
         placeholders = ",".join("?" for _ in ids)
         with self._connect() as connection:
+            connection.execute("BEGIN")
             entries = {
                 int(row["id"]): dict(row)
                 for row in connection.execute(
@@ -576,6 +577,7 @@ class LibraryStorage:
             raise ValueError("This undo action is no longer valid.")
         placeholders = ",".join("?" for _ in ids)
         with self._connect() as connection:
+            connection.execute("BEGIN IMMEDIATE")
             current_entries = {
                 int(row["id"]): dict(row)
                 for row in connection.execute(
