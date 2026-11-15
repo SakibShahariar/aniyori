@@ -109,6 +109,8 @@ def import_entry_from_anilist(remote: dict) -> AnimeEntry:
         or isinstance(progress, bool) or not isinstance(progress, int)
         or not 0 <= progress <= MAX_EPISODE_COUNT
         or not isinstance(title, str) or not title.strip()
+        or isinstance(media.get("id"), bool)
+        or media.get("id") != media_id
     ):
         raise AniListAccountError("AniList returned invalid media or progress values.")
     total = media.get("episodes")
