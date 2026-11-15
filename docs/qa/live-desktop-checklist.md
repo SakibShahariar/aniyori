@@ -43,6 +43,20 @@ Use a disposable test profile or a backup of any library data you care about. Do
 - [ ] Change proxy, timeout, retry, and CA-bundle settings; confirm values are saved and restored after reopening the dialog.
 - [ ] Check all reviewed dialogs and the main window with keyboard-only navigation, dark mode, high contrast, and large text; confirm focus, labels, and controls remain usable.
 
+
+## Home dashboard — #91
+
+- [ ] Confirm Home is the initial destination and Home / My List navigation remains reachable by keyboard.
+- [ ] On a wide window, confirm the welcome panel, status tiles, Continue Watching, and Recently Updated sections have consistent spacing and alignment.
+- [ ] Confirm cover art loads from the existing cache without blocking the GTK main thread; missing/invalid covers retain the native placeholder.
+- [ ] Confirm horizontal poster strips can be scrolled with pointer, touchpad, and keyboard where supported; cards do not clip at the minimum window width.
+- [ ] Confirm title, watched/total progress, status, Details, and +1 actions are correct for each card.
+- [ ] Change progress, status, and library entries while Home is visible; confirm counts and sections refresh without restarting.
+- [ ] Test empty library, no watching entries, unknown episode totals, and entries with no cover art.
+- [ ] Activate Add Anime, Discover This Season, AniList Account, Scan Library, Statistics, and View My List; confirm each opens the existing workflow.
+- [ ] Confirm dashboard card cover art has an accessible name and all actions remain keyboard reachable.
+- [ ] Repeat at the supported minimum size, with large text, dark/light themes, and high contrast; verify no horizontal overflow outside the intentionally scrollable poster strips.
+
 ## Episode tracking and history — #24, #51
 
 - [ ] Open the Episodes editor for an entry with no explicit episode records but a legacy aggregate progress value; confirm the prior watched count is represented without losing progress.
