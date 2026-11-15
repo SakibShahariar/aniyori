@@ -132,6 +132,85 @@ def import_entry_from_anilist(remote: dict) -> AnimeEntry:
     )
 
 
+_REMOTE_STATUS_BY_LOCAL = {
+    WatchStatus.PLANNING: "PLANNING",
+    WatchStatus.WATCHING: "CURRENT",
+    WatchStatus.COMPLETED: "COMPLETED",
+    WatchStatus.PAUSED: "PAUSED",
+    WatchStatus.DROPPED: "DROPPED",
+}
+
+
+def anilist_status_for_local(entry: AnimeEntry) -> str:
+    """Map a local watch status to the closest supported AniList status."""
+    if not isinstance(entry, AnimeEntry):
+        raise AniListAccountError("A valid local anime entry is required.")
+    return _REMOTE_STATUS_BY_LOCAL[entry.status]
+
+
+def build_sync_plan(local_entries, remote_entries: list[dict]) -> dict:
+    """Classify sync differences without modifying either library.
+
+    Without a persisted last-synced snapshot, every differing status/progress
+    pair is deliberately surfaced as a conflict rather than guessing which
+    side changed most recently.
+    """
+    if not isinstance(remote_entries, list):
+        raise AniListAccountError("AniList library data must be a list.")
+    local_by_id = {}
+    for entry in local_entries:
+        if not isinstance(entry, AnimeEntry):
+            raise AniListAccountError("Local library contains an invalid entry.")
+        if entry.provider == "anilist" and entry.provider_id:
+            if entry.provider_id in local_by_id:
+                raise AniListAccountError("Local library contains duplicate AniList IDs.")
+            local_by_id[entry.provider_id] = entry
+
+    remote_by_id = {}
+    for remote in remote_entries:
+        if not isinstance(remote, dict):
+            raise AniListAccountError("AniList library contains an invalid entry.")
+        media_id = remote.get("media_id")
+        if isinstance(media_id, bool) or not isinstance(media_id, int) or media_id <= 0:
+            raise AniListAccountError("AniList library contains an invalid media ID.")
+        key = str(media_id)
+        if key in remote_by_id:
+            raise AniListAccountError("AniList library contains duplicate media IDs.")
+        if not isinstance(remote.get("status"), str) or remote["status"] not in _STATUS_MAP:
+            raise AniListAccountError("AniList library contains an unsupported status.")
+        progress = remote.get("progress")
+        if isinstance(progress, bool) or not isinstance(progress, int) or progress < 0:
+            raise AniListAccountError("AniList library contains invalid progress.")
+        remote_by_id[key] = remote
+
+    imports = []
+    conflicts = []
+    unchanged = 0
+    for media_id, remote in remote_by_id.items():
+        local = local_by_id.get(media_id)
+        if local is None:
+            imports.append(remote)
+            continue
+        if (
+            local.status != _STATUS_MAP[remote["status"]]
+            or local.episodes_watched != remote["progress"]
+        ):
+            conflicts.append({"local": local, "remote": remote})
+        else:
+            unchanged += 1
+
+    local_only = [
+        entry for media_id, entry in local_by_id.items()
+        if media_id not in remote_by_id
+    ]
+    return {
+        "imports": tuple(imports),
+        "conflicts": tuple(conflicts),
+        "local_only": tuple(local_only),
+        "unchanged": unchanged,
+    }
+
+
 class AniListAccountSettingsStore:
     """Persist the public Client ID and account label, never the access token."""
 
@@ -148,6 +227,7 @@ class AniListAccountSettingsStore:
         if (
             not isinstance(payload, dict)
             or payload.get("format") != _ACCOUNT_FORMAT
+            or isinstance(payload.get("version"), bool)
             or payload.get("version") != _ACCOUNT_VERSION
             or not isinstance(payload.get("client_id"), str)
             or payload.get("viewer_id") is not None
