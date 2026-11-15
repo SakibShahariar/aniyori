@@ -5094,11 +5094,16 @@ class AniyoriWindow(Adw.ApplicationWindow):
 
         query = self.search.get_text().strip().casefold() if hasattr(self, "search") else ""
         visible_count = 0
+        updated_at_by_id = (
+            self.storage.get_updated_at_map()
+            if self.library_sort_mode == "recently_updated"
+            else {}
+        )
         ordered_entries = sort_library_entries(
             self.entries,
             sort_by=self.library_sort_mode,
             airing_by_id=self._airing_by_id,
-            updated_at_by_id=self.storage.get_updated_at_map(),
+            updated_at_by_id=updated_at_by_id,
         )
         for position, entry in enumerate(ordered_entries):
             key = entry.storage_id if entry.storage_id is not None else ("transient", id(entry))
