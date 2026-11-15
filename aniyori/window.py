@@ -1086,16 +1086,13 @@ class AniyoriWindow(Adw.ApplicationWindow):
 
     def _append_home_entry_section(self, title, entries, empty_message):
         section = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
-        heading_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         heading = Gtk.Label(label=title, xalign=0)
         heading.add_css_class("title-2")
         heading.set_hexpand(True)
-        heading_row.append(heading)
         view_all = Gtk.Button(label="View My List")
         view_all.add_css_class("flat")
         view_all.connect("clicked", lambda _button: self._show_library_page())
-        heading_row.append(view_all)
-        section.append(heading_row)
+        section.append(_responsive_control_row(heading, view_all, max_per_line=2))
 
         if not entries:
             empty = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
@@ -1247,19 +1244,18 @@ class AniyoriWindow(Adw.ApplicationWindow):
             editors[name] = weight
         content.append(grid)
 
-        cutoff_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
         cutoff_label = Gtk.Label(label="Minimum acceptable score", xalign=0)
         cutoff_label.set_hexpand(True)
-        cutoff_row.append(cutoff_label)
         minimum_score = Gtk.SpinButton.new_with_range(0, 100, 1)
         minimum_score.set_value(saved_minimum)
         minimum_score.set_numeric(True)
         minimum_score.set_tooltip_text(
             "Releases below this score are marked ineligible in the release monitor."
         )
-        cutoff_row.append(minimum_score)
-        cutoff_row.append(Gtk.Label(label="/ 100"))
-        content.append(cutoff_row)
+        content.append(_responsive_control_row(
+            cutoff_label, minimum_score, Gtk.Label(label="/ 100"),
+            spacing=12, max_per_line=3,
+        ))
 
         help_label = Gtk.Label(
             label="Weights are relative: they do not need to add up to 100%.",
@@ -1597,37 +1593,37 @@ class AniyoriWindow(Adw.ApplicationWindow):
             section.append(section_title)
             controls[view] = {}
             for column in saved[view]["order"]:
-                row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+                row_widgets = []
                 visible = Gtk.CheckButton(label=column.title())
                 visible.set_active(column in saved[view]["visible"])
                 if column == "title":
                     visible.set_active(True)
                     visible.set_sensitive(False)
-                row.append(visible)
-                row.append(Gtk.Label(label="Order"))
+                row_widgets.append(visible)
+                row_widgets.append(Gtk.Label(label="Order"))
                 order = Gtk.SpinButton.new_with_range(1, len(saved[view]["order"]), 1)
                 order.set_value(saved[view]["order"].index(column) + 1)
                 order.set_width_chars(3)
                 if column == "title":
                     order.set_sensitive(False)
-                row.append(order)
+                row_widgets.append(order)
                 controls[view][column] = {"visible": visible, "order": order}
                 if view == "list":
-                    row.append(Gtk.Label(label="Width"))
+                    row_widgets.append(Gtk.Label(label="Width"))
                     width = Gtk.SpinButton.new_with_range(80, 500, 10)
                     width.set_value(saved[view]["widths"][column])
                     width.set_width_chars(4)
-                    row.append(width)
+                    row_widgets.append(width)
                     controls[view][column]["width"] = width
-                section.append(row)
+                section.append(_responsive_control_row(*row_widgets, max_per_line=5))
             if view == "grid":
-                width_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-                width_row.append(Gtk.Label(label="Card width (px)"))
+                card_width_label = Gtk.Label(label="Card width (px)")
                 card_width = Gtk.SpinButton.new_with_range(160, 360, 10)
                 card_width.set_value(saved[view]["widths"]["card_width"])
-                width_row.append(card_width)
                 controls[view]["card_width"] = card_width
-                section.append(width_row)
+                section.append(_responsive_control_row(
+                    card_width_label, card_width, max_per_line=2,
+                ))
             reset_button = Gtk.Button(label=f"Reset {view.title()} Defaults")
             reset_button.set_halign(Gtk.Align.START)
             reset_buttons[view] = reset_button
@@ -3340,15 +3336,12 @@ class AniyoriWindow(Adw.ApplicationWindow):
         panel = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
         panel.set_margin_top(12)
         panel.set_margin_bottom(4)
-        year_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         year_label = Gtk.Label(label="Viewing year", xalign=0)
         year_label.set_hexpand(True)
         current_year = datetime.now().astimezone().year
         year_spin = Gtk.SpinButton.new_with_range(1900, current_year, 1)
         year_spin.set_value(current_year)
-        year_row.append(year_label)
-        year_row.append(year_spin)
-        panel.append(year_row)
+        panel.append(_responsive_control_row(year_label, year_spin, max_per_line=2))
 
         month_names = (
             "Jan", "Feb", "Mar", "Apr", "May", "Jun",
