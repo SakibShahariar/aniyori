@@ -1095,3 +1095,20 @@ The range after the previous checkpoint `fc229cb597838645b567eb072023b7b95639502
 - Previous checkpoint: `fc229cb597838645b567eb072023b7b956395029`
 - Reviewed through: `5064a840266b76508694c4170d1e5b2437cc52f0`
 - New checkpoint: `5064a840266b76508694c4170d1e5b2437cc52f0`
+
+
+### Follow-up commits after the dashboard checkpoint
+
+The following commits were checked individually. The combined commit-status endpoint returned no status records for each; all are **unavailable**, not green. The push workflow definition remains configured to run compileall and the full unittest suite on `main`, but run evidence could not be retrieved.
+
+| Commit SHA | Subject | CI result | Run / evidence |
+|---|---|---|---|
+| `58d0f7a22ad773b65cb219b44abf7957c05b4fcb` | docs(maintenance): audit dashboard commit CI evidence (#91) | unavailable | Combined status lookup returned no entries |
+| `35066136dbc27e98aa40510717df2d960268ddff` | docs(qa): verify adaptive dashboard navigation (#91) | unavailable | Combined status lookup returned no entries |
+| `fac97a48ba4f8a17ba755bffe2ab4b9147bea1d0` | fix(ui): keep collapsed navigation actions reliable (#91) | unavailable | Combined status lookup returned no entries |
+| `ecc5da1c982315a51ded070f052a0f0d4d738370` | docs(qa): cover repeated collapsed navigation selection (#91) | unavailable | Combined status lookup returned no entries |
+
+- Previous checkpoint: `5064a840266b76508694c4170d1e5b2437cc52f0`
+- Reviewed through: `ecc5da1c982315a51ded070f052a0f0d4d738370`
+- New checkpoint: `ecc5da1c982315a51ded070f052a0f0d4d738370`
+- Outstanding: retrieve actual push-triggered Actions results for the unavailable commits and rerun any failures before marking CI green.
