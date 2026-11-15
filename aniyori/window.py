@@ -5164,12 +5164,18 @@ class AniyoriWindow(Adw.ApplicationWindow):
 
     def _show_season_discovery(self):
         """Browse AniList seasonal charts without blocking the GTK main thread."""
-        dialog = Adw.AlertDialog(
-            heading="Season Discovery",
-            body="Browse seasonal anime, filter the catalogue, and add titles to your local library.",
-        )
+        dialog = Adw.Dialog()
+        dialog.set_title("Season Discovery")
+        dialog.set_content_width(760)
+        toolbar_view = Adw.ToolbarView()
+        header = Adw.HeaderBar()
+        toolbar_view.add_top_bar(header)
+
         content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
-        content.set_size_request(720, 560)
+        content.set_margin_top(16)
+        content.set_margin_bottom(16)
+        content.set_margin_start(16)
+        content.set_margin_end(16)
         season_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         season_dropdown = Gtk.DropDown.new_from_strings(list(SEASONS))
         current_season, current_year = season_for_date()
@@ -5211,10 +5217,12 @@ class AniyoriWindow(Adw.ApplicationWindow):
         flow.set_column_spacing(10)
         flow.set_valign(Gtk.Align.START)
         scroll = Gtk.ScrolledWindow()
-        scroll.set_min_content_height(390)
+        scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        scroll.set_vexpand(True)
         scroll.set_child(flow)
         content.append(scroll)
-        dialog.set_extra_child(content)
+        toolbar_view.set_content(content)
+        dialog.set_child(toolbar_view)
         state = {"results": [], "loaded_for": None}
         generation = SearchGeneration()
 
@@ -5369,9 +5377,6 @@ class AniyoriWindow(Adw.ApplicationWindow):
         for dropdown in (genre_dropdown, format_dropdown, status_dropdown, sort_dropdown):
             dropdown.connect("notify::selected", render_results)
         search_entry.connect("search-changed", render_results)
-        dialog.add_response("close", "Close")
-        dialog.set_default_response("close")
-        dialog.set_close_response("close")
         dialog.present(self)
         load_season()
 
