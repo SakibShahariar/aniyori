@@ -83,6 +83,7 @@ Use a disposable test profile or a backup of any library data you care about. Do
 
 - [ ] Open the Episodes editor for an entry with no explicit episode records but a legacy aggregate progress value; confirm the prior watched count is represented without losing progress.
 - [ ] Mark one episode watched, unwatch it, and mark it watched again; confirm aggregate progress and rewatch history are correct.
+- [ ] After creating a non-sequential episode map (for example, episodes 1 and 3 watched), change aggregate progress through +1, direct edit, and bulk edit; confirm the per-episode map and aggregate count remain consistent. Verify increases preserve existing watched episodes and decreases unwatch the highest-numbered watched episodes.
 - [ ] Open Watch History; filter by title, date, and action; remove a selected event and prune older events.
 - [ ] Restart and confirm history and per-episode state persist.
 
