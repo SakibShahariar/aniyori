@@ -72,8 +72,8 @@ from .services.profiles import ProfileError, ProfileStore
 from .services.library_layout import DEFAULT_LAYOUTS as DEFAULT_LIBRARY_LAYOUTS, LibraryLayoutError, LibraryLayoutStore
 from .services.library_view_presets import LibraryViewPresetError, LibraryViewPresetStore
 from .services.library_render import (
-    library_layout_signature, library_widget_signature,
-    library_stack_page, library_view_for_preset,
+    library_filter_changes_preset, library_layout_signature,
+    library_widget_signature, library_stack_page, library_view_for_preset,
 )
 
 LOGGER = logging.getLogger(__name__)
@@ -3434,12 +3434,14 @@ class AniyoriWindow(Adw.ApplicationWindow):
         about.present(self)
 
     def _on_filter_toggled(self, button, key):
-        if not self._applying_view_preset:
-            self._active_view_preset = None
         if not button.get_active():
             if self.current_filter == key:
                 button.set_active(True)
             return
+        if library_filter_changes_preset(
+            self.current_filter, key, self._applying_view_preset
+        ):
+            self._active_view_preset = None
         self.current_filter = key
         for other_key, other_button in self.filter_buttons.items():
             if other_key != key and other_button.get_active():
