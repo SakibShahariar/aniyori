@@ -883,37 +883,124 @@ class AniyoriWindow(Adw.ApplicationWindow):
         )
 
     def _append_home_entry_section(self, title, entries, empty_message):
-        section = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+        section = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
+        heading_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         heading = Gtk.Label(label=title, xalign=0)
         heading.add_css_class("title-2")
-        section.append(heading)
+        heading.set_hexpand(True)
+        heading_row.append(heading)
+        view_all = Gtk.Button(label="View My List")
+        view_all.add_css_class("flat")
+        view_all.connect(
+            "clicked",
+            lambda _button: self.library_nav_button.set_active(True),
+        )
+        heading_row.append(view_all)
+        section.append(heading_row)
+
         if not entries:
-            empty = Gtk.Label(label=empty_message, xalign=0, wrap=True)
-            empty.add_css_class("dim-label")
+            empty = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+            empty.add_css_class("card")
+            empty.set_margin_top(2)
+            empty.set_margin_bottom(2)
+            message = Gtk.Label(label=empty_message, xalign=0, wrap=True)
+            message.add_css_class("dim-label")
+            message.set_margin_top(12)
+            message.set_margin_bottom(12)
+            message.set_margin_start(14)
+            message.set_margin_end(14)
+            empty.append(message)
             section.append(empty)
         else:
-            rows = Gtk.ListBox()
-            rows.set_selection_mode(Gtk.SelectionMode.NONE)
-            rows.add_css_class("boxed-list")
+            strip = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
+            strip.set_margin_top(2)
+            strip.set_margin_bottom(2)
             for entry in entries:
-                row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
-                row.set_margin_start(12)
-                row.set_margin_end(12)
-                row.set_margin_top(8)
-                row.set_margin_bottom(8)
-                title_label = Gtk.Label(label=entry.title, xalign=0)
-                title_label.set_hexpand(True)
-                row.append(title_label)
-                progress = Gtk.Label(label=entry.progress_label)
-                progress.add_css_class("dim-label")
-                row.append(progress)
-                if entry.status == WatchStatus.WATCHING:
+                card = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+                card.add_css_class("card")
+                card.set_size_request(164, -1)
+                card.set_margin_top(4)
+                card.set_margin_bottom(4)
+                card.set_margin_start(2)
+                card.set_margin_end(2)
+
+                poster_placeholder = Gtk.Image.new_from_icon_name(
+                    "video-x-generic-symbolic"
+                )
+                poster_placeholder.set_pixel_size(38)
+                poster = Gtk.Picture()
+                poster.set_size_request(140, 184)
+                poster.set_can_shrink(True)
+                poster.set_content_fit(Gtk.ContentFit.COVER)
+                poster.set_paintable(poster_placeholder.get_paintable())
+                poster.set_halign(Gtk.Align.CENTER)
+                poster.set_margin_top(10)
+                card.append(poster)
+                _load_cover_async(poster, entry.cover_image)
+
+                details = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
+                details.set_margin_start(10)
+                details.set_margin_end(10)
+                title_label = Gtk.Label(label=entry.title, xalign=0, wrap=True)
+                title_label.add_css_class("heading")
+                title_label.set_lines(2)
+                details.append(title_label)
+
+                progress_label = Gtk.Label(label=entry.progress_label, xalign=0)
+                progress_label.add_css_class("dim-label")
+                progress_label.add_css_class("caption")
+                details.append(progress_label)
+                if entry.progress_fraction is not None:
+                    progress_bar = Gtk.ProgressBar()
+                    progress_bar.set_fraction(entry.progress_fraction)
+                    progress_bar.set_show_text(False)
+                    details.append(progress_bar)
+
+                status_label = Gtk.Label(
+                    label=entry.status.value.replace("_", " ").title(),
+                    xalign=0,
+                )
+                status_label.add_css_class("dim-label")
+                status_label.add_css_class("caption")
+                details.append(status_label)
+                card.append(details)
+
+                actions = Gtk.Box(
+                    orientation=Gtk.Orientation.HORIZONTAL, spacing=6
+                )
+                actions.set_margin_start(8)
+                actions.set_margin_end(8)
+                actions.set_margin_bottom(8)
+                edit_button = Gtk.Button(label="Details")
+                edit_button.set_hexpand(True)
+                edit_button.connect(
+                    "clicked",
+                    lambda _button, item=entry: self._show_edit_dialog(item),
+                )
+                actions.append(edit_button)
+                if entry.status == WatchStatus.WATCHING and (
+                    entry.episodes_total is None
+                    or entry.episodes_watched < entry.episodes_total
+                ):
                     next_button = Gtk.Button(label="+1")
                     next_button.set_tooltip_text("Mark one more episode watched")
-                    next_button.connect("clicked", lambda _button, item=entry: self._increment_progress(item))
-                    row.append(next_button)
-                rows.append(row)
-            section.append(rows)
+                    next_button.connect(
+                        "clicked",
+                        lambda _button, item=entry: self._increment_progress(item),
+                    )
+                    actions.append(next_button)
+                card.append(actions)
+                strip.append(card)
+
+            horizontal_scroll = Gtk.ScrolledWindow()
+            horizontal_scroll.set_policy(
+                Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.NEVER
+            )
+            horizontal_scroll.set_min_content_height(310)
+            horizontal_scroll.set_child(strip)
+            horizontal_scroll.set_kinetic_scrolling(True)
+            section.append(horizontal_scroll)
+
         self.home_page.append(section)
 
     def _show_release_scoring_dialog(self):
