@@ -664,6 +664,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
         self.bulk_bar.set_margin_bottom(10)
         self.bulk_bar.set_visible(False)
         bulk_status_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        self._bulk_status_row = bulk_status_row
         self.bulk_bar.append(bulk_status_row)
         self.bulk_count_label = Gtk.Label(label="0 selected")
         bulk_status_row.append(self.bulk_count_label)
@@ -675,6 +676,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
         bulk_status_button.connect("clicked", self._apply_bulk_status)
         bulk_status_row.append(bulk_status_button)
         bulk_progress_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        self._bulk_progress_row = bulk_progress_row
         self.bulk_bar.append(bulk_progress_row)
         self.bulk_progress_entry = Gtk.Entry()
         self.bulk_progress_entry.set_placeholder_text("Watched episodes")
@@ -778,6 +780,8 @@ class AniyoriWindow(Adw.ApplicationWindow):
         release_controls = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
         release_filter_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         release_actions_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        self._release_filter_row = release_filter_row
+        self._release_actions_row = release_actions_row
         release_controls.append(release_filter_row)
         release_controls.append(release_actions_row)
         self.release_search_entry = Gtk.SearchEntry()
@@ -791,6 +795,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
             ["Best match", "Newest", "Most seeders", "Title"]
         )
         self.release_sort_dropdown.set_tooltip_text("Sort release results")
+        self.release_sort_dropdown.set_hexpand(True)
         self.release_sort_dropdown.connect(
             "notify::selected", lambda *_args: self._render_release_results()
         )
@@ -799,6 +804,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
         self.release_eligible_only_check.set_tooltip_text(
             "Hide releases rejected by preferences or below the minimum score."
         )
+        self.release_eligible_only_check.set_halign(Gtk.Align.START)
         self.release_eligible_only_check.connect(
             "toggled", lambda _button: self._render_release_results()
         )
@@ -827,6 +833,10 @@ class AniyoriWindow(Adw.ApplicationWindow):
         queue_button = Gtk.Button(label="Download Queue")
         queue_button.connect("clicked", lambda _button: self._show_download_queue())
         release_actions_row.append(queue_button)
+        self._release_action_buttons = (
+            refresh_releases_button, manage_releases_button, manage_rules_button,
+            configure_qbittorrent_button, queue_button,
+        )
         self.release_page.append(release_controls)
         self.release_list_box = Gtk.ListBox()
         self.release_list_box.set_selection_mode(Gtk.SelectionMode.NONE)
@@ -5075,6 +5085,19 @@ class AniyoriWindow(Adw.ApplicationWindow):
 
     def _set_compact_layout(self, compact: bool):
         self._set_navigation_compact(compact)
+        row_orientation = (
+            Gtk.Orientation.VERTICAL if compact else Gtk.Orientation.HORIZONTAL
+        )
+        for row in (
+            getattr(self, "_bulk_status_row", None),
+            getattr(self, "_bulk_progress_row", None),
+            getattr(self, "_release_filter_row", None),
+            getattr(self, "_release_actions_row", None),
+        ):
+            if row is not None:
+                row.set_orientation(row_orientation)
+        for button in getattr(self, "_release_action_buttons", ()):
+            button.set_hexpand(compact)
         if self._compact_layout == compact:
             return
         self._compact_layout = compact
