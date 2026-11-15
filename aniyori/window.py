@@ -943,7 +943,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
                 details.set_margin_end(10)
                 title_label = Gtk.Label(label=entry.title, xalign=0, wrap=True)
                 title_label.add_css_class("heading")
-                title_label.set_lines(2)
+                title_label.set_max_width_chars(18)
                 details.append(title_label)
 
                 progress_label = Gtk.Label(label=entry.progress_label, xalign=0)
