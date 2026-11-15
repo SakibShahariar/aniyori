@@ -963,3 +963,101 @@ The owner supplied public AniList Client ID `57061`. It is bundled as the defaul
 No red CI runs were observed in this range. The automated test confirms the bundled ID is used in the implicit-grant authorization URL.
 
 - Reviewed checkpoint: `c83e701b40cd87cb13a1dcfb12dcea8bc9443fc8`
+
+
+## Reviewed range: 2026-11-06 through 2026-11-15 — incremental audit
+
+Reviewed every commit after the previous checkpoint `13a833c803d560f37db7b1808f1667307b34b77c` through `fc229cb597838645b567eb072023b7b956395029`. The comparison returned 69 commits. Every commit had a corresponding completed push-triggered Tests workflow: **64 green, 5 red**. The red results are preserved below and were followed by green corrections; no history was rewritten.
+
+| Commit SHA | Subject | Date | CI result | Tests run |
+|---|---|---|---|---|
+| `26fb8102d798a63ccebef0f09c2acf2fb6fb452f` | docs(maintenance): record preset and scanner CI availability | 2026-11-06 | green | [42281153274](https://github.com/SakibShahariar/aniyori/actions/runs/42281153274) |
+| `4f3f15d386786ccd1bc2f1e860e295afebe6a237` | docs: move privacy details into dedicated guide | 2026-11-08 | green | [42512004203](https://github.com/SakibShahariar/aniyori/actions/runs/42512004203) |
+| `f4542c9ec233be37440651ece80c2fcdb132db3c` | docs: modernize and streamline Aniyori README | 2026-11-08 | green | [42512018068](https://github.com/SakibShahariar/aniyori/actions/runs/42512018068) |
+| `5579b08e3747f0817c6ab9f7c1d8ec88df2a41fb` | fix(gui): use adaptive libadwaita main layout (#90) | 2026-11-11 | green | [42932046781](https://github.com/SakibShahariar/aniyori/actions/runs/42932046781) |
+| `03bfa52f4108224b8b555a6bc216a8cccf9b0bdc` | fix(gui): wrap bulk actions for narrow windows (#90) | 2026-11-11 | green | [42932092383](https://github.com/SakibShahariar/aniyori/actions/runs/42932092383) |
+| `85a28a731aee746eedfddd7baeed8379fd6dae2c` | refactor(gui): use preferences dialog for playback settings (#90) | 2026-11-11 | green | [42932153487](https://github.com/SakibShahariar/aniyori/actions/runs/42932153487) |
+| `b9d3af54239158e6a338c746f5fcc14b44f3e905` | refactor(gui): use preferences rows for notifications (#90) | 2026-11-11 | green | [42932247719](https://github.com/SakibShahariar/aniyori/actions/runs/42932247719) |
+| `051535176a0097c2710874875586123bd9c1ef72` | refactor(gui): use preference rows for network settings (#90) | 2026-11-11 | green | [42932304372](https://github.com/SakibShahariar/aniyori/actions/runs/42932304372) |
+| `32da4df8a445038359a622cf9c91d296c46d072b` | docs(qa): add main window and preferences checks (#90) | 2026-11-11 | green | [42932339791](https://github.com/SakibShahariar/aniyori/actions/runs/42932339791) |
+| `0baadd357f848d14b2223d14d7f7ece5fc1a90c7` | fix(gui): reduce default library row width (#90) | 2026-11-11 | red | [42932528362](https://github.com/SakibShahariar/aniyori/actions/runs/42932528362) |
+| `85bad889ce8c09ee03a704992ea627d245951436` | test(gui): cover compact default library columns (#90) | 2026-11-11 | red | [42932537122](https://github.com/SakibShahariar/aniyori/actions/runs/42932537122) |
+| `b7904160ae5c72875b669c634792958b8b817930` | fix(gui): adapt library rows at narrow widths (#90) | 2026-11-11 | red | [42932575648](https://github.com/SakibShahariar/aniyori/actions/runs/42932575648) |
+| `8bfbf58b97c5f003a18fa66adae853d82fc5cb17` | docs(qa): cover compact library row behavior (#90) | 2026-11-11 | red | [42932599620](https://github.com/SakibShahariar/aniyori/actions/runs/42932599620) |
+| `5f35894bc80189245266c4c4537d9c372f0b692e` | test(gui): update reset test for compact defaults (#90) | 2026-11-11 | green | [42932632240](https://github.com/SakibShahariar/aniyori/actions/runs/42932632240) |
+| `91c5e1b05b377e9557c06120c6ca39a642286b7f` | fix(gui): split release controls for narrow windows (#90) | 2026-11-11 | green | [42932748215](https://github.com/SakibShahariar/aniyori/actions/runs/42932748215) |
+| `3e81bbd629a954f088b5643c592e8ed82f19fc54` | docs(qa): cover compact release controls (#90) | 2026-11-11 | green | [42932758122](https://github.com/SakibShahariar/aniyori/actions/runs/42932758122) |
+| `7993bafdd144ab472e28388358e66ada73bc727d` | refactor(gui): make download queue an adaptive dialog (#90) | 2026-11-11 | green | [42932819040](https://github.com/SakibShahariar/aniyori/actions/runs/42932819040) |
+| `ba0bcd44c0edeb22c381c94273d96a4c33ea2d54` | docs(qa): cover adaptive download queue dialog (#90) | 2026-11-11 | green | [42932829136](https://github.com/SakibShahariar/aniyori/actions/runs/42932829136) |
+| `d8efee4b2a1ec2e054919e259c398588c3d7c40e` | fix(gui): let library grid use one column when narrow (#90) | 2026-11-11 | green | [42932854330](https://github.com/SakibShahariar/aniyori/actions/runs/42932854330) |
+| `8c72a70a01745265975abedff42a7ad98d2c42fd` | docs(qa): cover narrow grid card sizing (#90) | 2026-11-11 | green | [42932861039](https://github.com/SakibShahariar/aniyori/actions/runs/42932861039) |
+| `e7fd0f0b3c18a20f4d452d0aeee62c014b953503` | refactor(gui): use adaptive dialogs for library tools (#90) | 2026-11-11 | green | [42932923024](https://github.com/SakibShahariar/aniyori/actions/runs/42932923024) |
+| `36a16271ba83f98d345cf5213358730226a331a1` | refactor(gui): use adaptive dialogs for history and sharing (#90) | 2026-11-11 | green | [42932951744](https://github.com/SakibShahariar/aniyori/actions/runs/42932951744) |
+| `2129aaf659f5ecf392342ab7f3099647a2888c5b` | docs(qa): cover adaptive library dialogs (#90) | 2026-11-11 | green | [42932963445](https://github.com/SakibShahariar/aniyori/actions/runs/42932963445) |
+| `ab4c3207c194297f8aea21faf8669ab2349a5d44` | fix(gui): add native headers to adaptive dialogs (#90) | 2026-11-11 | green | [42933022317](https://github.com/SakibShahariar/aniyori/actions/runs/42933022317) |
+| `a87ef1f269cdb39b3cc9d69566139d40abca90bb` | feat(anilist): add desktop OAuth account helpers (#22) | 2026-11-15 | green | [43699199565](https://github.com/SakibShahariar/aniyori/actions/runs/43699199565) |
+| `970b42a8f4df52116e3d54fdf03d17c2b8ee6197` | test(anilist): cover desktop OAuth helpers (#22) | 2026-11-15 | green | [43699212965](https://github.com/SakibShahariar/aniyori/actions/runs/43699212965) |
+| `5d254d033222f7652e7e04f87141ad98a033b34b` | feat(anilist): add authenticated library API support (#22) | 2026-11-15 | green | [43699231326](https://github.com/SakibShahariar/aniyori/actions/runs/43699231326) |
+| `81ef8eb8150fabd97dd69168cba695bb2d5a3437` | test(anilist): cover authenticated library operations (#22) | 2026-11-15 | green | [43699251785](https://github.com/SakibShahariar/aniyori/actions/runs/43699251785) |
+| `bd3730f5346fa2319112099ef763924567112ea2` | fix(anilist): reject malformed list status values (#22) | 2026-11-15 | green | [43699258790](https://github.com/SakibShahariar/aniyori/actions/runs/43699258790) |
+| `6da2cc9a3a08595a758db40cdf693ac03ba3660f` | feat(anilist): add account connection and import dialog (#22) | 2026-11-15 | green | [43699293660](https://github.com/SakibShahariar/aniyori/actions/runs/43699293660) |
+| `361f6c1861a4d45c6a6c6c3f2042690c02863139` | feat(anilist): expose account integration in app menu (#22) | 2026-11-15 | green | [43699306774](https://github.com/SakibShahariar/aniyori/actions/runs/43699306774) |
+| `20f9b9dd2e0c1c9462cfa128775becc5df169cba` | feat(anilist): map imported entries safely (#22) | 2026-11-15 | green | [43699323626](https://github.com/SakibShahariar/aniyori/actions/runs/43699323626) |
+| `e569e6ef083b4cc264834caf344c7b4a94316b95` | refactor(anilist): centralize library import mapping (#22) | 2026-11-15 | green | [43699330668](https://github.com/SakibShahariar/aniyori/actions/runs/43699330668) |
+| `d0fa66e6ef80fd451c33fca2f020155f3f00a3ba` | test(anilist): cover remote library import mapping (#22) | 2026-11-15 | green | [43699339194](https://github.com/SakibShahariar/aniyori/actions/runs/43699339194) |
+| `57d93b14fda15404b2e496a7383f8e963370070f` | feat(anilist): detect sync conflicts without overwrites (#22) | 2026-11-15 | green | [43699366709](https://github.com/SakibShahariar/aniyori/actions/runs/43699366709) |
+| `6aa647ac3fe78c9722cc1e7dbb77fb78ede665fc` | test(anilist): cover conservative sync conflict planning (#22) | 2026-11-15 | green | [43699377034](https://github.com/SakibShahariar/aniyori/actions/runs/43699377034) |
+| `d34c7c162649203c2a14dcc56b3136b41d3ddec5` | feat(anilist): add conflict-reviewed two-way sync (#22) | 2026-11-15 | green | [43699409719](https://github.com/SakibShahariar/aniyori/actions/runs/43699409719) |
+| `9cd7a3107fade477dca3e979c3c98a224f7bde43` | fix(anilist): validate sync targets and preserve local IDs (#22) | 2026-11-15 | green | [43699454474](https://github.com/SakibShahariar/aniyori/actions/runs/43699454474) |
+| `ff2af202073408fad6bb1d73af5f6dab806320ee` | refactor(anilist): use validated sync decisions (#22) | 2026-11-15 | green | [43699462389](https://github.com/SakibShahariar/aniyori/actions/runs/43699462389) |
+| `e070ff23d15c26e3f9c195f8e98da287c0be6439` | test(anilist): cover explicit sync resolution paths (#22) | 2026-11-15 | green | [43699473272](https://github.com/SakibShahariar/aniyori/actions/runs/43699473272) |
+| `b6ec1ed81c6812f69a9b6f4a287d4aaf10acdd5f` | fix(anilist): preview imported titles before sync (#22) | 2026-11-15 | green | [43699480093](https://github.com/SakibShahariar/aniyori/actions/runs/43699480093) |
+| `b8d67e5ff58a93625f44317c8f891e24005722cc` | fix(anilist): keep account controls responsive and consistent (#22) | 2026-11-15 | green | [43699514091](https://github.com/SakibShahariar/aniyori/actions/runs/43699514091) |
+| `83a87f98dae0aaf40f5c011e3c68c480cfee76eb` | fix(anilist): bound remote watch progress values (#22) | 2026-11-15 | green | [43699535307](https://github.com/SakibShahariar/aniyori/actions/runs/43699535307) |
+| `b299eab0f786a1a71343c8c10ce52bcac65ac7d7` | fix(anilist): validate imported media identity (#22) | 2026-11-15 | green | [43699539348](https://github.com/SakibShahariar/aniyori/actions/runs/43699539348) |
+| `4724969e77723a745220bef539df0a981b9f188e` | test(anilist): cover malformed account and media identity data (#22) | 2026-11-15 | green | [43699555195](https://github.com/SakibShahariar/aniyori/actions/runs/43699555195) |
+| `b310b6d428d264f7e1c132ad8ff0bf425e1e549e` | fix(anilist): reject control characters in bearer tokens (#22) | 2026-11-15 | green | [43699592133](https://github.com/SakibShahariar/aniyori/actions/runs/43699592133) |
+| `c9c4651dd803c33b778e1962d5f52dac952240dc` | fix(anilist): bound sync progress to local limits (#22) | 2026-11-15 | green | [43699595394](https://github.com/SakibShahariar/aniyori/actions/runs/43699595394) |
+| `d2c7064940b80a24442e4cca183b934477976eea` | test(anilist): cover token and progress bounds (#22) | 2026-11-15 | green | [43699609759](https://github.com/SakibShahariar/aniyori/actions/runs/43699609759) |
+| `3020b5cc1f5ce50b5cf38e7ed185b971cab2d5af` | docs(anilist): document account setup and sync (#22) | 2026-11-15 | green | [43699723510](https://github.com/SakibShahariar/aniyori/actions/runs/43699723510) |
+| `2511c09f1670c161f7a542aba776d4eec21f7918` | fix(anilist): disable connection without a secure keyring (#22) | 2026-11-15 | green | [43699758044](https://github.com/SakibShahariar/aniyori/actions/runs/43699758044) |
+| `a526e5df8f994360ccee7cbddc9d9f47d78e1ac2` | fix(anilist): clean up replaced account credentials safely (#22) | 2026-11-15 | green | [43699795570](https://github.com/SakibShahariar/aniyori/actions/runs/43699795570) |
+| `3725e8122a2361f189aae1b1b89d57275c915eae` | fix(anilist): disclose broad AniList OAuth permissions (#22) | 2026-11-15 | green | [43699806903](https://github.com/SakibShahariar/aniyori/actions/runs/43699806903) |
+| `43340924f281ad3250e8da0a8eae39b5df8f4902` | fix(anilist): deduplicate entries across custom lists (#22) | 2026-11-15 | red | [43699849647](https://github.com/SakibShahariar/aniyori/actions/runs/43699849647) |
+| `69502c905cb556af057d3b6764e8d76b3654ebcf` | test(anilist): cover custom-list duplicate handling (#22) | 2026-11-15 | green | [43699853998](https://github.com/SakibShahariar/aniyori/actions/runs/43699853998) |
+| `1c2f1aef9c962f95e22d134fa1aaa70096d045d0` | docs(anilist): clarify keyring and custom-list behavior (#22) | 2026-11-15 | green | [43699922263](https://github.com/SakibShahariar/aniyori/actions/runs/43699922263) |
+| `74d654742f3a08aebee554cf9b2181cdf869b2ab` | docs(anilist): document sync data boundaries (#22) | 2026-11-15 | green | [43699989080](https://github.com/SakibShahariar/aniyori/actions/runs/43699989080) |
+| `39cdde603d78ec51d1e7b5a66e8c159d0c97efff` | feat(anilist): bundle project OAuth client ID (#22) | 2026-11-15 | green | [43700901419](https://github.com/SakibShahariar/aniyori/actions/runs/43700901419) |
+| `cad48baa6c9071daf3f70adf4935ccf9b6f5ace3` | feat(anilist): prefill project OAuth client ID (#22) | 2026-11-15 | green | [43700904905](https://github.com/SakibShahariar/aniyori/actions/runs/43700904905) |
+| `86327b9b640d7aadf1852ca16d565e5884a21849` | docs(anilist): publish project OAuth client setup (#22) | 2026-11-15 | green | [43700907370](https://github.com/SakibShahariar/aniyori/actions/runs/43700907370) |
+| `9f425957bfe6904b2285198a52cd908da9d01313` | test(anilist): verify bundled project client ID (#22) | 2026-11-15 | green | [43700938304](https://github.com/SakibShahariar/aniyori/actions/runs/43700938304) |
+| `c83e701b40cd87cb13a1dcfb12dcea8bc9443fc8` | docs(anilist): confirm bundled public client ID (#22) | 2026-11-15 | green | [43700954754](https://github.com/SakibShahariar/aniyori/actions/runs/43700954754) |
+| `7af403c6fda5d3d683bfd8b90b6d784f827d5524` | docs(anilist): record project OAuth client CI results (#22) | 2026-11-15 | green | [43701016561](https://github.com/SakibShahariar/aniyori/actions/runs/43701016561) |
+| `cb4a91eb6e6a92b041bdc807124d2365995aea06` | fix(ui): align AniList dialogs with libadwaita (#90) | 2026-11-15 | green | [43702157486](https://github.com/SakibShahariar/aniyori/actions/runs/43702157486) |
+| `1d1cbf965922df44dd1b180319ef48fc3be9fc6c` | fix(ui): use adaptive dialog for season discovery (#90) | 2026-11-15 | green | [43702804916](https://github.com/SakibShahariar/aniyori/actions/runs/43702804916) |
+| `9448c6677fb3afbcea93cc34f8926458a7f57ad2` | fix(ui): move library search into page toolbar (#90) | 2026-11-15 | green | [43704328617](https://github.com/SakibShahariar/aniyori/actions/runs/43704328617) |
+| `32241e8919c7991bc3e01cd129bfca3bf2dd847d` | fix(ui): wrap library controls at narrow widths (#90) | 2026-11-15 | green | [43704453366](https://github.com/SakibShahariar/aniyori/actions/runs/43704453366) |
+| `7e26183046d446b91f5c36503a6a77b42b93ff6e` | fix(ui): group adaptive library actions (#90) | 2026-11-15 | green | [43704481832](https://github.com/SakibShahariar/aniyori/actions/runs/43704481832) |
+| `98426a9aca746647c4e5dedc3d59816cca6442ed` | fix(ui): compact library row and card actions (#90) | 2026-11-15 | green | [43705072008](https://github.com/SakibShahariar/aniyori/actions/runs/43705072008) |
+| `fc229cb597838645b567eb072023b7b956395029` | docs(anilist): update project integration status (#22) | 2026-11-15 | green | [43705187828](https://github.com/SakibShahariar/aniyori/actions/runs/43705187828) |
+
+### Red-run investigation: compact library defaults (#90)
+
+Four commits failed because `tests/test_library_layout.py::test_reset_restores_view_defaults_without_changing_other_view` still attempted to remove `source` from the default visible list after the default layout had intentionally hidden that column. The error was `ValueError: list.remove(x): x not in list`; this was a stale test assumption, not a production-code failure.
+
+- `0baadd357f848d14b2223d14d7f7ece5fc1a90c7` — [run 42932528362](https://github.com/SakibShahariar/aniyori/actions/runs/42932528362), failed at test line 43.
+- `85bad889ce8c09ee03a704992ea627d245951436` — [run 42932537122](https://github.com/SakibShahariar/aniyori/actions/runs/42932537122), failed at test line 51.
+- `b7904160ae5c72875b669c634792958b8b817930` — [run 42932575648](https://github.com/SakibShahariar/aniyori/actions/runs/42932575648), same stale assumption at test line 51.
+- `8bfbf58b97c5f003a18fa66adae853d82fc5cb17` — [run 42932599620](https://github.com/SakibShahariar/aniyori/actions/runs/42932599620), same stale assumption at test line 51.
+- Correction: `5f35894bc80189245266c4c4537d9c372f0b692e` updates the reset test to use the current default columns; [run 42932632240](https://github.com/SakibShahariar/aniyori/actions/runs/42932632240) passed.
+
+### Red-run investigation: AniList custom-list deduplication (#22)
+
+- `43340924f281ad3250e8da0a8eae39b5df8f4902` — [run 43699849647](https://github.com/SakibShahariar/aniyori/actions/runs/43699849647) failed because an existing test still expected duplicate custom-list entries to raise `AniListError`, while the new import behavior intentionally deduplicates identical entries.
+- Correction: `69502c905cb556af057d3b6764e8d76b3654ebcf` updates the expectation and covers conflicting duplicates; [run 43699853998](https://github.com/SakibShahariar/aniyori/actions/runs/43699853998) passed.
+
+### Checkpoint
+
+- Reviewed range: `13a833c803d560f37db7b1808f1667307b34b77c` → `fc229cb597838645b567eb072023b7b956395029`
+- Result: 69 commits reviewed; 64 green, 5 red with green follow-up corrections.
+- New checkpoint: `fc229cb597838645b567eb072023b7b956395029`

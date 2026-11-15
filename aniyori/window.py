@@ -111,6 +111,9 @@ class AnimeRow(Gtk.Box):
         self.selection_check = Gtk.CheckButton()
         self.selection_check.set_active(selected)
         self.selection_check.set_tooltip_text("Select anime for bulk actions")
+        self.selection_check.update_property(
+            [Gtk.AccessibleProperty.LABEL], ["Select anime for bulk actions"]
+        )
         self.selection_check.connect(
             "toggled",
             lambda button: on_select(entry, button.get_active()) if on_select else None,
@@ -191,6 +194,9 @@ class AnimeRow(Gtk.Box):
         next_button.set_tooltip_text(
             "Mark one more episode watched" if can_increment else "All known episodes are completed"
         )
+        next_button.update_property(
+            [Gtk.AccessibleProperty.LABEL], [next_button.get_tooltip_text()]
+        )
         next_button.set_valign(Gtk.Align.CENTER)
         next_button.connect("clicked", lambda _button: on_progress(entry))
         self.append(next_button)
@@ -209,6 +215,7 @@ class AnimeRow(Gtk.Box):
         ):
             button = Gtk.Button.new_from_icon_name(icon_name)
             button.set_tooltip_text(tooltip)
+            button.update_property([Gtk.AccessibleProperty.LABEL], [tooltip])
             button.add_css_class("flat")
             button.connect("clicked", callback)
             actions.append(button)
@@ -228,6 +235,9 @@ class AnimeCard(Gtk.Box):
         self.selection_check = Gtk.CheckButton()
         self.selection_check.set_active(selected)
         self.selection_check.set_tooltip_text("Select anime for bulk actions")
+        self.selection_check.update_property(
+            [Gtk.AccessibleProperty.LABEL], ["Select anime for bulk actions"]
+        )
         self.selection_check.connect(
             "toggled",
             lambda button: on_select(entry, button.get_active()) if on_select else None,
@@ -310,6 +320,7 @@ class AnimeCard(Gtk.Box):
         ):
             button = Gtk.Button.new_from_icon_name(icon_name)
             button.set_tooltip_text(tooltip)
+            button.update_property([Gtk.AccessibleProperty.LABEL], [tooltip])
             button.add_css_class("flat")
             button.connect("clicked", callback)
             actions.append(button)
