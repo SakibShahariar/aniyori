@@ -434,7 +434,9 @@ class AniyoriWindow(Adw.ApplicationWindow):
         self._compact_layout = False
         self._undo_entry: AnimeEntry | None = None
         self._undo_toast = None
-        self._pending_library_undos = {}
+        self._library_undo_stack = []
+        self._library_undo_toast = None
+        self._library_undo_dismiss_handler = None
         self._undo_sequence = 0
         undo_change_action = Gio.SimpleAction.new(
             "undo-library-change", GLib.VariantType.new("s")
@@ -5260,6 +5262,28 @@ class AniyoriWindow(Adw.ApplicationWindow):
         self.grid_scroll.get_vadjustment().set_value(grid_value)
         return GLib.SOURCE_REMOVE
 
+    def _show_library_undo_toast(self):
+        """Show the newest undo action while retaining the short-lived undo stack."""
+        now = GLib.get_monotonic_time()
+        self._library_undo_stack = [
+            item for item in self._library_undo_stack if item["expires_at"] > now
+        ]
+        if not self._library_undo_stack:
+            self._library_undo_toast = None
+            self._library_undo_dismiss_handler = None
+            return
+        pending = self._library_undo_stack[-1]
+        remaining = max(1, (pending["expires_at"] - now + 999_999) // 1_000_000)
+        toast = Adw.Toast.new(pending["description"])
+        toast.set_button_label("Undo")
+        toast.set_action_name("win.undo-library-change")
+        toast.set_action_target_value(GLib.Variant.new_string(pending["token"]))
+        toast.set_timeout(int(remaining))
+        handler = toast.connect("dismissed", self._on_library_undo_toast_dismissed)
+        self._library_undo_toast = toast
+        self._library_undo_dismiss_handler = handler
+        self.toast_overlay.add_toast(toast)
+
     def _offer_library_undo(self, before: dict[str, object], description: str):
         """Expose a guarded, ten-second undo for one successful local mutation."""
         try:
@@ -5270,43 +5294,58 @@ class AniyoriWindow(Adw.ApplicationWindow):
         if before == after:
             return
         self._undo_sequence += 1
-        token = str(self._undo_sequence)
-        toast = Adw.Toast.new(description)
-        toast.set_button_label("Undo")
-        toast.set_action_name("win.undo-library-change")
-        toast.set_action_target_value(GLib.Variant.new_string(token))
-        toast.set_timeout(10)
-        toast.connect("dismissed", self._on_library_undo_dismissed, token)
-        self._pending_library_undos[token] = {
-            "before": before, "after": after, "toast": toast,
-        }
-        self.toast_overlay.add_toast(toast)
+        self._library_undo_stack.append({
+            "token": str(self._undo_sequence),
+            "before": before,
+            "after": after,
+            "description": description,
+            "expires_at": GLib.get_monotonic_time() + 10_000_000,
+        })
+        if self._library_undo_toast is not None:
+            if self._library_undo_dismiss_handler is not None:
+                self._library_undo_toast.disconnect(self._library_undo_dismiss_handler)
+            self._library_undo_toast.dismiss()
+            self._library_undo_toast = None
+            self._library_undo_dismiss_handler = None
+        self._show_library_undo_toast()
 
-    def _on_library_undo_dismissed(self, toast, token: str):
-        pending = self._pending_library_undos.get(token)
-        if pending is not None and pending["toast"] is toast:
-            self._pending_library_undos.pop(token, None)
+    def _on_library_undo_toast_dismissed(self, toast):
+        if self._library_undo_toast is toast:
+            self._library_undo_stack.clear()
+            self._library_undo_toast = None
+            self._library_undo_dismiss_handler = None
 
     def _undo_library_change(self, _action, parameter):
         token = parameter.get_string() if parameter is not None else None
-        pending = self._pending_library_undos.pop(token, None)
-        if pending is None:
+        now = GLib.get_monotonic_time()
+        self._library_undo_stack = [
+            item for item in self._library_undo_stack if item["expires_at"] > now
+        ]
+        if not self._library_undo_stack or self._library_undo_stack[-1]["token"] != token:
             self.toast_overlay.add_toast(
                 Adw.Toast.new("This undo action has expired or was already used.")
             )
             return
-        pending["toast"].dismiss()
+        pending = self._library_undo_stack.pop()
+        toast = self._library_undo_toast
+        if toast is not None:
+            if self._library_undo_dismiss_handler is not None:
+                toast.disconnect(self._library_undo_dismiss_handler)
+            toast.dismiss()
+        self._library_undo_toast = None
+        self._library_undo_dismiss_handler = None
         try:
             self.storage.restore_undo_state(pending["before"], pending["after"])
         except (ValueError, sqlite3.Error, OSError) as error:
             self.toast_overlay.add_toast(
                 Adw.Toast.new(f"Could not undo this change: {error}")
             )
-            return
-        self.entries = self.storage.list_entries()
-        self._render_library()
-        self._update_bulk_bar()
-        self.toast_overlay.add_toast(Adw.Toast.new("Change undone."))
+        else:
+            self.entries = self.storage.list_entries()
+            self._render_library()
+            self._update_bulk_bar()
+            self.toast_overlay.add_toast(Adw.Toast.new("Change undone."))
+        self._show_library_undo_toast()
 
     def _increment_progress(self, entry: AnimeEntry):
         if entry.episodes_total is not None and entry.episodes_watched >= entry.episodes_total:
