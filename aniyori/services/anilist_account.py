@@ -11,6 +11,7 @@ import time
 from pathlib import Path
 from urllib.parse import parse_qs, urlencode, urlparse
 
+from ..models import MAX_EPISODE_COUNT, AnimeEntry, WatchStatus
 from ..backup import default_config_dir
 
 
@@ -80,6 +81,55 @@ def parse_access_token(value: str, *, now: float | None = None) -> str:
     if expiry <= current_time:
         raise AniListAccountError("This AniList access token has expired. Authorize again.")
     return token
+
+
+_STATUS_MAP = {
+    "CURRENT": WatchStatus.WATCHING,
+    "PLANNING": WatchStatus.PLANNING,
+    "COMPLETED": WatchStatus.COMPLETED,
+    "PAUSED": WatchStatus.PAUSED,
+    "DROPPED": WatchStatus.DROPPED,
+    "REPEATING": WatchStatus.WATCHING,
+}
+
+
+def import_entry_from_anilist(remote: dict) -> AnimeEntry:
+    """Convert one validated AniList list entry without losing watch progress."""
+    if not isinstance(remote, dict) or not isinstance(remote.get("media"), dict):
+        raise AniListAccountError("AniList returned an invalid library entry.")
+    media = remote["media"]
+    media_id = remote.get("media_id")
+    status = remote.get("status")
+    progress = remote.get("progress")
+    title = media.get("title")
+    if (
+        isinstance(media_id, bool) or not isinstance(media_id, int) or media_id <= 0
+        or not isinstance(status, str) or status not in _STATUS_MAP
+        or isinstance(progress, bool) or not isinstance(progress, int)
+        or not 0 <= progress <= MAX_EPISODE_COUNT
+        or not isinstance(title, str) or not title.strip()
+    ):
+        raise AniListAccountError("AniList returned invalid media or progress values.")
+    total = media.get("episodes")
+    if (
+        isinstance(total, bool) or not isinstance(total, int)
+        or total <= 0 or total > MAX_EPISODE_COUNT
+    ):
+        total = None
+    if total is not None and progress > total:
+        total = None
+    cover = media.get("cover_image")
+    if cover is not None and not isinstance(cover, str):
+        cover = None
+    return AnimeEntry(
+        title=title.strip(),
+        episodes_total=total,
+        episodes_watched=progress,
+        status=_STATUS_MAP[status],
+        provider="anilist",
+        provider_id=str(media_id),
+        cover_image=cover,
+    )
 
 
 class AniListAccountSettingsStore:
