@@ -104,6 +104,7 @@ def show_anilist_account_dialog(parent) -> None:
 
     connect_button = Gtk.Button(label="Connect Account")
     connect_button.add_css_class("suggested-action")
+    connect_button.set_sensitive(credential_store is not None)
     content.append(connect_button)
 
     action_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
