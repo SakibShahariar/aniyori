@@ -5765,7 +5765,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
             if not self.storage.update_entry(edited):
                 self.toast_overlay.add_toast(Adw.Toast.new("That anime no longer exists."))
                 return
-        except (ValueError, IndexError) as error:
+        except (ValueError, IndexError, sqlite3.Error, OSError) as error:
             self.toast_overlay.add_toast(Adw.Toast.new(str(error) or "Check the entered values."))
             return
         self._offer_library_undo(undo_before, f"Updated {edited.title}.")
