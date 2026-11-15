@@ -100,6 +100,50 @@ query AnimeDetails($id: Int!) {
 """
 
 
+
+VIEWER_QUERY = """
+query CurrentViewer {
+  Viewer { id name siteUrl }
+}
+"""
+
+USER_LIBRARY_QUERY = """
+query CurrentUserAnimeList($userId: Int!) {
+  MediaListCollection(userId: $userId, type: ANIME) {
+    lists {
+      entries {
+        mediaId
+        status
+        progress
+        score
+        updatedAt
+        media {
+          id
+          title { romaji english native }
+          episodes
+          format
+          status
+          coverImage { medium large }
+          siteUrl
+        }
+      }
+    }
+  }
+}
+"""
+
+SAVE_MEDIA_LIST_ENTRY_MUTATION = """
+mutation SaveAniListEntry($mediaId: Int!, $status: MediaListStatus!, $progress: Int!) {
+  SaveMediaListEntry(mediaId: $mediaId, status: $status, progress: $progress) {
+    id
+    mediaId
+    status
+    progress
+    updatedAt
+  }
+}
+"""
+
 def _normalise_media(media: dict[str, Any]) -> dict[str, Any]:
     """Return a stable, UI-friendly subset of an AniList media object."""
     title_data = media.get("title")
@@ -175,24 +219,34 @@ class AniListClient:
         timeout: int | None = None,
         *,
         cache: MetadataCache | None = None,
+        access_token: str | None = None,
     ):
         if timeout is not None and (
             isinstance(timeout, bool) or not isinstance(timeout, (int, float)) or timeout <= 0
         ):
             raise ValueError("Timeout must be greater than zero")
+        if access_token is not None and (
+            not isinstance(access_token, str) or not access_token.strip()
+            or any(character in access_token for character in ("\\x00", "\\r", "\\n"))
+        ):
+            raise ValueError("Access token must be non-empty text without line breaks.")
         self.timeout = timeout
         self.cache = cache if cache is not None else MetadataCache()
+        self.access_token = access_token.strip() if access_token else None
 
     def _request(self, query: str, variables: dict[str, Any]) -> dict[str, Any]:
         body = json.dumps({"query": query, "variables": variables}).encode("utf-8")
+        headers = {
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+            "User-Agent": "Aniyori/0.1.0 (Linux desktop anime tracker)",
+        }
+        if self.access_token:
+            headers["Authorization"] = f"Bearer {self.access_token}"
         request = Request(
             ANILIST_GRAPHQL_URL,
             data=body,
-            headers={
-                "Content-Type": "application/json",
-                "Accept": "application/json",
-                "User-Agent": "Aniyori/0.1.0 (Linux desktop anime tracker)",
-            },
+            headers=headers,
             method="POST",
         )
         try:
@@ -386,3 +440,96 @@ class AniListClient:
             raise
         self.cache.set("details", cache_key, result)
         return result
+
+    def get_viewer(self) -> dict[str, Any]:
+        """Return the authenticated AniList account identity."""
+        if not self.access_token:
+            raise AniListError("Connect an AniList account before requesting account data.")
+        data = self._request(VIEWER_QUERY, {})
+        viewer = data.get("Viewer")
+        if (
+            not isinstance(viewer, dict)
+            or isinstance(viewer.get("id"), bool)
+            or not isinstance(viewer.get("id"), int)
+            or viewer["id"] <= 0
+            or not isinstance(viewer.get("name"), str)
+            or not viewer["name"].strip()
+        ):
+            raise AniListError("AniList did not return a valid authenticated account.")
+        return {
+            "id": viewer["id"],
+            "name": viewer["name"].strip(),
+            "site_url": viewer.get("siteUrl"),
+        }
+
+    def get_user_library(self, user_id: int) -> list[dict[str, Any]]:
+        """Fetch all anime list entries for one authenticated AniList user."""
+        if not self.access_token:
+            raise AniListError("Connect an AniList account before requesting account data.")
+        if isinstance(user_id, bool) or not isinstance(user_id, int) or user_id <= 0:
+            raise ValueError("user_id must be a positive integer.")
+        data = self._request(USER_LIBRARY_QUERY, {"userId": user_id})
+        collection = data.get("MediaListCollection")
+        if collection is None:
+            return []
+        if not isinstance(collection, dict) or not isinstance(collection.get("lists"), list):
+            raise AniListError("AniList returned an invalid user library.")
+        results = []
+        seen_ids = set()
+        for media_list in collection["lists"]:
+            if not isinstance(media_list, dict) or not isinstance(media_list.get("entries"), list):
+                raise AniListError("AniList returned an invalid user list.")
+            for entry in media_list["entries"]:
+                if not isinstance(entry, dict) or not isinstance(entry.get("media"), dict):
+                    raise AniListError("AniList returned an invalid list entry.")
+                media_id = entry.get("mediaId")
+                status = entry.get("status")
+                progress = entry.get("progress")
+                updated_at = entry.get("updatedAt")
+                if (
+                    isinstance(media_id, bool) or not isinstance(media_id, int) or media_id <= 0
+                    or media_id in seen_ids
+                    or not isinstance(status, str)
+                    or status not in {"CURRENT", "PLANNING", "COMPLETED", "PAUSED", "DROPPED", "REPEATING"}
+                    or isinstance(progress, bool) or not isinstance(progress, int) or progress < 0
+                    or isinstance(updated_at, bool) or not isinstance(updated_at, int) or updated_at < 0
+                ):
+                    raise AniListError("AniList returned an invalid or duplicate list entry.")
+                media = _normalise_media(entry["media"])
+                if media.get("id") != media_id:
+                    raise AniListError("AniList list entry media IDs did not match.")
+                seen_ids.add(media_id)
+                results.append({
+                    "media_id": media_id,
+                    "status": status,
+                    "progress": progress,
+                    "score": entry.get("score"),
+                    "updated_at": updated_at,
+                    "media": media,
+                })
+        return results
+
+    def save_media_list_entry(self, media_id: int, status: str, progress: int) -> dict[str, Any]:
+        """Create or update one authenticated AniList list entry."""
+        if not self.access_token:
+            raise AniListError("Connect an AniList account before updating AniList.")
+        if isinstance(media_id, bool) or not isinstance(media_id, int) or media_id <= 0:
+            raise ValueError("media_id must be a positive integer.")
+        if status not in {"CURRENT", "PLANNING", "COMPLETED", "PAUSED", "DROPPED", "REPEATING"}:
+            raise ValueError("Unsupported AniList list status.")
+        if isinstance(progress, bool) or not isinstance(progress, int) or progress < 0:
+            raise ValueError("progress must be a non-negative integer.")
+        data = self._request(
+            SAVE_MEDIA_LIST_ENTRY_MUTATION,
+            {"mediaId": media_id, "status": status, "progress": progress},
+        )
+        result = data.get("SaveMediaListEntry")
+        if (
+            not isinstance(result, dict)
+            or result.get("mediaId") != media_id
+            or result.get("status") != status
+            or result.get("progress") != progress
+        ):
+            raise AniListError("AniList did not confirm the requested list update.")
+        return result
+
