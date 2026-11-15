@@ -6,7 +6,7 @@ Aniyori brings your watchlist, seasonal discovery, local media collection, and r
 
 > **Early development · v0.1.0 not released**
 >
-> The local library, AniList public catalogue, media scanning, release discovery, and download handoff are implemented. AniList account connection, list import, and conflict-reviewed synchronization are implemented in source; bundling the project OAuth Client ID and live desktop validation remain outstanding.
+> The local library, AniList public catalogue, media scanning, release discovery, and download handoff are implemented. AniList account connection, list import, and conflict-reviewed synchronization are implemented in source. The project OAuth Client ID (57061) is bundled; live desktop authorization and synchronization validation remain outstanding.
 
 ## Features
 
