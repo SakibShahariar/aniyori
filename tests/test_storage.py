@@ -423,5 +423,37 @@ class LibraryStorageTests(unittest.TestCase):
         self.assertEqual(self.storage.list_episode_progress(second.storage_id), {})
 
 
+    def test_undo_bulk_status_restores_status_progress_and_explicit_episode_map(self):
+        self.storage.add(AnimeEntry(
+            title="Paused status undo", episodes_total=12, episodes_watched=4,
+            status=WatchStatus.PAUSED,
+        ))
+        entry = self.storage.list_entries()[0]
+        self.storage.set_episode_watched(entry.storage_id, 6, True)
+        before = self.storage.capture_undo_state((entry.storage_id,))
+
+        completed = AnimeEntry(
+            title=entry.title,
+            episodes_total=entry.episodes_total,
+            episodes_watched=entry.episodes_total,
+            status=WatchStatus.COMPLETED,
+            provider=entry.provider,
+            provider_id=entry.provider_id,
+            cover_image=entry.cover_image,
+            storage_id=entry.storage_id,
+        )
+        self.storage.update_entries((completed,))
+        after = self.storage.capture_undo_state((entry.storage_id,))
+        self.storage.restore_undo_state(before, after)
+
+        restored = self.storage.list_entries()[0]
+        self.assertEqual(restored.status, WatchStatus.PAUSED)
+        self.assertEqual(restored.episodes_watched, 4)
+        self.assertEqual(
+            self.storage.list_episode_progress(entry.storage_id),
+            {1: True, 2: True, 3: True, 4: True, 6: True},
+        )
+
+
 if __name__ == "__main__":
     unittest.main()
