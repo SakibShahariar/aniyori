@@ -1503,7 +1503,6 @@ class AniyoriWindow(Adw.ApplicationWindow):
                 label = Gtk.Label(label=f"{item['name']} — {item['url']}", xalign=0)
                 label.set_ellipsize(3)
                 label.set_hexpand(True)
-                row.append(label)
                 edit = Gtk.Button.new_from_icon_name("document-edit-symbolic")
                 edit.set_tooltip_text(f"Edit {item['name']}")
                 edit.connect("clicked", lambda _button, position=index: edit_template(position))
@@ -4372,7 +4371,6 @@ class AniyoriWindow(Adw.ApplicationWindow):
                     "toggled",
                     lambda button, item=rule: update_rule(item.rule_id, enabled=button.get_active()),
                 )
-                row.append(toggle)
                 summary = Gtk.Label(
                     label=f"{index + 1}. {rule.name} · {rule.action.title()} · {rule.field}: {rule.value}",
                     xalign=0, wrap=True,
@@ -4380,20 +4378,16 @@ class AniyoriWindow(Adw.ApplicationWindow):
                 summary.set_hexpand(True)
                 if not rule.enabled:
                     summary.add_css_class("dim-label")
-                row.append(summary)
                 up_button = Gtk.Button.new_from_icon_name("go-up-symbolic")
                 up_button.set_tooltip_text("Move rule up")
                 up_button.set_sensitive(index > 0)
                 up_button.connect("clicked", lambda _button, item=rule: move_rule(item.rule_id, -1))
-                row.append(up_button)
                 down_button = Gtk.Button.new_from_icon_name("go-down-symbolic")
                 down_button.set_tooltip_text("Move rule down")
                 down_button.set_sensitive(index < len(rules) - 1)
                 down_button.connect("clicked", lambda _button, item=rule: move_rule(item.rule_id, 1))
-                row.append(down_button)
                 edit_button = Gtk.Button(label="Edit")
                 edit_button.connect("clicked", lambda _button, item=rule: edit_rule(item))
-                row.append(edit_button)
                 remove_button = Gtk.Button.new_from_icon_name("user-trash-symbolic")
                 remove_button.set_tooltip_text("Remove rule")
                 remove_button.connect("clicked", lambda _button, item=rule: remove_rule(item.rule_id))
@@ -4606,13 +4600,11 @@ class AniyoriWindow(Adw.ApplicationWindow):
                 row.append(label)
                 state = Gtk.Label(label="Enabled" if feed.enabled else "Disabled")
                 state.add_css_class("dim-label")
-                row.append(state)
                 toggle_button = Gtk.Button(label="Disable" if feed.enabled else "Enable")
                 toggle_button.connect(
                     "clicked",
                     lambda _button, item=feed: toggle_feed(item),
                 )
-                row.append(toggle_button)
                 edit_button = Gtk.Button(label="Edit")
                 edit_button.connect("clicked", lambda _button, item=feed: begin_edit(item))
                 row.append(edit_button)
