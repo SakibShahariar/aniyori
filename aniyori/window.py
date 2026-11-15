@@ -5458,7 +5458,10 @@ class AniyoriWindow(Adw.ApplicationWindow):
             )
             content.append(advance)
 
-        toolbar_view.set_content(content)
+        scroller = Gtk.ScrolledWindow()
+        scroller.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        scroller.set_child(content)
+        toolbar_view.set_content(scroller)
         dialog.set_child(toolbar_view)
         dialog.present(self)
 
