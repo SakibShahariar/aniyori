@@ -430,6 +430,14 @@ class AniyoriWindow(Adw.ApplicationWindow):
         root.add_top_bar(header)
         header.set_title_widget(Adw.WindowTitle(title="Aniyori", subtitle="Your anime library"))
 
+        self.home_nav_button = Gtk.ToggleButton(label="Home")
+        self.library_nav_button = Gtk.ToggleButton(label="My List")
+        self.library_nav_button.set_group(self.home_nav_button)
+        self.home_nav_button.connect("toggled", self._on_primary_navigation, "home")
+        self.library_nav_button.connect("toggled", self._on_primary_navigation, "library")
+        header.pack_start(self.home_nav_button)
+        header.pack_start(self.library_nav_button)
+
         add_button = Gtk.Button.new_from_icon_name("list-add-symbolic")
         add_button.set_tooltip_text("Add anime")
         add_button.add_css_class("suggested-action")
@@ -498,9 +506,19 @@ class AniyoriWindow(Adw.ApplicationWindow):
         body_clamp.set_child(body)
         root.set_content(body_clamp)
 
+        self.page_stack = Gtk.Stack()
+        self.page_stack.set_transition_type(Gtk.StackTransitionType.CROSSFADE)
+        self.page_stack.set_vexpand(True)
+        body.append(self.page_stack)
+
+        self.library_page = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+        self.page_stack.add_named(self.library_page, "library")
+        self.home_page = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=16)
+        self.page_stack.add_named(self.home_page, "home")
+
         toolbar = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
         toolbar.set_margin_bottom(12)
-        body.append(toolbar)
+        self.library_page.append(toolbar)
 
         search_toolbar = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         toolbar.append(search_toolbar)
@@ -558,7 +576,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
         clear_selection_button = Gtk.Button(label="Clear")
         clear_selection_button.connect("clicked", lambda _button: self._clear_bulk_selection())
         bulk_progress_row.append(clear_selection_button)
-        body.append(self.bulk_bar)
+        self.library_page.append(self.bulk_bar)
 
         self.filter_buttons = {}
         for key, label in [
@@ -614,7 +632,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
 
         self.toast_overlay = Adw.ToastOverlay()
         self.toast_overlay.set_vexpand(True)
-        body.append(self.toast_overlay)
+        self.library_page.append(self.toast_overlay)
 
         self.stack = Gtk.Stack()
         self.stack.set_transition_type(Gtk.StackTransitionType.CROSSFADE)
@@ -746,6 +764,8 @@ class AniyoriWindow(Adw.ApplicationWindow):
 
         self.view_switches["list"].set_active(True)
         self._render_library()
+        self.home_nav_button.set_active(True)
+        self._refresh_home()
         self.filter_buttons["all"].set_active(True)
         if self.library_view_presets["default"]:
             try:
@@ -762,6 +782,129 @@ class AniyoriWindow(Adw.ApplicationWindow):
         self._refresh_release_feeds()
         GLib.timeout_add_seconds(1800, self._periodic_release_refresh)
 
+
+    def _on_primary_navigation(self, button, page_name):
+        if not button.get_active():
+            return
+        self.page_stack.set_visible_child_name(page_name)
+        if page_name == "home":
+            self._refresh_home()
+            self.set_title("Aniyori")
+        else:
+            self.set_title("Aniyori — My List")
+
+    def _refresh_home(self):
+        if not hasattr(self, "home_page"):
+            return
+        child = self.home_page.get_first_child()
+        while child is not None:
+            following = child.get_next_sibling()
+            self.home_page.remove(child)
+            child = following
+
+        heading = Gtk.Label(label="Welcome to Aniyori", xalign=0)
+        heading.add_css_class("title-1")
+        self.home_page.append(heading)
+
+        intro = Gtk.Label(
+            label="Your anime, your progress, all in one place.",
+            xalign=0,
+        )
+        intro.add_css_class("dim-label")
+        self.home_page.append(intro)
+
+        actions = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        add = Gtk.Button(label="Add Anime")
+        add.add_css_class("suggested-action")
+        add.connect("clicked", self._show_add_dialog)
+        actions.append(add)
+        browse = Gtk.Button(label="Discover This Season")
+        browse.connect("clicked", lambda _button: self._show_season_discovery())
+        actions.append(browse)
+        sync = Gtk.Button(label="AniList Account")
+        sync.connect("clicked", lambda _button: show_anilist_account_dialog(self))
+        actions.append(sync)
+        self.home_page.append(actions)
+
+        stats = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        counts = {}
+        for status in WatchStatus:
+            counts[status] = sum(1 for entry in self.entries if entry.status == status)
+        for status, label in (
+            (WatchStatus.WATCHING, "Watching"),
+            (WatchStatus.COMPLETED, "Completed"),
+            (WatchStatus.PLANNING, "Planning"),
+            (WatchStatus.PAUSED, "Paused"),
+        ):
+            tile = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
+            tile.add_css_class("card")
+            tile.set_hexpand(True)
+            value = Gtk.Label(label=str(counts[status]))
+            value.add_css_class("title-2")
+            value.set_xalign(0)
+            tile.append(value)
+            caption = Gtk.Label(label=label)
+            caption.add_css_class("dim-label")
+            caption.set_xalign(0)
+            tile.append(caption)
+            stats.append(tile)
+        self.home_page.append(stats)
+
+        updated = self.storage.get_updated_at_map()
+        recent = sorted(
+            (entry for entry in self.entries if entry.storage_id in updated),
+            key=lambda entry: updated[entry.storage_id],
+            reverse=True,
+        )[:8]
+        watching = [
+            entry for entry in self.entries
+            if entry.status == WatchStatus.WATCHING
+            and (entry.episodes_total is None or entry.episodes_watched < entry.episodes_total)
+        ][:6]
+
+        self._append_home_entry_section(
+            "Continue Watching", watching,
+            "No anime in progress yet. Add a series and start tracking episodes.",
+        )
+        self._append_home_entry_section(
+            "Recently Updated", recent,
+            "Your library is empty. Add anime to start building your collection.",
+        )
+
+    def _append_home_entry_section(self, title, entries, empty_message):
+        section = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+        heading = Gtk.Label(label=title, xalign=0)
+        heading.add_css_class("title-2")
+        section.append(heading)
+        if not entries:
+            empty = Gtk.Label(label=empty_message, xalign=0, wrap=True)
+            empty.add_css_class("dim-label")
+            section.append(empty)
+        else:
+            rows = Gtk.ListBox()
+            rows.set_selection_mode(Gtk.SelectionMode.NONE)
+            rows.add_css_class("boxed-list")
+            for entry in entries:
+                row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
+                row.set_margin_start(12)
+                row.set_margin_end(12)
+                row.set_margin_top(8)
+                row.set_margin_bottom(8)
+                title_label = Gtk.Label(label=entry.title, xalign=0)
+                title_label.set_hexpand(True)
+                title_label.set_ellipsize(3)
+                row.append(title_label)
+                progress = Gtk.Label(label=entry.progress_label)
+                progress.add_css_class("dim-label")
+                row.append(progress)
+                if entry.status == WatchStatus.WATCHING:
+                    next_button = Gtk.Button(label="+1")
+                    next_button.set_tooltip_text("Mark one more episode watched")
+                    next_button.connect("clicked", lambda _button, item=entry: self._increment_progress(item))
+                    row.append(next_button)
+                rows.append(row)
+            section.append(rows)
+        self.home_page.append(section)
 
     def _show_release_scoring_dialog(self):
         try:
