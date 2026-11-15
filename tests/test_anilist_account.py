@@ -391,5 +391,66 @@ class AniListSyncPlanningTests(unittest.TestCase):
                 )
 
 
+
+class AniListSyncResolutionTests(unittest.TestCase):
+    def test_local_sync_payload_maps_status_and_progress(self):
+        from aniyori.models import AnimeEntry, WatchStatus
+        from aniyori.services.anilist_account import local_entry_sync_payload
+
+        entry = AnimeEntry(
+            title="Example", episodes_watched=7, status=WatchStatus.PAUSED,
+            provider="anilist", provider_id="123",
+        )
+        self.assertEqual(local_entry_sync_payload(entry), {
+            "media_id": 123, "status": "PAUSED", "progress": 7,
+        })
+
+    def test_local_sync_payload_rejects_unlinked_or_malformed_entries(self):
+        from aniyori.models import AnimeEntry
+        from aniyori.services.anilist_account import local_entry_sync_payload
+
+        for entry in (
+            AnimeEntry(title="Manual"),
+            AnimeEntry(title="Bad ID", provider="anilist", provider_id="abc"),
+        ):
+            with self.subTest(entry=entry), self.assertRaises(AniListAccountError):
+                local_entry_sync_payload(entry)
+
+    def test_remote_resolution_preserves_local_database_identity(self):
+        from aniyori.models import AnimeEntry, WatchStatus
+        from aniyori.services.anilist_account import local_entry_from_remote
+
+        existing = AnimeEntry(
+            title="Old title", episodes_watched=1, status=WatchStatus.PLANNING,
+            provider="anilist", provider_id="21", storage_id=99,
+        )
+        remote = {
+            "media_id": 21, "status": "CURRENT", "progress": 5,
+            "media": {
+                "id": 21, "title": "Updated title", "episodes": 12,
+                "cover_image": "https://img.test/cover.jpg",
+            },
+        }
+        updated = local_entry_from_remote(remote, existing)
+        self.assertEqual(updated.storage_id, 99)
+        self.assertEqual(updated.title, "Updated title")
+        self.assertEqual(updated.episodes_watched, 5)
+        self.assertEqual(updated.status, WatchStatus.WATCHING)
+
+    def test_remote_resolution_rejects_a_different_provider_id(self):
+        from aniyori.models import AnimeEntry
+        from aniyori.services.anilist_account import local_entry_from_remote
+
+        existing = AnimeEntry(
+            title="Example", provider="anilist", provider_id="22", storage_id=99,
+        )
+        remote = {
+            "media_id": 21, "status": "CURRENT", "progress": 0,
+            "media": {"id": 21, "title": "Example"},
+        }
+        with self.assertRaises(AniListAccountError):
+            local_entry_from_remote(remote, existing)
+
+
 if __name__ == "__main__":
     unittest.main()
