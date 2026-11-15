@@ -27,6 +27,7 @@ from .library_io import export_csv, export_json, import_csv, import_json
 from .search import SearchGeneration
 from .services.search_history import SearchHistoryError, SearchHistoryStore
 from .services.anilist import AniListClient, AniListError
+from .anilist_account_dialog import show_anilist_account_dialog
 from .services.airing import format_airing_countdown
 from .services.seasons import SEASONS, filter_season_results, season_for_date
 from .services.scan_locations import ScanLocationStore
@@ -383,6 +384,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
         for name, callback in [
             ("add-anime", lambda: self._show_add_dialog(None)),
             ("season-discovery", self._show_season_discovery),
+            ("anilist-account", lambda: show_anilist_account_dialog(self)),
             ("focus-search", lambda: self.search.grab_focus()),
             ("quit", lambda: self.get_application().quit()),
             ("statistics", self._show_statistics_dialog),
@@ -436,6 +438,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
         primary_menu = Gio.Menu()
         primary_menu.append("Add Anime", "win.add-anime")
         primary_menu.append("Season Discovery", "win.season-discovery")
+        primary_menu.append("AniList Account", "win.anilist-account")
         primary_menu.append("Search Library", "win.focus-search")
         primary_menu.append("Library Statistics", "win.statistics")
         primary_menu.append("Watch History", "win.watch-history")
