@@ -602,7 +602,8 @@ class AniyoriWindow(Adw.ApplicationWindow):
         presets_button.connect(
             "clicked", lambda _button: self._show_library_view_presets_dialog()
         )
-        options_toolbar.append(presets_button)
+        action_group.append(presets_button)
+        options_toolbar.append(action_group)
 
         self.toast_overlay = Adw.ToastOverlay()
         self.toast_overlay.set_vexpand(True)
