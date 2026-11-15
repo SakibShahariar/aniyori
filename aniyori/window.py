@@ -79,6 +79,22 @@ from .services.library_render import (
 LOGGER = logging.getLogger(__name__)
 
 
+def _responsive_control_row(*widgets, spacing=8, max_per_line=5):
+    """Lay out related controls in rows that wrap to the available width."""
+    row = Gtk.FlowBox()
+    row.set_selection_mode(Gtk.SelectionMode.NONE)
+    row.set_homogeneous(False)
+    row.set_min_children_per_line(1)
+    row.set_max_children_per_line(max_per_line)
+    row.set_row_spacing(spacing)
+    row.set_column_spacing(spacing)
+    row.set_hexpand(True)
+    row.set_halign(Gtk.Align.FILL)
+    for widget in widgets:
+        row.append(widget)
+    return row
+
+
 def _load_cover_async(picture: Gtk.Picture, url: str | None) -> None:
     """Load a cached/downloaded cover without blocking the GTK main thread."""
     if not url:
@@ -3210,17 +3226,16 @@ class AniyoriWindow(Adw.ApplicationWindow):
         )
         description.add_css_class("dim-label")
         content.append(description)
-        filters = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         anime_filter = Gtk.Entry()
         anime_filter.set_placeholder_text('Filter anime title')
         anime_filter.set_hexpand(True)
-        filters.append(anime_filter)
         date_filter = Gtk.Entry()
         date_filter.set_placeholder_text('YYYY-MM-DD')
         date_filter.set_width_chars(12)
-        filters.append(date_filter)
         action_filter = Gtk.DropDown.new_from_strings(['All actions', 'Episode', 'Progress', 'Status'])
-        filters.append(action_filter)
+        filters = _responsive_control_row(
+            anime_filter, date_filter, action_filter, max_per_line=3,
+        )
         content.append(filters)
         listing = Gtk.ListBox()
         listing.set_selection_mode(Gtk.SelectionMode.SINGLE)
@@ -3230,13 +3245,12 @@ class AniyoriWindow(Adw.ApplicationWindow):
         scroll.set_max_content_height(420)
         scroll.set_child(listing)
         content.append(scroll)
-        actions = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         filter_button = Gtk.Button(label='Filter')
         remove_button = Gtk.Button(label='Remove Selected')
         prune_button = Gtk.Button(label='Prune Before Date')
-        actions.append(filter_button)
-        actions.append(remove_button)
-        actions.append(prune_button)
+        actions = _responsive_control_row(
+            filter_button, remove_button, prune_button, max_per_line=3,
+        )
         content.append(actions)
         dialog.set_child(toolbar_view)
         dialog.present(self)
@@ -4503,21 +4517,19 @@ class AniyoriWindow(Adw.ApplicationWindow):
         nyaa_search_entry = Gtk.Entry()
         nyaa_search_entry.set_placeholder_text("Search Nyaa releases (e.g. Frieren)")
         content.append(nyaa_search_entry)
-        history_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
         history_dropdown = Gtk.DropDown(
             model=Gtk.StringList.new(["No recent or saved torrent searches"])
         )
         history_dropdown.set_hexpand(True)
         history_dropdown.set_sensitive(False)
-        history_row.append(history_dropdown)
         use_history_button = Gtk.Button(label="Use")
-        history_row.append(use_history_button)
         save_history_button = Gtk.Button(label="Save")
-        history_row.append(save_history_button)
         remove_history_button = Gtk.Button(label="Remove")
-        history_row.append(remove_history_button)
         clear_history_button = Gtk.Button(label="Clear")
-        history_row.append(clear_history_button)
+        history_row = _responsive_control_row(
+            history_dropdown, use_history_button, save_history_button,
+            remove_history_button, clear_history_button, max_per_line=5,
+        )
         content.append(history_row)
         history_items = []
 
@@ -5903,7 +5915,6 @@ class AniyoriWindow(Adw.ApplicationWindow):
         content.set_margin_bottom(16)
         content.set_margin_start(16)
         content.set_margin_end(16)
-        season_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         season_dropdown = Gtk.DropDown.new_from_strings(list(SEASONS))
         current_season, current_year = season_for_date()
         season_dropdown.set_selected(SEASONS.index(current_season))
@@ -5912,11 +5923,13 @@ class AniyoriWindow(Adw.ApplicationWindow):
         year_dropdown.set_selected(year_values.index(current_year))
         load_button = Gtk.Button(label="Load season")
         load_button.add_css_class("suggested-action")
-        for widget in (Gtk.Label(label="Season"), season_dropdown, Gtk.Label(label="Year"), year_dropdown, load_button):
-            season_row.append(widget)
+        season_row = _responsive_control_row(
+            Gtk.Label(label="Season"), season_dropdown, Gtk.Label(label="Year"),
+            year_dropdown, load_button, max_per_line=5,
+        )
         content.append(season_row)
 
-        filter_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        filter_row_widgets = []
         search_entry = Gtk.SearchEntry()
         search_entry.set_placeholder_text("Search titles or genres")
         search_entry.set_hexpand(True)
@@ -5924,12 +5937,13 @@ class AniyoriWindow(Adw.ApplicationWindow):
         format_dropdown = Gtk.DropDown.new_from_strings(["All formats", "TV", "TV_SHORT", "MOVIE", "SPECIAL", "OVA", "ONA", "MUSIC"])
         status_dropdown = Gtk.DropDown.new_from_strings(["All statuses", "RELEASING", "NOT_YET_RELEASED", "FINISHED", "CANCELLED", "HIATUS"])
         sort_dropdown = Gtk.DropDown.new_from_strings(["Popularity", "Score", "Title", "Airing date"])
-        filter_row.append(search_entry)
-        filter_row.append(genre_dropdown)
+        filter_row_widgets.extend((search_entry, genre_dropdown))
+        filter_row = _responsive_control_row(*filter_row_widgets, max_per_line=2)
         content.append(filter_row)
-        second_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-        for widget in (format_dropdown, status_dropdown, Gtk.Label(label="Sort"), sort_dropdown):
-            second_row.append(widget)
+        second_row = _responsive_control_row(
+            format_dropdown, status_dropdown, Gtk.Label(label="Sort"), sort_dropdown,
+            max_per_line=4,
+        )
         content.append(second_row)
 
         status_label = Gtk.Label(label="Choose a season and load its chart.", xalign=0)
@@ -6120,13 +6134,13 @@ class AniyoriWindow(Adw.ApplicationWindow):
         title_entry.set_placeholder_text("Anime title (manual entry)")
         search_page.append(title_entry)
 
-        catalogue_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         catalogue_search = Gtk.Entry()
         catalogue_search.set_placeholder_text("Search AniList catalogue")
         catalogue_search.set_hexpand(True)
-        catalogue_row.append(catalogue_search)
         catalogue_button = Gtk.Button(label="Search")
-        catalogue_row.append(catalogue_button)
+        catalogue_row = _responsive_control_row(
+            catalogue_search, catalogue_button, max_per_line=2,
+        )
         search_page.append(catalogue_row)
 
         catalogue_dropdown = Gtk.DropDown(
@@ -6135,21 +6149,19 @@ class AniyoriWindow(Adw.ApplicationWindow):
         catalogue_dropdown.set_sensitive(False)
         search_page.append(catalogue_dropdown)
 
-        history_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
         history_dropdown = Gtk.DropDown(
             model=Gtk.StringList.new(["No recent or saved searches"])
         )
         history_dropdown.set_hexpand(True)
         history_dropdown.set_sensitive(False)
-        history_row.append(history_dropdown)
         use_history_button = Gtk.Button(label="Use")
-        history_row.append(use_history_button)
         save_history_button = Gtk.Button(label="Save")
-        history_row.append(save_history_button)
         remove_history_button = Gtk.Button(label="Remove")
-        history_row.append(remove_history_button)
         clear_history_button = Gtk.Button(label="Clear")
-        history_row.append(clear_history_button)
+        history_row = _responsive_control_row(
+            history_dropdown, use_history_button, save_history_button,
+            remove_history_button, clear_history_button, max_per_line=5,
+        )
         search_page.append(history_row)
         next_button = Gtk.Button(label="Review details")
         next_button.add_css_class("suggested-action")
