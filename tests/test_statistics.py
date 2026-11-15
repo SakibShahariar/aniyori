@@ -1,11 +1,13 @@
 """Tests for local-library statistics."""
 
 import unittest
-from datetime import timedelta, timezone
+from datetime import datetime, timedelta, timezone
+from unittest.mock import patch
 from zoneinfo import ZoneInfo
 
 from aniyori.models import AnimeEntry, WatchStatus
 from aniyori.statistics import calculate_history_insights, calculate_library_statistics
+from aniyori.timezones import get_local_timezone
 
 
 class LibraryStatisticsTests(unittest.TestCase):
@@ -231,6 +233,18 @@ class WatchHistoryInsightsTests(unittest.TestCase):
             calculate_history_insights([], 2026, local_timezone="UTC")
         with self.assertRaises(ValueError):
             calculate_history_insights(None, 2026)
+
+
+class LocalTimezoneTests(unittest.TestCase):
+    def test_configured_timezone_fallback_preserves_daylight_saving_rules(self):
+        with patch("aniyori.timezones.Path.open", side_effect=OSError("unavailable")):
+            with patch.dict("os.environ", {"TZ": "America/New_York"}):
+                local_timezone = get_local_timezone()
+
+        self.assertEqual(local_timezone.key, "America/New_York")
+        winter = datetime(2026, 1, 1, tzinfo=local_timezone)
+        summer = datetime(2026, 7, 1, tzinfo=local_timezone)
+        self.assertNotEqual(winter.utcoffset(), summer.utcoffset())
 
 
 if __name__ == "__main__":
