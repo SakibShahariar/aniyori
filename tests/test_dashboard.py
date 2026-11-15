@@ -38,6 +38,15 @@ class DashboardSelectionTests(unittest.TestCase):
 
         self.assertEqual([entry.title for entry in selected], ["Active", "Unknown total"])
 
+    def test_continue_watching_prioritizes_recently_updated_entries(self):
+        older = AnimeEntry(title="Older", status=WatchStatus.WATCHING, storage_id=1)
+        newer = AnimeEntry(title="Newer", status=WatchStatus.WATCHING, storage_id=2)
+        selected = continue_watching_entries(
+            [older, newer],
+            {1: "2026-01-01 10:00:00", 2: "2026-02-01 10:00:00"},
+        )
+        self.assertEqual([entry.title for entry in selected], ["Newer", "Older"])
+
     def test_continue_watching_respects_limit(self):
         entries = [
             AnimeEntry(title=f"Anime {index}", status=WatchStatus.WATCHING)
