@@ -195,25 +195,24 @@ class AnimeRow(Gtk.Box):
         next_button.connect("clicked", lambda _button: on_progress(entry))
         self.append(next_button)
 
-        episodes_button = Gtk.Button(label="Episodes")
-        episodes_button.set_tooltip_text("Edit watched state for individual episodes")
-        episodes_button.connect("clicked", lambda _button: on_episodes(entry) if on_episodes else None)
-        self.append(episodes_button)
-
-        links_button = Gtk.Button(label="Links")
-        links_button.set_tooltip_text("Open external anime information links")
-        links_button.connect("clicked", lambda button: on_links(entry, button) if on_links else None)
-        self.append(links_button)
-
-        edit_button = Gtk.Button.new_from_icon_name("document-edit-symbolic")
-        edit_button.set_tooltip_text("Edit anime details")
-        edit_button.connect("clicked", lambda _button: on_edit(entry))
-        self.append(edit_button)
-
-        remove_button = Gtk.Button.new_from_icon_name("user-trash-symbolic")
-        remove_button.set_tooltip_text("Remove anime from library")
-        remove_button.connect("clicked", lambda _button: on_remove(entry))
-        self.append(remove_button)
+        actions = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
+        actions.set_valign(Gtk.Align.CENTER)
+        for icon_name, tooltip, callback in (
+            ("view-list-symbolic", "Edit watched state for individual episodes",
+             lambda _button: on_episodes(entry) if on_episodes else None),
+            ("external-link-symbolic", "Open external anime information links",
+             lambda button: on_links(entry, button) if on_links else None),
+            ("document-edit-symbolic", "Edit anime details",
+             lambda _button: on_edit(entry)),
+            ("user-trash-symbolic", "Remove anime from library",
+             lambda _button: on_remove(entry)),
+        ):
+            button = Gtk.Button.new_from_icon_name(icon_name)
+            button.set_tooltip_text(tooltip)
+            button.add_css_class("flat")
+            button.connect("clicked", callback)
+            actions.append(button)
+        self.append(actions)
 
 
 class AnimeCard(Gtk.Box):
@@ -297,26 +296,23 @@ class AnimeCard(Gtk.Box):
         next_button.connect("clicked", lambda _button: on_progress(entry))
         self.append(next_button)
 
-        episodes_button = Gtk.Button(label="Episodes")
-        episodes_button.set_tooltip_text("Edit watched state for individual episodes")
-        episodes_button.connect("clicked", lambda _button: on_episodes(entry) if on_episodes else None)
-        episodes_button.set_halign(Gtk.Align.CENTER)
-        self.append(episodes_button)
-
-        actions = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        actions = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
         actions.set_halign(Gtk.Align.CENTER)
-        links_button = Gtk.Button.new_from_icon_name("external-link-symbolic")
-        links_button.set_tooltip_text("Open external anime information links")
-        links_button.connect("clicked", lambda button: on_links(entry, button) if on_links else None)
-        actions.append(links_button)
-        edit_button = Gtk.Button.new_from_icon_name("document-edit-symbolic")
-        edit_button.set_tooltip_text("Edit anime details")
-        edit_button.connect("clicked", lambda _button: on_edit(entry))
-        actions.append(edit_button)
-        remove_button = Gtk.Button.new_from_icon_name("user-trash-symbolic")
-        remove_button.set_tooltip_text("Remove anime from library")
-        remove_button.connect("clicked", lambda _button: on_remove(entry))
-        actions.append(remove_button)
+        for icon_name, tooltip, callback in (
+            ("view-list-symbolic", "Edit watched state for individual episodes",
+             lambda _button: on_episodes(entry) if on_episodes else None),
+            ("external-link-symbolic", "Open external anime information links",
+             lambda button: on_links(entry, button) if on_links else None),
+            ("document-edit-symbolic", "Edit anime details",
+             lambda _button: on_edit(entry)),
+            ("user-trash-symbolic", "Remove anime from library",
+             lambda _button: on_remove(entry)),
+        ):
+            button = Gtk.Button.new_from_icon_name(icon_name)
+            button.set_tooltip_text(tooltip)
+            button.add_css_class("flat")
+            button.connect("clicked", callback)
+            actions.append(button)
         self.append(actions)
 
 
