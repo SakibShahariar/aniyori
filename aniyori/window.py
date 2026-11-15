@@ -21,6 +21,9 @@ gi.require_version("Adw", "1")
 from gi.repository import Adw, Gdk, Gio, GLib, Gtk
 
 from .models import MAX_EPISODE_COUNT, AnimeEntry, WatchStatus, parse_episode_count
+from .dashboard import (
+    continue_watching_entries, count_library_statuses, recently_updated_entries,
+)
 from .backup import BackupError, create_backup, default_config_dir, restore_backup
 from .services.recognition_exclusions import RecognitionExclusionError, RecognitionExclusionStore
 from .library_io import export_csv, export_json, import_csv, import_json
@@ -844,9 +847,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
         stats.set_column_spacing(8)
         stats.set_min_children_per_line(1)
         stats.set_max_children_per_line(4)
-        counts = {}
-        for status in WatchStatus:
-            counts[status] = sum(1 for entry in self.entries if entry.status == status)
+        counts = count_library_statuses(self.entries)
         for status, label in (
             (WatchStatus.WATCHING, "Watching"),
             (WatchStatus.COMPLETED, "Completed"),
@@ -869,16 +870,8 @@ class AniyoriWindow(Adw.ApplicationWindow):
         self.home_page.append(stats)
 
         updated = self.storage.get_updated_at_map()
-        recent = sorted(
-            (entry for entry in self.entries if entry.storage_id in updated),
-            key=lambda entry: updated[entry.storage_id],
-            reverse=True,
-        )[:8]
-        watching = [
-            entry for entry in self.entries
-            if entry.status == WatchStatus.WATCHING
-            and (entry.episodes_total is None or entry.episodes_watched < entry.episodes_total)
-        ][:6]
+        recent = recently_updated_entries(self.entries, updated)
+        watching = continue_watching_entries(self.entries)
 
         self._append_home_entry_section(
             "Continue Watching", watching,
