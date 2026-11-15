@@ -947,3 +947,19 @@ The single red run above was caused by the existing test still expecting duplica
 | `1c2f1aef9c962f95e22d134fa1aaa70096d045d0` | docs(anilist): clarify keyring and custom-list behavior (#22) | green | [43699922263](https://github.com/SakibShahariar/aniyori/actions/runs/43699922263) |
 
 - Reviewed checkpoint: `1c2f1aef9c962f95e22d134fa1aaa70096d045d0`
+
+## Reviewed range: 2026-11-15 — project OAuth Client ID supplied (#22)
+
+The owner supplied public AniList Client ID `57061`. It is bundled as the default in the account OAuth helper and prefilled in the dialog. No client secret was added.
+
+| Commit SHA | Subject | CI result | Workflow run |
+|---|---|---|---|
+| `39cdde603d78ec51d1e7b5a66e8c159d0c97efff` | feat(anilist): bundle project OAuth client ID (#22) | green | [43700901419](https://github.com/SakibShahariar/aniyori/actions/runs/43700901419) |
+| `cad48baa6c9071daf3f70adf4935ccf9b6f5ace3` | feat(anilist): prefill project OAuth client ID (#22) | green | [43700904905](https://github.com/SakibShahariar/aniyori/actions/runs/43700904905) |
+| `86327b9b640d7aadf1852ca16d565e5884a21849` | docs(anilist): publish project OAuth client setup (#22) | green | [43700907370](https://github.com/SakibShahariar/aniyori/actions/runs/43700907370) |
+| `9f425957bfe6904b2285198a52cd908da9d01313` | test(anilist): verify bundled project client ID (#22) | green | [43700938304](https://github.com/SakibShahariar/aniyori/actions/runs/43700938304) |
+| `c83e701b40cd87cb13a1dcfb12dcea8bc9443fc8` | docs(anilist): confirm bundled public client ID (#22) | green | [43700954754](https://github.com/SakibShahariar/aniyori/actions/runs/43700954754) |
+
+No red CI runs were observed in this range. The automated test confirms the bundled ID is used in the implicit-grant authorization URL.
+
+- Reviewed checkpoint: `c83e701b40cd87cb13a1dcfb12dcea8bc9443fc8`
