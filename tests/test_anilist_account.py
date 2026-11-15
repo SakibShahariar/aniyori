@@ -139,6 +139,13 @@ class AniListAuthenticatedClientTests(unittest.TestCase):
         self.assertEqual(viewer["id"], 42)
         self.assertEqual(viewer["name"], "AniUser")
 
+    def test_authenticated_client_rejects_control_characters_in_tokens(self):
+        from aniyori.services.anilist import AniListClient
+
+        for token in ("token\nsecond", "token\rsecond", "token\x00second"):
+            with self.subTest(token=repr(token)), self.assertRaises(ValueError):
+                AniListClient(access_token=token)
+
     def test_account_requests_require_a_token(self):
         from aniyori.services.anilist import AniListClient, AniListError
 
@@ -381,6 +388,7 @@ class AniListSyncPlanningTests(unittest.TestCase):
             [{"media_id": True, "status": "CURRENT", "progress": 0}],
             [{"media_id": 21, "status": [], "progress": 0}],
             [{"media_id": 21, "status": "CURRENT", "progress": True}],
+            [{"media_id": 21, "status": "CURRENT", "progress": 10_001}],
         ):
             with self.subTest(remote=remote), self.assertRaises(AniListAccountError):
                 build_sync_plan([], remote)
