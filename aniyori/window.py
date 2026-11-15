@@ -130,6 +130,9 @@ class AnimeRow(Gtk.Box):
         poster.set_can_shrink(True)
         poster.set_content_fit(Gtk.ContentFit.COVER)
         poster.set_paintable(placeholder.get_paintable())
+        poster.update_property(
+            [Gtk.AccessibleProperty.LABEL], [f"Cover art for {entry.title}"]
+        )
         poster.set_valign(Gtk.Align.CENTER)
         poster.set_visible(not compact)
         self.append(poster)
@@ -143,6 +146,7 @@ class AnimeRow(Gtk.Box):
         title = Gtk.Label(label=entry.title, xalign=0)
         title.add_css_class("heading")
         title.set_ellipsize(3)
+        title.set_tooltip_text(entry.title)
         layout = layout or DEFAULT_LIBRARY_LAYOUTS["list"]
         title.set_size_request(140 if compact else layout["widths"]["title"], -1)
         details.append(title)
@@ -182,6 +186,10 @@ class AnimeRow(Gtk.Box):
         if entry.progress_fraction is not None:
             progress = Gtk.ProgressBar()
             progress.set_fraction(entry.progress_fraction)
+            progress.update_property(
+                [Gtk.AccessibleProperty.LABEL],
+                [f"Watched episodes: {entry.progress_label}"],
+            )
             progress.set_valign(Gtk.Align.CENTER)
             progress.set_size_request(100, -1)
             progress.set_visible("progress" in layout["visible"] and not compact)
@@ -296,6 +304,10 @@ class AnimeCard(Gtk.Box):
         if entry.progress_fraction is not None:
             progress = Gtk.ProgressBar()
             progress.set_fraction(entry.progress_fraction)
+            progress.update_property(
+                [Gtk.AccessibleProperty.LABEL],
+                [f"Watched episodes: {entry.progress_label}"],
+            )
             progress.set_margin_start(12)
             progress.set_margin_end(12)
             progress.set_visible("progress" in layout["visible"])
