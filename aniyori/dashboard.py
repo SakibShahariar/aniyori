@@ -45,3 +45,23 @@ def recently_updated_entries(
         key=lambda entry: updated_at_by_id[entry.storage_id],
         reverse=True,
     )[:limit]
+
+
+def recently_added_entries(
+    entries: list[AnimeEntry],
+    created_at_by_id: dict[int, str],
+    *,
+    limit: int = 8,
+) -> list[AnimeEntry]:
+    """Return saved entries ordered by their original creation timestamps, newest first."""
+    if limit <= 0:
+        return []
+    candidates = (
+        entry for entry in entries
+        if entry.storage_id is not None and entry.storage_id in created_at_by_id
+    )
+    return sorted(
+        candidates,
+        key=lambda entry: created_at_by_id[entry.storage_id],
+        reverse=True,
+    )[:limit]
