@@ -88,6 +88,10 @@ Use a disposable test profile or a backup of any library data you care about. Do
 - [ ] Reduce an anime's known episode total below a previously watched episode; confirm the out-of-range watched state is cleared and aggregate progress is reconciled within the new total.
 - [ ] Open Watch History; filter by title, date, and action; remove a selected event and prune older events.
 - [ ] Restart and confirm history and per-episode state persist.
+- [ ] Make two rapid progress edits to the same anime and undo them in reverse order; confirm each restores the immediately preceding state.
+- [ ] Make edits to two different anime and undo each independently; confirm an intervening edit to the same anime invalidates only the stale undo without overwriting newer data.
+- [ ] Undo a direct edit, bulk status/progress change, and episode watched/unwatched change; confirm aggregate progress, episode map, status, and watch history return exactly to their prior values.
+- [ ] Confirm edit-undo actions expire after 10 seconds, cannot be replayed, and are not offered after restarting Aniyori (undo actions are intentionally session-only).
 
 ## Named library-view presets — #89
 
