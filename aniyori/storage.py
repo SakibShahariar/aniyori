@@ -166,6 +166,52 @@ class LibraryStorage:
             (anime_id, anime_title, episode, action, source, details),
         )
 
+    @staticmethod
+    def _sync_explicit_episode_progress(
+        connection: sqlite3.Connection, storage_id: int, episodes_watched: int
+    ) -> None:
+        """Keep an existing per-episode map aligned with an aggregate count.
+
+        Preserve already-watched episode numbers where possible. When progress
+        increases, mark the lowest previously-unwatched episodes; when it
+        decreases, unwatch the highest watched episodes. Legacy entries without
+        an explicit map remain legacy until their first episode-level edit.
+        """
+        rows = connection.execute(
+            "SELECT episode, watched FROM episode_progress WHERE anime_id = ?",
+            (storage_id,),
+        ).fetchall()
+        if not rows:
+            return
+
+        watched = sorted(int(row["episode"]) for row in rows if row["watched"])
+        if len(watched) > episodes_watched:
+            for episode in reversed(watched[episodes_watched:]):
+                connection.execute(
+                    "UPDATE episode_progress SET watched = 0, updated_at = CURRENT_TIMESTAMP "
+                    "WHERE anime_id = ? AND episode = ?",
+                    (storage_id, episode),
+                )
+            return
+
+        if len(watched) < episodes_watched:
+            states = {int(row["episode"]): bool(row["watched"]) for row in rows}
+            episode = 1
+            while len(watched) < episodes_watched:
+                if not states.get(episode, False):
+                    connection.execute(
+                        """
+                        INSERT INTO episode_progress(anime_id, episode, watched)
+                        VALUES (?, ?, 1)
+                        ON CONFLICT(anime_id, episode) DO UPDATE SET
+                            watched = 1, updated_at = CURRENT_TIMESTAMP
+                        """,
+                        (storage_id, episode),
+                    )
+                    states[episode] = True
+                    watched.append(episode)
+                episode += 1
+
     def get_created_at_map(self) -> dict[int, str]:
         """Return creation timestamps for stable library IDs."""
         with self._connect() as connection:
@@ -271,6 +317,7 @@ class LibraryStorage:
                 """,
                 (episodes_watched, status, storage_id),
             )
+            self._sync_explicit_episode_progress(connection, storage_id, episodes_watched)
             if episodes_watched != row["episodes_watched"]:
                 self._insert_history_event(
                     connection, anime_id=storage_id, anime_title=row["title"],
@@ -309,6 +356,9 @@ class LibraryStorage:
                     (entry.title.strip(), entry.episodes_total, entry.episodes_watched,
                      entry.status.value, entry.provider, entry.provider_id,
                      entry.cover_image, entry.storage_id),
+                )
+                self._sync_explicit_episode_progress(
+                    connection, entry.storage_id, entry.episodes_watched
                 )
                 if previous["episodes_watched"] != entry.episodes_watched:
                     self._insert_history_event(
@@ -360,6 +410,9 @@ class LibraryStorage:
                             entry.provider, entry.provider_id, entry.cover_image,
                             entry.storage_id,
                         ),
+                    )
+                    self._sync_explicit_episode_progress(
+                        connection, entry.storage_id, entry.episodes_watched
                     )
                     if cursor.rowcount == 0:
                         raise ValueError(f"Library entry {entry.storage_id} no longer exists.")
@@ -432,6 +485,9 @@ class LibraryStorage:
                     WHERE id = ?
                     """,
                     (episodes_watched, status, storage_id),
+                )
+                self._sync_explicit_episode_progress(
+                    connection, storage_id, episodes_watched
                 )
                 if episodes_watched != row["episodes_watched"]:
                     self._insert_history_event(
