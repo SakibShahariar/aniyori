@@ -18,7 +18,6 @@ from .services.anilist_account import (
     parse_access_token,
     import_entry_from_anilist,
     build_sync_plan,
-    anilist_status_for_local,
     local_entry_sync_payload,
     local_entry_from_remote,
 )
@@ -389,8 +388,19 @@ def show_anilist_account_dialog(parent) -> None:
                     local_choices.append((local, choice))
 
             if plan["imports"]:
+                preview_titles = [
+                    item["media"].get("title") or "Untitled anime"
+                    for item in plan["imports"][:12]
+                ]
+                remaining = len(plan["imports"]) - len(preview_titles)
+                preview_text = ", ".join(preview_titles)
+                if remaining:
+                    preview_text += f", and {remaining} more"
                 note = Gtk.Label(
-                    label="New AniList entries will be added locally. Existing local entries are never replaced by import.",
+                    label=(
+                        "New entries to import: " + preview_text
+                        + ". Existing local entries are never replaced by import."
+                    ),
                     xalign=0,
                     wrap=True,
                 )
