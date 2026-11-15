@@ -232,5 +232,80 @@ class AniListAuthenticatedClientTests(unittest.TestCase):
                 client.save_media_list_entry(*args)
 
 
+
+class AniListImportMappingTests(unittest.TestCase):
+    def test_import_maps_remote_status_progress_and_cover(self):
+        from aniyori.models import WatchStatus
+        from aniyori.services.anilist_account import import_entry_from_anilist
+
+        entry = import_entry_from_anilist({
+            "media_id": 21, "status": "CURRENT", "progress": 4,
+            "media": {
+                "id": 21, "title": "Example Anime", "episodes": 12,
+                "cover_image": "https://img.test/cover.jpg",
+            },
+        })
+        self.assertEqual(entry.title, "Example Anime")
+        self.assertEqual(entry.provider, "anilist")
+        self.assertEqual(entry.provider_id, "21")
+        self.assertEqual(entry.episodes_total, 12)
+        self.assertEqual(entry.episodes_watched, 4)
+        self.assertEqual(entry.status, WatchStatus.WATCHING)
+        self.assertEqual(entry.cover_image, "https://img.test/cover.jpg")
+
+    def test_import_maps_all_supported_list_statuses(self):
+        from aniyori.models import WatchStatus
+        from aniyori.services.anilist_account import import_entry_from_anilist
+
+        expected = {
+            "CURRENT": WatchStatus.WATCHING,
+            "PLANNING": WatchStatus.PLANNING,
+            "COMPLETED": WatchStatus.COMPLETED,
+            "PAUSED": WatchStatus.PAUSED,
+            "DROPPED": WatchStatus.DROPPED,
+            "REPEATING": WatchStatus.WATCHING,
+        }
+        for remote_status, local_status in expected.items():
+            with self.subTest(status=remote_status):
+                entry = import_entry_from_anilist({
+                    "media_id": 21, "status": remote_status, "progress": 0,
+                    "media": {"id": 21, "title": "Example"},
+                })
+                self.assertEqual(entry.status, local_status)
+
+    def test_import_preserves_progress_when_total_is_unknown_or_inconsistent(self):
+        from aniyori.services.anilist_account import import_entry_from_anilist
+
+        for total in (None, 0, -1, 10_001, 3):
+            with self.subTest(total=total):
+                entry = import_entry_from_anilist({
+                    "media_id": 21, "status": "CURRENT", "progress": 4,
+                    "media": {"id": 21, "title": "Example", "episodes": total},
+                })
+                self.assertEqual(entry.episodes_watched, 4)
+                self.assertIsNone(entry.episodes_total)
+
+    def test_import_rejects_invalid_remote_identity_status_and_progress(self):
+        from aniyori.services.anilist_account import import_entry_from_anilist
+
+        base = {
+            "media_id": 21, "status": "CURRENT", "progress": 2,
+            "media": {"id": 21, "title": "Example", "episodes": 12},
+        }
+        variants = (
+            {"media_id": 0},
+            {"media_id": True},
+            {"status": "UNKNOWN"},
+            {"progress": True},
+            {"progress": -1},
+            {"progress": 10_001},
+            {"media": {"id": 21, "title": "  "}},
+        )
+        for changes in variants:
+            candidate = {**base, **changes}
+            with self.subTest(changes=changes), self.assertRaises(AniListAccountError):
+                import_entry_from_anilist(candidate)
+
+
 if __name__ == "__main__":
     unittest.main()
