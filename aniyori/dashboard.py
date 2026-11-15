@@ -27,26 +27,6 @@ def continue_watching_entries(
     ][:limit]
 
 
-def recently_updated_entries(
-    entries: list[AnimeEntry],
-    updated_at_by_id: dict[int, str],
-    *,
-    limit: int = 8,
-) -> list[AnimeEntry]:
-    """Return saved entries ordered by their stored update timestamps, newest first."""
-    if limit <= 0:
-        return []
-    candidates = (
-        entry for entry in entries
-        if entry.storage_id is not None and entry.storage_id in updated_at_by_id
-    )
-    return sorted(
-        candidates,
-        key=lambda entry: updated_at_by_id[entry.storage_id],
-        reverse=True,
-    )[:limit]
-
-
 def recently_added_entries(
     entries: list[AnimeEntry],
     created_at_by_id: dict[int, str],
