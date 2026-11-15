@@ -4,7 +4,8 @@ import unittest
 from types import SimpleNamespace
 
 from aniyori.services.library_render import (
-    library_stack_page, library_view_for_preset, library_widget_signature,
+    library_layout_signature, library_stack_page,
+    library_view_for_preset, library_widget_signature,
 )
 
 
@@ -14,8 +15,8 @@ class LibraryWidgetSignatureTests(unittest.TestCase):
         airing = (1_800_000_000, 24)
         layouts = {"list": {"visible": ["title", "progress"]}}
 
-        unselected = library_widget_signature(entry, airing, False, layouts, False)
-        selected = library_widget_signature(entry, airing, True, layouts, False)
+        unselected = library_widget_signature(entry, airing, False, library_layout_signature(layouts), False)
+        selected = library_widget_signature(entry, airing, True, library_layout_signature(layouts), False)
 
         self.assertEqual(len(selected), 5)
         self.assertEqual(selected, (entry, airing, True, repr(layouts), False))
@@ -37,11 +38,11 @@ class LibraryWidgetSignatureTests(unittest.TestCase):
     def test_layout_and_compact_changes_invalidate_cached_widgets(self):
         entry = SimpleNamespace(title="Example", storage_id=7)
         layouts = {"list": {"visible": ["title"]}}
-        baseline = library_widget_signature(entry, None, False, layouts, False)
+        baseline = library_widget_signature(entry, None, False, library_layout_signature(layouts), False)
         changed_layout = library_widget_signature(
-            entry, None, False, {"list": {"visible": ["title", "status"]}}, False
+            entry, None, False, library_layout_signature({"list": {"visible": ["title", "status"]}}), False
         )
-        compact = library_widget_signature(entry, None, False, layouts, True)
+        compact = library_widget_signature(entry, None, False, library_layout_signature(layouts), True)
 
         self.assertNotEqual(baseline, changed_layout)
         self.assertNotEqual(baseline, compact)
