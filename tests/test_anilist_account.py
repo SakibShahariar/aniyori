@@ -307,5 +307,89 @@ class AniListImportMappingTests(unittest.TestCase):
                 import_entry_from_anilist(candidate)
 
 
+
+class AniListSyncPlanningTests(unittest.TestCase):
+    def test_sync_plan_separates_imports_conflicts_local_only_and_unchanged(self):
+        from aniyori.models import AnimeEntry, WatchStatus
+        from aniyori.services.anilist_account import build_sync_plan
+
+        local = [
+            AnimeEntry(
+                title="Unchanged", episodes_total=12, episodes_watched=4,
+                status=WatchStatus.WATCHING, provider="anilist", provider_id="21",
+            ),
+            AnimeEntry(
+                title="Conflict", episodes_total=24, episodes_watched=2,
+                status=WatchStatus.WATCHING, provider="anilist", provider_id="22",
+            ),
+            AnimeEntry(
+                title="Local only", episodes_total=12, episodes_watched=1,
+                status=WatchStatus.PLANNING, provider="anilist", provider_id="23",
+            ),
+            AnimeEntry(title="Manual", episodes_total=12),
+        ]
+        remote = [
+            {"media_id": 21, "status": "CURRENT", "progress": 4, "media": {"id": 21}},
+            {"media_id": 22, "status": "CURRENT", "progress": 5, "media": {"id": 22}},
+            {"media_id": 24, "status": "PLANNING", "progress": 0, "media": {"id": 24}},
+        ]
+        plan = build_sync_plan(local, remote)
+        self.assertEqual(plan["unchanged"], 1)
+        self.assertEqual([item["media_id"] for item in plan["imports"]], [24])
+        self.assertEqual(len(plan["conflicts"]), 1)
+        self.assertEqual(plan["conflicts"][0]["local"].provider_id, "22")
+        self.assertEqual(plan["conflicts"][0]["remote"]["progress"], 5)
+        self.assertEqual([item.provider_id for item in plan["local_only"]], ["23"])
+
+    def test_sync_plan_treats_repeating_as_watching_for_local_comparison(self):
+        from aniyori.models import AnimeEntry, WatchStatus
+        from aniyori.services.anilist_account import build_sync_plan
+
+        local = [AnimeEntry(
+            title="Repeat", episodes_watched=2, status=WatchStatus.WATCHING,
+            provider="anilist", provider_id="21",
+        )]
+        plan = build_sync_plan(local, [
+            {"media_id": 21, "status": "REPEATING", "progress": 2, "media": {"id": 21}},
+        ])
+        self.assertEqual(plan["unchanged"], 1)
+        self.assertEqual(plan["conflicts"], ())
+
+    def test_sync_plan_rejects_duplicate_or_malformed_remote_ids(self):
+        from aniyori.services.anilist_account import build_sync_plan
+
+        duplicate = [
+            {"media_id": 21, "status": "CURRENT", "progress": 0},
+            {"media_id": 21, "status": "CURRENT", "progress": 0},
+        ]
+        with self.assertRaises(AniListAccountError):
+            build_sync_plan([], duplicate)
+        for remote in (
+            [{"media_id": True, "status": "CURRENT", "progress": 0}],
+            [{"media_id": 21, "status": [], "progress": 0}],
+            [{"media_id": 21, "status": "CURRENT", "progress": True}],
+        ):
+            with self.subTest(remote=remote), self.assertRaises(AniListAccountError):
+                build_sync_plan([], remote)
+
+    def test_local_status_maps_to_supported_anilist_statuses(self):
+        from aniyori.models import AnimeEntry, WatchStatus
+        from aniyori.services.anilist_account import anilist_status_for_local
+
+        expected = {
+            WatchStatus.PLANNING: "PLANNING",
+            WatchStatus.WATCHING: "CURRENT",
+            WatchStatus.COMPLETED: "COMPLETED",
+            WatchStatus.PAUSED: "PAUSED",
+            WatchStatus.DROPPED: "DROPPED",
+        }
+        for local_status, remote_status in expected.items():
+            with self.subTest(status=local_status):
+                self.assertEqual(
+                    anilist_status_for_local(AnimeEntry(title="Example", status=local_status)),
+                    remote_status,
+                )
+
+
 if __name__ == "__main__":
     unittest.main()
