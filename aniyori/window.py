@@ -546,6 +546,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
         sidebar.append(Gtk.Box(vexpand=True))
 
         self.navigation_split_view = Adw.NavigationSplitView()
+        self.navigation_split_view.set_show_content(True)
         self.navigation_split_view.set_min_sidebar_width(156)
         self.navigation_split_view.set_max_sidebar_width(224)
         self.navigation_split_view.set_sidebar_width_fraction(0.21)
