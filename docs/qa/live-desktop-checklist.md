@@ -48,6 +48,8 @@ Use a disposable test profile or a backup of any library data you care about. Do
 
 - [ ] Confirm Home is the initial destination and Home / My List navigation remains reachable by keyboard.
 - [ ] On a wide window, confirm the welcome panel, status tiles, Continue Watching, and Recently Updated sections have consistent spacing and alignment.
+- [ ] On wide windows, confirm the `Adw.NavigationSplitView` sidebar remains visible at a stable width and Home / My List / Browse / Statistics actions are reachable.
+- [ ] Below the 720sp breakpoint, confirm navigation collapses, selecting Home or My List opens the content page, and the header back control returns to the sidebar.
 - [ ] Confirm cover art loads from the existing cache without blocking the GTK main thread; missing/invalid covers retain the native placeholder.
 - [ ] Confirm horizontal poster strips can be scrolled with pointer, touchpad, and keyboard where supported; cards do not clip at the minimum window width.
 - [ ] Confirm title, watched/total progress, status, Details, and +1 actions are correct for each card.
