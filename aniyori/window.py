@@ -5307,6 +5307,9 @@ class AniyoriWindow(Adw.ApplicationWindow):
             after = self.storage.capture_undo_state(before["ids"])
         except (ValueError, sqlite3.Error, OSError):
             LOGGER.exception("Could not capture the post-change state for undo")
+            self.toast_overlay.add_toast(
+                Adw.Toast.new(f"{description} — undo is unavailable.")
+            )
             return
         if before == after:
             return
