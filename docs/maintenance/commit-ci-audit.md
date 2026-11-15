@@ -1228,3 +1228,18 @@ These commits were checked individually through the combined-status endpoint. Ea
 - Reviewed through: `a4436f449f240cadcb440f3346f4945d8efbfd5e`
 - New checkpoint: `a4436f449f240cadcb440f3346f4945d8efbfd5e`
 - Outstanding: obtain push-triggered Actions results and run the complete unittest suite; the three helper-cleanup commits and prior 18-commit range remain CI-unverified.
+
+
+### Post-audit ledger and render-path optimization
+
+The commits below were checked individually. Combined-status queries returned empty lists; the available workflow-run lookup returned no run for the render optimization and is PR-triggered-only. Results are **unavailable**, not green.
+
+| Commit SHA | Subject | CI result | Run / evidence |
+|---|---|---|---|
+| `2e055dfca5259728b5db30f5c24296ec17661543` | docs(maintenance): record preset helper CI evidence (#89) | unavailable | Combined status empty; workflow-run lookup empty |
+| `f889e2fe5493c1bf2f3613e574180999a9285327` | perf(library): load edit timestamps only when sorting by recency (#15) | unavailable | Combined status empty; workflow-run lookup empty |
+
+- Previous checkpoint: `a4436f449f240cadcb440f3346f4945d8efbfd5e`
+- Reviewed through: `f889e2fe5493c1bf2f3613e574180999a9285327`
+- New checkpoint: `f889e2fe5493c1bf2f3613e574180999a9285327`
+- Outstanding: obtain push-triggered Actions results and run the complete test suite. Benchmark the library render path with a large library before estimating latency improvement.
