@@ -812,23 +812,32 @@ class AniyoriWindow(Adw.ApplicationWindow):
             self.home_page.remove(child)
             child = following
 
-        heading = Gtk.Label(label="Welcome to Aniyori", xalign=0)
+        hero = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
+        hero.add_css_class("card")
+        hero.set_margin_top(4)
+        hero.set_margin_bottom(4)
+        hero.set_margin_start(2)
+        hero.set_margin_end(2)
+        hero.set_margin_top(8)
+        hero.set_margin_bottom(8)
+        heading = Gtk.Label(label="Track. Discover. Enjoy.", xalign=0)
         heading.add_css_class("title-1")
-        self.home_page.append(heading)
+        hero.append(heading)
 
         intro = Gtk.Label(
             label="Your anime, your progress, all in one place.",
             xalign=0,
+            wrap=True,
         )
         intro.add_css_class("dim-label")
-        self.home_page.append(intro)
+        hero.append(intro)
 
         actions = Gtk.FlowBox()
         actions.set_selection_mode(Gtk.SelectionMode.NONE)
         actions.set_row_spacing(8)
         actions.set_column_spacing(8)
         actions.set_min_children_per_line(1)
-        actions.set_max_children_per_line(3)
+        actions.set_max_children_per_line(4)
         add = Gtk.Button(label="Add Anime")
         add.add_css_class("suggested-action")
         add.connect("clicked", self._show_add_dialog)
@@ -839,7 +848,20 @@ class AniyoriWindow(Adw.ApplicationWindow):
         sync = Gtk.Button(label="AniList Account")
         sync.connect("clicked", lambda _button: show_anilist_account_dialog(self))
         actions.append(sync)
-        self.home_page.append(actions)
+        scan = Gtk.Button(label="Scan Library")
+        scan.connect(
+            "clicked",
+            lambda _button: self._show_scan_folders_dialog(),
+        )
+        actions.append(scan)
+        statistics = Gtk.Button(label="Statistics")
+        statistics.connect(
+            "clicked",
+            lambda _button: self._show_statistics_dialog(),
+        )
+        actions.append(statistics)
+        hero.append(actions)
+        self.home_page.append(hero)
 
         stats = Gtk.FlowBox()
         stats.set_selection_mode(Gtk.SelectionMode.NONE)
@@ -858,6 +880,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
             tile = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
             tile.add_css_class("card")
             tile.set_hexpand(True)
+            tile.set_size_request(112, -1)
             value = Gtk.Label(label=str(counts[status]))
             value.add_css_class("title-2")
             value.set_xalign(0)
@@ -933,6 +956,10 @@ class AniyoriWindow(Adw.ApplicationWindow):
                 poster.set_can_shrink(True)
                 poster.set_content_fit(Gtk.ContentFit.COVER)
                 poster.set_paintable(poster_placeholder.get_paintable())
+                poster.update_property(
+                    [Gtk.AccessibleProperty.LABEL],
+                    [f"Cover art for {entry.title}"],
+                )
                 poster.set_halign(Gtk.Align.CENTER)
                 poster.set_margin_top(10)
                 card.append(poster)
