@@ -122,6 +122,23 @@ class WatchHistoryTests(unittest.TestCase):
         )
         self.assertEqual(self.storage.list_entries()[0].episodes_watched, 3)
 
+    def test_bulk_entry_edit_syncs_explicit_episode_state(self):
+        self.storage.set_episode_watched(self.entry.storage_id, 1)
+        self.storage.set_episode_watched(self.entry.storage_id, 3)
+        edited = AnimeEntry(
+            title=self.entry.title,
+            episodes_total=self.entry.episodes_total,
+            episodes_watched=3,
+            status=WatchStatus.WATCHING,
+            storage_id=self.entry.storage_id,
+        )
+
+        self.assertEqual(self.storage.update_entries([edited]), 1)
+        self.assertEqual(
+            self.storage.list_episode_progress(self.entry.storage_id),
+            {1: True, 2: True, 3: True},
+        )
+
     def test_episode_tracking_rejects_invalid_or_out_of_range_values(self):
         for episode in (0, -1, 13, True):
             with self.subTest(episode=episode), self.assertRaises(ValueError):
