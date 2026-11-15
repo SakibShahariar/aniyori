@@ -228,7 +228,7 @@ class AniListClient:
             raise ValueError("Timeout must be greater than zero")
         if access_token is not None and (
             not isinstance(access_token, str) or not access_token.strip()
-            or any(character in access_token for character in ("\\x00", "\\r", "\\n"))
+            or any(character in access_token for character in ("\x00", "\r", "\n"))
         ):
             raise ValueError("Access token must be non-empty text without line breaks.")
         self.timeout = timeout
