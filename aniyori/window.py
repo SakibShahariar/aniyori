@@ -892,7 +892,6 @@ class AniyoriWindow(Adw.ApplicationWindow):
                 row.set_margin_bottom(8)
                 title_label = Gtk.Label(label=entry.title, xalign=0)
                 title_label.set_hexpand(True)
-                title_label.set_ellipsize(3)
                 row.append(title_label)
                 progress = Gtk.Label(label=entry.progress_label)
                 progress.add_css_class("dim-label")
