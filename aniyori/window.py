@@ -57,6 +57,7 @@ from .services.share_templates import (
 from .services.covers import get_cached_cover
 from .storage import LibraryStorage
 from .statistics import calculate_history_insights, calculate_library_statistics
+from .timezones import get_local_timezone
 from .services.library_sort import SORT_MODES, sort_library_entries
 from .services.external_links import ExternalLinkError, ExternalLinkStore, links_for_entry
 from .services.webhooks import WebhookError, WebhookStore, deliver_webhooks
@@ -3374,7 +3375,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
             label.set_selectable(True)
             panel.append(label)
 
-        local_timezone = datetime.now().astimezone().tzinfo
+        local_timezone = get_local_timezone()
         history_request = {"generation": 0}
 
         def apply_history_year(generation, year, insights, error):
