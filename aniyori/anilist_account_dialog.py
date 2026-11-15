@@ -82,7 +82,9 @@ def show_anilist_account_dialog(parent) -> None:
         label=(
             "In AniList Developer Settings, set this application's Redirect URL to "
             "https://anilist.co/api/v2/oauth/pin. The app uses the implicit flow; "
-            "no client secret is needed."
+            "no client secret is needed. AniList has no granular OAuth scopes, so "
+            "authorization grants broad account access. Aniyori uses it only to read "
+            "your anime list and update anime status and episode progress."
         ),
         xalign=0,
         wrap=True,
