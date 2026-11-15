@@ -938,6 +938,20 @@ class AniyoriWindow(Adw.ApplicationWindow):
         stats.set_min_children_per_line(1)
         stats.set_max_children_per_line(4)
         counts = count_library_statuses(self.entries)
+        total_tile = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
+        total_tile.add_css_class("card")
+        total_tile.set_hexpand(True)
+        total_tile.set_size_request(112, -1)
+        total_value = Gtk.Label(label=str(len(self.entries)))
+        total_value.add_css_class("title-2")
+        total_value.set_xalign(0)
+        total_tile.append(total_value)
+        total_caption = Gtk.Label(label="Total")
+        total_caption.add_css_class("dim-label")
+        total_caption.set_xalign(0)
+        total_tile.append(total_caption)
+        stats.append(total_tile)
+
         for status, label in (
             (WatchStatus.WATCHING, "Watching"),
             (WatchStatus.COMPLETED, "Completed"),
