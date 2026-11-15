@@ -4941,6 +4941,11 @@ class AniyoriWindow(Adw.ApplicationWindow):
         GLib.idle_add(
             self._restore_scroll_positions, list_scroll_value, grid_scroll_value
         )
+        if (
+            hasattr(self, "page_stack")
+            and self.page_stack.get_visible_child_name() == "home"
+        ):
+            self._refresh_home()
 
     def _restore_scroll_positions(self, list_value: float, grid_value: float):
         self.list_scroll.get_vadjustment().set_value(list_value)
@@ -4962,8 +4967,6 @@ class AniyoriWindow(Adw.ApplicationWindow):
         if updated:
             self.entries = self.storage.list_entries()
             self._render_library()
-            if self.page_stack.get_visible_child_name() == "home":
-                self._refresh_home()
             updated_entry = next((item for item in self.entries if item.storage_id == entry.storage_id), entry)
             self._dispatch_webhook_event(updated_entry, "progress")
             self.toast_overlay.add_toast(Adw.Toast.new(f"Progress updated: {entry.title}"))
