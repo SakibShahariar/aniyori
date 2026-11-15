@@ -1112,3 +1112,15 @@ The following commits were checked individually. The combined commit-status endp
 - Reviewed through: `ecc5da1c982315a51ded070f052a0f0d4d738370`
 - New checkpoint: `ecc5da1c982315a51ded070f052a0f0d4d738370`
 - Outstanding: retrieve actual push-triggered Actions results for the unavailable commits and rerun any failures before marking CI green.
+
+
+### Startup behavior follow-up
+
+| Commit SHA | Subject | CI result | Run / evidence |
+|---|---|---|---|
+| `5207c9e3fd558665c1e2cbc7deb1a7b246d420d4` | fix(ui): open home content in collapsed navigation (#91) | unavailable | Combined status lookup returned no entries |
+
+- Previous checkpoint: `ecc5da1c982315a51ded070f052a0f0d4d738370`
+- Reviewed through: `5207c9e3fd558665c1e2cbc7deb1a7b246d420d4`
+- New checkpoint: `5207c9e3fd558665c1e2cbc7deb1a7b246d420d4`
+- The missing push-run result remains unresolved; do not interpret unavailable as a pass.
