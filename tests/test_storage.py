@@ -34,6 +34,15 @@ class LibraryStorageTests(unittest.TestCase):
                     Path("/home/test/.local/share/aniyori/library.sqlite3"),
                 )
 
+    def test_created_at_map_returns_timestamps_for_saved_entries(self):
+        self.storage.add(AnimeEntry(title="Recently Added"))
+        entry = self.storage.list_entries()[0]
+
+        created_at = self.storage.get_created_at_map()
+
+        self.assertIn(entry.storage_id, created_at)
+        self.assertTrue(created_at[entry.storage_id])
+
     def test_add_and_reload_entry(self):
         entry = AnimeEntry(
             title="Example Anime",
