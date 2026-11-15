@@ -1180,3 +1180,34 @@ Each commit was checked individually. The combined status endpoint returned no s
 - Reviewed through: `c370ff2ebb045839c0a073f8f79613e16c95fb33`
 - New checkpoint: `c370ff2ebb045839c0a073f8f79613e16c95fb33`
 - Outstanding: retrieve push-triggered Actions runs and execute the Home/Details live-desktop checklist before marking the redesign validated.
+
+
+## Reviewed range: 2026-11-15 — library and preset follow-ups
+
+Reviewed every commit after the prior ledger checkpoint `c370ff2ebb045839c0a073f8f79613e16c95fb33` through the current `main` tip. Combined-status queries were run individually for all 18 commits below; every query returned an empty status list. No run result is inferred from that absence. The repository's push workflow is configured to run compileall and the full unittest suite, but this audit did not expose the push-run IDs/results. All entries are **unavailable**, not green.
+
+| Commit SHA | Subject | CI result | Run / evidence |
+|---|---|---|---|
+| `2a903a2fbd346c7122ae041fa55d0f7c68b6b67e` | fix(ui): align My List grid cards with Home (#91) | unavailable | Combined status lookup empty |
+| `95894cd127c259eb780286082847359147f88f3d` | docs(qa): cover My List grid card consistency (#91) | unavailable | Combined status lookup empty |
+| `3a70cbfba268869d2f654a0141f4fe4f021594cf` | fix(a11y): label library artwork and progress (#84) | unavailable | Combined status lookup empty |
+| `c98c85451ef500014e1e5b9d7dc9ef960c52a98f` | docs(qa): cover library artwork and progress labels (#84) | unavailable | Combined status lookup empty |
+| `ef915fa9ee5bb9efeb2601c7aa4dd0ea6ae7f345` | fix(ui): wrap grid card actions for narrow widths (#91) | unavailable | Combined status lookup empty |
+| `f3ceabfb2223c1b845c2bdc5701c3dc7a2ea2d16` | docs(qa): verify narrow grid card actions (#91) | unavailable | Combined status lookup empty |
+| `d1b383dde02cdeee9f149e0e2d102514557ba271` | refactor(library): centralize widget cache signature (#15) | unavailable | Combined status lookup empty |
+| `146588330ec330b6cf6930b1722a3f03f2930e66` | fix(library): preserve widget cache on selection (#15) | unavailable | Combined status lookup empty |
+| `dcb987c0d62e82b93a42d6bffd2ea787d33f00a0` | test(library): cover widget cache signatures (#15) | unavailable | Combined status lookup empty |
+| `62de6747866a7b69cee0c4cc1bd0543414b69e79` | docs(qa): cover library selection cache behavior (#15) | unavailable | Combined status lookup empty |
+| `46b639c0c168f3230e4f14f20ebc4696cafd587c` | fix(library): preserve empty state across views (#90) | unavailable | Combined status lookup empty |
+| `4ce9bb5157dd2e0d78e68473eeb00b08b6c0144e` | fix(ui): keep library empty state when switching views (#90) | unavailable | Combined status lookup empty |
+| `4e9969f38a322f77427af58ffae1f569a74c6159` | test(ui): cover empty state across library views (#90) | unavailable | Combined status lookup empty |
+| `7dee0157ff781f42f50e103eeb0a6ebc29bb90bd` | docs(qa): cover filtered empty state across views (#90) | unavailable | Combined status lookup empty |
+| `e8eba78de6e8edee0f93c2141a1ca9576ba4fd75` | fix(library): retain selected view in saved presets (#89) | unavailable | Combined status lookup empty |
+| `91c46c75578556279cc718d5cf0372a8cb0c280f` | fix(library): retain selected view in saved presets (#89) | unavailable | Combined status lookup empty |
+| `74e535e15b93ad245e47ba8d09e948bd16350cc8` | test(library): cover preset view with empty results (#89) | unavailable | Combined status lookup empty |
+| `3efe5d884ccc72cf77b8ea0f2d681665a7746079` | docs(qa): cover presets with filtered empty results (#89) | unavailable | Combined status lookup empty |
+
+- Reviewed range: `c370ff2ebb045839c0a073f8f79613e16c95fb33` → `3efe5d884ccc72cf77b8ea0f2d681665a7746079`
+- Result: 18 commits reviewed; 18 unavailable; no red or green result was exposed by the queried endpoint.
+- New checkpoint: `3efe5d884ccc72cf77b8ea0f2d681665a7746079`
+- Outstanding: retrieve the actual push-triggered Actions results and run the test suite before treating these changes as CI-verified. The live GTK checks for card sizing, selection, empty states, and presets remain outstanding.
