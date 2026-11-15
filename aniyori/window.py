@@ -1325,30 +1325,28 @@ class AniyoriWindow(Adw.ApplicationWindow):
         help_label.add_css_class("dim-label")
         content.append(help_label)
 
-        grid = Gtk.Grid(column_spacing=8, row_spacing=8)
-        for column, heading in enumerate(("Attribute", "Preferred", "Rejected", "Priority")):
-            label = Gtk.Label(label=heading, xalign=0)
-            label.add_css_class("heading")
-            grid.attach(label, column, 0, 1, 1)
-
+        grid = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
         editors = {}
-        for row, attribute in enumerate(PREFERENCE_ATTRIBUTES, start=1):
+        for row, attribute in enumerate(PREFERENCE_ATTRIBUTES):
             preference = by_attribute.get(attribute)
             name = Gtk.Label(label=attribute.replace("_", " ").title(), xalign=0)
+            name.add_css_class("heading")
             preferred = Gtk.Entry()
-            preferred.set_placeholder_text("e.g. 1080p, 2160p")
+            preferred.set_placeholder_text("Preferred values, e.g. 1080p")
             preferred.set_hexpand(True)
             rejected = Gtk.Entry()
-            rejected.set_placeholder_text("e.g. 480p")
+            rejected.set_placeholder_text("Rejected values, e.g. 480p")
             rejected.set_hexpand(True)
             priority = Gtk.SpinButton.new_with_range(0, 100, 1)
-            priority.set_value(preference.priority if preference else row - 1)
+            priority.set_value(preference.priority if preference else row)
+            priority.set_tooltip_text("Lower priority numbers are evaluated first.")
             preferred.set_text(", ".join(preference.preferred) if preference else "")
             rejected.set_text(", ".join(preference.rejected) if preference else "")
-            grid.attach(name, 0, row, 1, 1)
-            grid.attach(preferred, 1, row, 1, 1)
-            grid.attach(rejected, 2, row, 1, 1)
-            grid.attach(priority, 3, row, 1, 1)
+            grid.append(name)
+            grid.append(_responsive_control_row(
+                preferred, rejected, Gtk.Label(label="Priority"), priority,
+                max_per_line=4,
+            ))
             editors[attribute] = (preferred, rejected, priority)
 
         grid_scroll = Gtk.ScrolledWindow()
@@ -2735,12 +2733,9 @@ class AniyoriWindow(Adw.ApplicationWindow):
         scroll.set_max_content_height(480)
         scroll.set_child(listing)
         content.append(scroll)
-        actions = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         dismiss = Gtk.Button(label="Dismiss Selected")
         clear = Gtk.Button(label="Clear Dismissed")
-        actions.append(dismiss)
-        actions.append(clear)
-        content.append(actions)
+        content.append(_responsive_control_row(dismiss, clear, max_per_line=2))
         dialog.set_child(toolbar_view)
         dialog.present(self)
         rows = {}
