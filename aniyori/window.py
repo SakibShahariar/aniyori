@@ -1078,15 +1078,15 @@ class AniyoriWindow(Adw.ApplicationWindow):
                 actions.set_margin_start(8)
                 actions.set_margin_end(8)
                 actions.set_margin_bottom(8)
-                edit_button = Gtk.Button(label="Edit")
+                edit_button = Gtk.Button(label="Details")
                 edit_button.set_hexpand(True)
-                edit_button.set_tooltip_text("Edit anime details")
+                edit_button.set_tooltip_text("View anime details and actions")
                 edit_button.update_property(
-                    [Gtk.AccessibleProperty.LABEL], ["Edit anime details"]
+                    [Gtk.AccessibleProperty.LABEL], ["View anime details and actions"]
                 )
                 edit_button.connect(
                     "clicked",
-                    lambda _button, item=entry: self._show_edit_dialog(item),
+                    lambda _button, item=entry: self._show_anime_details(item),
                 )
                 actions.append(edit_button)
                 if entry.status == WatchStatus.WATCHING and (
@@ -5343,6 +5343,123 @@ class AniyoriWindow(Adw.ApplicationWindow):
         episode_number.connect("value-changed", sync_selected_episode)
         update_summary()
         sync_selected_episode()
+        dialog.present(self)
+
+    def _show_anime_details(self, entry: AnimeEntry):
+        """Present a focused, native detail view for a saved anime."""
+        dialog = Adw.Dialog()
+        dialog.set_title(entry.title)
+        dialog.set_content_width(680)
+        toolbar_view = Adw.ToolbarView()
+        header = Adw.HeaderBar()
+        close_button = Gtk.Button.new_from_icon_name("window-close-symbolic")
+        close_button.set_tooltip_text("Close details")
+        close_button.connect("clicked", lambda _button: dialog.close())
+        header.pack_end(close_button)
+        toolbar_view.add_top_bar(header)
+
+        content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=18)
+        content.set_margin_top(18)
+        content.set_margin_bottom(18)
+        content.set_margin_start(20)
+        content.set_margin_end(20)
+
+        hero = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=18)
+        hero.add_css_class("card")
+        hero.set_margin_bottom(4)
+        poster = Gtk.Picture()
+        poster.set_size_request(132, 184)
+        poster.set_can_shrink(True)
+        poster.set_content_fit(Gtk.ContentFit.COVER)
+        placeholder = Gtk.Image.new_from_icon_name("video-x-generic-symbolic")
+        placeholder.set_pixel_size(42)
+        poster.set_paintable(placeholder.get_paintable())
+        poster.update_property(
+            [Gtk.AccessibleProperty.LABEL], [f"Cover art for {entry.title}"]
+        )
+        hero.append(poster)
+        _load_cover_async(poster, entry.cover_image)
+
+        summary = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+        summary.set_valign(Gtk.Align.CENTER)
+        summary.set_hexpand(True)
+        title = Gtk.Label(label=entry.title, xalign=0, wrap=True)
+        title.add_css_class("title-1")
+        summary.append(title)
+        status = Gtk.Label(
+            label=entry.status.value.replace("_", " ").title(), xalign=0
+        )
+        status.add_css_class("dim-label")
+        summary.append(status)
+        progress = Gtk.Label(label=entry.progress_label, xalign=0)
+        progress.add_css_class("heading")
+        summary.append(progress)
+        if entry.progress_fraction is not None:
+            progress_bar = Gtk.ProgressBar()
+            progress_bar.set_fraction(entry.progress_fraction)
+            summary.append(progress_bar)
+        provider_text = (
+            f"{entry.provider.title()} · ID {entry.provider_id}"
+            if entry.provider and entry.provider_id else "Local library entry"
+        )
+        provider = Gtk.Label(label=provider_text, xalign=0, wrap=True)
+        provider.add_css_class("dim-label")
+        provider.add_css_class("caption")
+        summary.append(provider)
+        hero.append(summary)
+        content.append(hero)
+
+        actions = Gtk.FlowBox()
+        actions.set_selection_mode(Gtk.SelectionMode.NONE)
+        actions.set_min_children_per_line(1)
+        actions.set_max_children_per_line(3)
+        actions.set_row_spacing(8)
+        actions.set_column_spacing(8)
+
+        edit = Gtk.Button(label="Edit details")
+        edit.add_css_class("suggested-action")
+        edit.connect(
+            "clicked",
+            lambda _button: (dialog.close(), self._show_edit_dialog(entry)),
+        )
+        actions.append(edit)
+
+        episodes = Gtk.Button(label="Episode history")
+        episodes.connect(
+            "clicked",
+            lambda _button: (dialog.close(), self._show_episode_editor(entry)),
+        )
+        actions.append(episodes)
+
+        links = Gtk.Button(label="External links")
+        links.connect(
+            "clicked",
+            lambda button: self._show_external_links(entry, button),
+        )
+        actions.append(links)
+
+        downloads = Gtk.Button(label="Download preferences")
+        downloads.connect(
+            "clicked",
+            lambda _button: self._show_anime_download_preferences_dialog(entry),
+        )
+        actions.append(downloads)
+        content.append(actions)
+
+        if entry.status == WatchStatus.WATCHING and (
+            entry.episodes_total is None
+            or entry.episodes_watched < entry.episodes_total
+        ):
+            advance = Gtk.Button(label="Mark next episode watched")
+            advance.add_css_class("suggested-action")
+            advance.connect(
+                "clicked",
+                lambda _button: (dialog.close(), self._increment_progress(entry)),
+            )
+            content.append(advance)
+
+        toolbar_view.set_content(content)
+        dialog.set_child(toolbar_view)
         dialog.present(self)
 
     def _show_edit_dialog(self, entry: AnimeEntry):
