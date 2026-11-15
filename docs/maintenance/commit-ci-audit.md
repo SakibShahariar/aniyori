@@ -1061,3 +1061,37 @@ Four commits failed because `tests/test_library_layout.py::test_reset_restores_v
 - Reviewed range: `13a833c803d560f37db7b1808f1667307b34b77c` → `fc229cb597838645b567eb072023b7b956395029`
 - Result: 69 commits reviewed; 64 green, 5 red with green follow-up corrections.
 - New checkpoint: `fc229cb597838645b567eb072023b7b956395029`
+
+
+## Reviewed range: 2026-11-15 — Home dashboard (#91)
+
+The range after the previous checkpoint `fc229cb597838645b567eb072023b7b956395029` was reviewed commit by commit. The earlier accessibility commit `ea1681a` has a directly verified green Actions run. For the dashboard commits below, the combined commit-status endpoint returned an empty status list; this is recorded as **unavailable**, not green. The available workflow-run lookup only exposes pull-request-triggered runs, so it did not provide push-run evidence. The repository's `.github/workflows/tests.yml` confirms that pushes to `main` trigger compileall and the full unittest suite, but no run IDs/results could be retrieved in this audit.
+
+| Commit SHA | Subject | CI result | Run / evidence |
+|---|---|---|---|
+| `ea1681a1e10c633d7d92bd46ff251b7ecef0147b` | fix(a11y): label library actions for assistive tech (#90) | green | [43705434990](https://github.com/SakibShahariar/aniyori/actions/runs/43705434990) |
+| `f0547dfdbcded0096740ff7db91bda8586202599` | feat(ui): add a data-backed home dashboard (#91) | unavailable | Combined status lookup returned no entries |
+| `257ee120ff7bba23beae119548fa62ad401a51bf` | fix(ui): keep dashboard labels GTK-compatible (#91) | unavailable | Combined status lookup returned no entries |
+| `602af12ca386856b62fa71297f35d4ef2e796d21` | fix(ui): keep home dashboard scrollable and current (#91) | unavailable | Combined status lookup returned no entries |
+| `7ff3d15846295f753ee61b1ca6ba1a352826702a` | fix(ui): wrap dashboard actions and status tiles (#91) | unavailable | Combined status lookup returned no entries |
+| `abcaffc2916d3abf0726ac763e349deb6148db32` | fix(ui): refresh dashboard after library changes (#91) | unavailable | Combined status lookup returned no entries |
+| `66936eddb8abf27e6b8dc07c52648c3e3b52a099` | feat(ui): add tested dashboard data selectors (#91) | unavailable | Combined status lookup returned no entries |
+| `5aedea761e80c8e125e3ca7fadaf3eadd51f464e` | test(ui): cover dashboard data selection (#91) | unavailable | Combined status lookup returned no entries |
+| `1ffd8ee05f6778668e6c14df3b0365098b023709` | refactor(ui): use tested dashboard data selectors (#91) | unavailable | Combined status lookup returned no entries |
+| `9034867ddc70c8fcdb1ef75476b9d3d56f78f609` | feat(ui): add poster-led dashboard cards (#91) | unavailable | Combined status lookup returned no entries |
+| `e676b23fa39a808c5da9b9c2c40720a3238a2898` | fix(ui): keep dashboard cards GTK 4.8 compatible (#91) | unavailable | Combined status lookup returned no entries |
+| `123324c47f08e94567d5db0fcfbb0f8113c3d8de` | feat(ui): complete dashboard hero and quick actions (#91) | unavailable | Combined status lookup returned no entries |
+| `f01963f69e643cd23d940af975c49fb236ec1837` | docs(qa): add home dashboard verification checklist (#91) | unavailable | Combined status lookup returned no entries |
+| `3493737a81616e90a7969c8597d5a4d8d45a4589` | style(ui): simplify dashboard hero spacing (#91) | unavailable | Combined status lookup returned no entries |
+| `f6735e12e9e2d94d6ea116d80be64a80c35b452f` | feat(ui): add adaptive libadwaita navigation sidebar (#91) | unavailable | Combined status lookup returned no entries |
+| `5064a840266b76508694c4170d1e5b2437cc52f0` | refactor(ui): share adaptive navigation breakpoint (#91) | unavailable | Combined status lookup returned no entries |
+
+- Workflow definition inspected: `.github/workflows/tests.yml`; push to `main` runs Python 3.12 compileall and `python -m unittest discover -s tests -v`.
+- No result is inferred from an empty status response. The dashboard range remains CI-unverified and must be revisited when push-run evidence is accessible.
+- Live GTK desktop validation remains outstanding; the QA checklist now includes Home dashboard and navigation checks.
+
+### Updated checkpoint
+
+- Previous checkpoint: `fc229cb597838645b567eb072023b7b956395029`
+- Reviewed through: `5064a840266b76508694c4170d1e5b2437cc52f0`
+- New checkpoint: `5064a840266b76508694c4170d1e5b2437cc52f0`
