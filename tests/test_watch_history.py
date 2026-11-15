@@ -74,6 +74,54 @@ class WatchHistoryTests(unittest.TestCase):
         self.assertEqual(len(events), 2)
         self.assertEqual(events[0]["details"], "Rewatched episode")
 
+    def test_aggregate_progress_increase_and_decrease_syncs_episode_state(self):
+        self.storage.set_episode_watched(self.entry.storage_id, 1)
+        self.storage.set_episode_watched(self.entry.storage_id, 3)
+
+        self.storage.update_progress(self.entry.storage_id, 3)
+        self.assertEqual(
+            self.storage.list_episode_progress(self.entry.storage_id),
+            {1: True, 2: True, 3: True},
+        )
+
+        self.storage.update_progress(self.entry.storage_id, 1)
+        self.assertEqual(
+            self.storage.list_episode_progress(self.entry.storage_id),
+            {1: True, 2: False, 3: False},
+        )
+        self.assertEqual(self.storage.list_entries()[0].episodes_watched, 1)
+
+    def test_direct_entry_edit_syncs_explicit_episode_state(self):
+        self.storage.set_episode_watched(self.entry.storage_id, 1)
+        self.storage.set_episode_watched(self.entry.storage_id, 3)
+        edited = AnimeEntry(
+            title=self.entry.title,
+            episodes_total=self.entry.episodes_total,
+            episodes_watched=1,
+            status=WatchStatus.WATCHING,
+            storage_id=self.entry.storage_id,
+        )
+
+        self.assertTrue(self.storage.update_entry(edited))
+        self.assertEqual(
+            self.storage.list_episode_progress(self.entry.storage_id),
+            {1: True, 3: False},
+        )
+
+    def test_bulk_progress_edit_syncs_explicit_episode_state(self):
+        self.storage.set_episode_watched(self.entry.storage_id, 1)
+        self.storage.set_episode_watched(self.entry.storage_id, 3)
+
+        self.assertEqual(
+            self.storage.update_progress_many({self.entry.storage_id: 3}),
+            1,
+        )
+        self.assertEqual(
+            self.storage.list_episode_progress(self.entry.storage_id),
+            {1: True, 2: True, 3: True},
+        )
+        self.assertEqual(self.storage.list_entries()[0].episodes_watched, 3)
+
     def test_episode_tracking_rejects_invalid_or_out_of_range_values(self):
         for episode in (0, -1, 13, True):
             with self.subTest(episode=episode), self.assertRaises(ValueError):
