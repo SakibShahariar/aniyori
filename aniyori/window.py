@@ -3464,8 +3464,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
 
     def _capture_library_view_settings(self):
         view = library_view_for_preset(
-            self.view_switches["list"].get_active(),
-            self.view_switches["grid"].get_active(),
+            self.view_switches["grid"].get_active()
         )
         return {
             "filter": self.current_filter,
