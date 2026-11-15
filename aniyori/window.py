@@ -434,6 +434,13 @@ class AniyoriWindow(Adw.ApplicationWindow):
         self._compact_layout = False
         self._undo_entry: AnimeEntry | None = None
         self._undo_toast = None
+        self._pending_library_undos = {}
+        self._undo_sequence = 0
+        undo_change_action = Gio.SimpleAction.new(
+            "undo-library-change", GLib.VariantType.new("s")
+        )
+        undo_change_action.connect("activate", self._undo_library_change)
+        self.add_action(undo_change_action)
         undo_action = Gio.SimpleAction.new("undo-delete", None)
         undo_action.connect("activate", self._undo_last_removal)
         self.add_action(undo_action)
@@ -5006,10 +5013,14 @@ class AniyoriWindow(Adw.ApplicationWindow):
             for entry in entries
         ]
         try:
+            undo_before = self.storage.capture_undo_state(
+                entry.storage_id for entry in entries if entry.storage_id is not None
+            )
             changed = self.storage.update_entries(updates)
         except (ValueError, sqlite3.Error, OSError) as error:
             self.toast_overlay.add_toast(Adw.Toast.new(f"Bulk status update failed: {error}"))
             return
+        self._offer_library_undo(undo_before, f"Updated status for {changed} anime.")
         self.entries = self.storage.list_entries()
         for original, updated in zip(entries, updates):
             if original.status != updated.status or original.episodes_watched != updated.episodes_watched:
@@ -5032,12 +5043,16 @@ class AniyoriWindow(Adw.ApplicationWindow):
                     raise ValueError(
                         f"{entry.title}: watched episodes cannot exceed its total ({entry.episodes_total})."
                     )
+            undo_before = self.storage.capture_undo_state(
+                entry.storage_id for entry in entries if entry.storage_id is not None
+            )
             changed = self.storage.update_progress_many(
                 {entry.storage_id: progress for entry in entries}
             )
         except (ValueError, sqlite3.Error, OSError) as error:
             self.toast_overlay.add_toast(Adw.Toast.new(f"Bulk progress update failed: {error}"))
             return
+        self._offer_library_undo(undo_before, f"Updated progress for {changed} anime.")
         self.entries = self.storage.list_entries()
         for entry in entries:
             updated_entry = next((item for item in self.entries if item.storage_id == entry.storage_id), None)
@@ -5245,6 +5260,54 @@ class AniyoriWindow(Adw.ApplicationWindow):
         self.grid_scroll.get_vadjustment().set_value(grid_value)
         return GLib.SOURCE_REMOVE
 
+    def _offer_library_undo(self, before: dict[str, object], description: str):
+        """Expose a guarded, ten-second undo for one successful local mutation."""
+        try:
+            after = self.storage.capture_undo_state(before["ids"])
+        except (ValueError, sqlite3.Error, OSError):
+            LOGGER.exception("Could not capture the post-change state for undo")
+            return
+        if before == after:
+            return
+        self._undo_sequence += 1
+        token = str(self._undo_sequence)
+        toast = Adw.Toast.new(description)
+        toast.set_button_label("Undo")
+        toast.set_action_name("win.undo-library-change")
+        toast.set_action_target_value(GLib.Variant.new_string(token))
+        toast.set_timeout(10)
+        toast.connect("dismissed", self._on_library_undo_dismissed, token)
+        self._pending_library_undos[token] = {
+            "before": before, "after": after, "toast": toast,
+        }
+        self.toast_overlay.add_toast(toast)
+
+    def _on_library_undo_dismissed(self, toast, token: str):
+        pending = self._pending_library_undos.get(token)
+        if pending is not None and pending["toast"] is toast:
+            self._pending_library_undos.pop(token, None)
+
+    def _undo_library_change(self, _action, parameter):
+        token = parameter.get_string() if parameter is not None else None
+        pending = self._pending_library_undos.pop(token, None)
+        if pending is None:
+            self.toast_overlay.add_toast(
+                Adw.Toast.new("This undo action has expired or was already used.")
+            )
+            return
+        pending["toast"].dismiss()
+        try:
+            self.storage.restore_undo_state(pending["before"], pending["after"])
+        except (ValueError, sqlite3.Error, OSError) as error:
+            self.toast_overlay.add_toast(
+                Adw.Toast.new(f"Could not undo this change: {error}")
+            )
+            return
+        self.entries = self.storage.list_entries()
+        self._render_library()
+        self._update_bulk_bar()
+        self.toast_overlay.add_toast(Adw.Toast.new("Change undone."))
+
     def _increment_progress(self, entry: AnimeEntry):
         if entry.episodes_total is not None and entry.episodes_watched >= entry.episodes_total:
             self.toast_overlay.add_toast(Adw.Toast.new("All known episodes are already marked watched."))
@@ -5253,11 +5316,13 @@ class AniyoriWindow(Adw.ApplicationWindow):
             if entry.storage_id is None:
                 self.toast_overlay.add_toast(Adw.Toast.new("This library entry has no storage ID."))
                 return
+            undo_before = self.storage.capture_undo_state((entry.storage_id,))
             updated = self.storage.update_progress(entry.storage_id, entry.episodes_watched + 1)
-        except ValueError as error:
+        except (ValueError, sqlite3.Error, OSError) as error:
             self.toast_overlay.add_toast(Adw.Toast.new(str(error)))
             return
         if updated:
+            self._offer_library_undo(undo_before, f"Progress updated: {entry.title}")
             self.entries = self.storage.list_entries()
             self._render_library()
             updated_entry = next((item for item in self.entries if item.storage_id == entry.storage_id), entry)
@@ -5425,6 +5490,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
             nonlocal legacy_progress, episode_states
             number = episode_number.get_value_as_int()
             try:
+                undo_before = self.storage.capture_undo_state((entry.storage_id,))
                 self.storage.set_episode_watched(entry.storage_id, number, check.get_active())
                 episode_states = self.storage.list_episode_progress(entry.storage_id)
                 legacy_progress = 0
@@ -5432,6 +5498,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
                 self.toast_overlay.add_toast(Adw.Toast.new(f"Could not update episode: {error}"))
                 sync_selected_episode()
                 return
+            self._offer_library_undo(undo_before, f"Updated episode {number}: {entry.title}")
             self.entries = self.storage.list_entries()
             self._render_library()
             update_summary()
@@ -5651,12 +5718,14 @@ class AniyoriWindow(Adw.ApplicationWindow):
                                 status=status, provider=original.provider,
                                 provider_id=original.provider_id, cover_image=original.cover_image,
                                 storage_id=original.storage_id)
+            undo_before = self.storage.capture_undo_state((original.storage_id,))
             if not self.storage.update_entry(edited):
                 self.toast_overlay.add_toast(Adw.Toast.new("That anime no longer exists."))
                 return
         except (ValueError, IndexError) as error:
             self.toast_overlay.add_toast(Adw.Toast.new(str(error) or "Check the entered values."))
             return
+        self._offer_library_undo(undo_before, f"Updated {edited.title}.")
         self.entries = self.storage.list_entries()
         if edited.episodes_watched != original.episodes_watched or edited.status != original.status:
             self._dispatch_webhook_event(edited, "status" if edited.status != original.status else "progress")
