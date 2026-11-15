@@ -184,7 +184,7 @@ def build_sync_plan(local_entries, remote_entries: list[dict]) -> dict:
         if not isinstance(remote.get("status"), str) or remote["status"] not in _STATUS_MAP:
             raise AniListAccountError("AniList library contains an unsupported status.")
         progress = remote.get("progress")
-        if isinstance(progress, bool) or not isinstance(progress, int) or progress < 0:
+        if isinstance(progress, bool) or not isinstance(progress, int) or not 0 <= progress <= MAX_EPISODE_COUNT:
             raise AniListAccountError("AniList library contains invalid progress.")
         remote_by_id[key] = remote
 
