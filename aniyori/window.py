@@ -423,12 +423,6 @@ class AniyoriWindow(Adw.ApplicationWindow):
         root.add_top_bar(header)
         header.set_title_widget(Adw.WindowTitle(title="Aniyori", subtitle="Your anime library"))
 
-        self.search = Gtk.SearchEntry()
-        self.search.set_placeholder_text("Search your library")
-        self.search.set_size_request(220, -1)
-        self.search.connect("search-changed", self._render_library)
-        header.pack_start(self.search)
-
         add_button = Gtk.Button.new_from_icon_name("list-add-symbolic")
         add_button.set_tooltip_text("Add anime")
         add_button.add_css_class("suggested-action")
@@ -500,6 +494,15 @@ class AniyoriWindow(Adw.ApplicationWindow):
         toolbar = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
         toolbar.set_margin_bottom(12)
         body.append(toolbar)
+
+        search_toolbar = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        toolbar.append(search_toolbar)
+        self.search = Gtk.SearchEntry()
+        self.search.set_placeholder_text("Search your library")
+        self.search.set_hexpand(True)
+        self.search.set_max_width_chars(60)
+        self.search.connect("search-changed", self._render_library)
+        search_toolbar.append(self.search)
 
         filter_toolbar = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
         toolbar.append(filter_toolbar)
