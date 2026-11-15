@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import threading
-from dataclasses import replace
 
 import gi
 
@@ -20,6 +19,8 @@ from .services.anilist_account import (
     import_entry_from_anilist,
     build_sync_plan,
     anilist_status_for_local,
+    local_entry_sync_payload,
+    local_entry_from_remote,
 )
 from .services.credentials import CredentialStoreError, SecretServiceCredentialStore
 
@@ -443,24 +444,21 @@ def show_anilist_account_dialog(parent) -> None:
                         local = conflict["local"]
                         remote = conflict["remote"]
                         if resolutions[local.storage_id] == 1:
+                            payload = local_entry_sync_payload(local)
                             client.save_media_list_entry(
-                                int(local.provider_id),
-                                anilist_status_for_local(local),
-                                local.episodes_watched,
+                                payload["media_id"], payload["status"], payload["progress"]
                             )
                             updated_remote += 1
                         else:
-                            remote_entry = import_entry_from_anilist(remote)
                             parent.storage.update_entry(
-                                replace(remote_entry, storage_id=local.storage_id)
+                                local_entry_from_remote(remote, local)
                             )
                             updated_local += 1
                     for local in plan["local_only"]:
                         if local.storage_id in restore_remote:
+                            payload = local_entry_sync_payload(local)
                             client.save_media_list_entry(
-                                int(local.provider_id),
-                                anilist_status_for_local(local),
-                                local.episodes_watched,
+                                payload["media_id"], payload["status"], payload["progress"]
                             )
                             updated_remote += 1
                     return {
