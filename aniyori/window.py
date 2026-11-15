@@ -702,6 +702,10 @@ class AniyoriWindow(Adw.ApplicationWindow):
         clear_selection_button = Gtk.Button(label="Clear")
         clear_selection_button.connect("clicked", lambda _button: self._clear_bulk_selection())
         bulk_progress_row.append(clear_selection_button)
+        self._bulk_compact_widgets = (
+            self.bulk_status_dropdown, bulk_status_button, self.bulk_progress_entry,
+            bulk_progress_button, bulk_delete_button, clear_selection_button,
+        )
         self.library_page.append(self.bulk_bar)
 
         self.filter_buttons = {}
@@ -5111,8 +5115,11 @@ class AniyoriWindow(Adw.ApplicationWindow):
         ):
             if row is not None:
                 row.set_orientation(row_orientation)
-        for button in getattr(self, "_release_action_buttons", ()):
-            button.set_hexpand(compact)
+        for widget in (
+            *getattr(self, "_release_action_buttons", ()),
+            *getattr(self, "_bulk_compact_widgets", ()),
+        ):
+            widget.set_hexpand(compact)
         if self._compact_layout == compact:
             return
         self._compact_layout = compact
