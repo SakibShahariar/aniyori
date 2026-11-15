@@ -530,6 +530,134 @@ class LibraryStorage:
             ).fetchall()
         return {int(row["episode"]): bool(row["watched"]) for row in rows}
 
+    def capture_undo_state(self, storage_ids: Iterable[int]) -> dict[str, object]:
+        """Capture exact local state for a short-lived, in-memory undo action."""
+        ids = tuple(dict.fromkeys(storage_ids))
+        if not ids or any(
+            isinstance(value, bool) or not isinstance(value, int) or value <= 0
+            for value in ids
+        ):
+            raise ValueError("Undo requires one or more valid library storage IDs.")
+        placeholders = ",".join("?" for _ in ids)
+        with self._connect() as connection:
+            entries = {
+                int(row["id"]): dict(row)
+                for row in connection.execute(
+                    f"SELECT * FROM anime WHERE id IN ({placeholders})", ids
+                ).fetchall()
+            }
+            if set(entries) != set(ids):
+                raise ValueError("A library entry no longer exists; this change cannot be undone.")
+            episodes = [
+                dict(row) for row in connection.execute(
+                    f"SELECT anime_id, episode, watched, updated_at FROM episode_progress "
+                    f"WHERE anime_id IN ({placeholders}) ORDER BY anime_id, episode",
+                    ids,
+                ).fetchall()
+            ]
+            history = [
+                dict(row) for row in connection.execute(
+                    f"SELECT id, anime_id, anime_title, episode, action, source, details, created_at "
+                    f"FROM watch_history WHERE anime_id IN ({placeholders}) ORDER BY id",
+                    ids,
+                ).fetchall()
+            ]
+        return {"ids": ids, "entries": entries, "episodes": episodes, "history": history}
+
+    def restore_undo_state(
+        self, before: dict[str, object], expected_after: dict[str, object]
+    ) -> int:
+        """Restore a captured state only if none of its affected entries changed since."""
+        ids = tuple(before.get("ids", ()))
+        if (
+            not ids or ids != tuple(expected_after.get("ids", ()))
+            or any(isinstance(value, bool) or not isinstance(value, int) or value <= 0 for value in ids)
+        ):
+            raise ValueError("This undo action is no longer valid.")
+        placeholders = ",".join("?" for _ in ids)
+        with self._connect() as connection:
+            current_entries = {
+                int(row["id"]): dict(row)
+                for row in connection.execute(
+                    f"SELECT * FROM anime WHERE id IN ({placeholders})", ids
+                ).fetchall()
+            }
+            current_episodes = [
+                dict(row) for row in connection.execute(
+                    f"SELECT anime_id, episode, watched, updated_at FROM episode_progress "
+                    f"WHERE anime_id IN ({placeholders}) ORDER BY anime_id, episode",
+                    ids,
+                ).fetchall()
+            ]
+            current_history = [
+                dict(row) for row in connection.execute(
+                    f"SELECT id, anime_id, anime_title, episode, action, source, details, created_at "
+                    f"FROM watch_history WHERE anime_id IN ({placeholders}) ORDER BY id",
+                    ids,
+                ).fetchall()
+            ]
+            if (
+                current_entries != expected_after.get("entries")
+                or current_episodes != expected_after.get("episodes")
+                or current_history != expected_after.get("history")
+            ):
+                raise ValueError(
+                    "This anime changed after the action, so undo was cancelled to protect newer edits."
+                )
+
+            original_entries = before.get("entries")
+            original_episodes = before.get("episodes")
+            original_history = before.get("history")
+            if not isinstance(original_entries, dict) or set(original_entries) != set(ids):
+                raise ValueError("The saved undo state is incomplete.")
+            connection.execute(
+                f"DELETE FROM episode_progress WHERE anime_id IN ({placeholders})", ids
+            )
+            connection.execute(
+                f"DELETE FROM watch_history WHERE anime_id IN ({placeholders})", ids
+            )
+            for storage_id in ids:
+                row = original_entries[storage_id]
+                connection.execute(
+                    """
+                    UPDATE anime SET title = ?, episodes_total = ?, episodes_watched = ?,
+                        status = ?, provider = ?, provider_id = ?, cover_image = ?,
+                        created_at = ?, updated_at = ?
+                    WHERE id = ?
+                    """,
+                    (
+                        row["title"], row["episodes_total"], row["episodes_watched"],
+                        row["status"], row["provider"], row["provider_id"],
+                        row["cover_image"], row["created_at"], row["updated_at"],
+                        storage_id,
+                    ),
+                )
+            connection.executemany(
+                """
+                INSERT INTO episode_progress(anime_id, episode, watched, updated_at)
+                VALUES (?, ?, ?, ?)
+                """,
+                [
+                    (row["anime_id"], row["episode"], row["watched"], row["updated_at"])
+                    for row in original_episodes
+                ],
+            )
+            connection.executemany(
+                """
+                INSERT INTO watch_history
+                    (id, anime_id, anime_title, episode, action, source, details, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                [
+                    (
+                        row["id"], row["anime_id"], row["anime_title"], row["episode"],
+                        row["action"], row["source"], row["details"], row["created_at"],
+                    )
+                    for row in original_history
+                ],
+            )
+        return len(ids)
+
     def set_episode_watched(
         self, storage_id: int, episode: int, watched: bool = True, *, source: str = "manual"
     ) -> int:
