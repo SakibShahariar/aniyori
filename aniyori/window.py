@@ -1499,20 +1499,18 @@ class AniyoriWindow(Adw.ApplicationWindow):
                 link_list.remove(child)
                 child = following
             for index, item in enumerate(templates):
-                row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
                 label = Gtk.Label(label=f"{item['name']} — {item['url']}", xalign=0)
                 label.set_ellipsize(3)
                 label.set_hexpand(True)
-                row.append(label)
                 edit = Gtk.Button.new_from_icon_name("document-edit-symbolic")
                 edit.set_tooltip_text(f"Edit {item['name']}")
                 edit.connect("clicked", lambda _button, position=index: edit_template(position))
-                row.append(edit)
                 remove = Gtk.Button.new_from_icon_name("user-trash-symbolic")
                 remove.set_tooltip_text(f"Remove {item['name']}")
                 remove.connect("clicked", lambda _button, position=index: remove_template(position))
-                row.append(remove)
-                link_list.append(row)
+                link_list.append(_responsive_control_row(
+                    label, edit, remove, max_per_line=3,
+                ))
 
         def edit_template(index):
             if index < 0 or index >= len(templates):
