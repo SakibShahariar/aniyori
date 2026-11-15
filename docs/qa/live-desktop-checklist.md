@@ -46,6 +46,8 @@ Use a disposable test profile or a backup of any library data you care about. Do
 - [ ] Open Add Anime, Watch History, and Release Feeds at narrow sizes; confirm catalogue search, saved-search controls, history filters/actions, and feed actions wrap and remain reachable.
 - [ ] Open Release Rules and Presets at narrow sizes; confirm per-item actions and preset action groups wrap without overlap.
 - [ ] Open External Links at a narrow size; confirm custom link names and Edit/Remove actions wrap without clipping.
+- [ ] Open Customize Library Layout, Release Scoring, and Statistics at narrow sizes; confirm column controls, score cutoff, year selector, and section actions remain reachable without clipping.
+- [ ] On the Home dashboard at minimum width, confirm section headings and View My List actions wrap cleanly while poster strips remain intentionally horizontally scrollable.
 - [ ] Open Releases and Download Queue with long titles and narrow widths; confirm release submission/open actions and queue pause/resume/recheck/remove actions remain reachable below their details.
 - [ ] Change notification switches/severity and player-detection state; confirm settings persist and errors are reported without leaving the displayed control in a misleading state.
 - [ ] Change proxy, timeout, retry, and CA-bundle settings; confirm values are saved and restored after reopening the dialog.
