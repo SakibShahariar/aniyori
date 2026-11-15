@@ -20,6 +20,7 @@ from .services.anilist_account import (
     build_sync_plan,
     local_entry_sync_payload,
     local_entry_from_remote,
+    DEFAULT_CLIENT_ID,
 )
 from .services.credentials import CredentialStoreError, SecretServiceCredentialStore
 
@@ -73,7 +74,7 @@ def show_anilist_account_dialog(parent) -> None:
     )
     content.append(client_id_label)
     client_id_entry = Gtk.Entry()
-    client_id_entry.set_text(settings.get("client_id", ""))
+    client_id_entry.set_text(settings.get("client_id") or DEFAULT_CLIENT_ID)
     client_id_entry.set_input_purpose(Gtk.InputPurpose.DIGITS)
     client_id_entry.set_placeholder_text("Numeric public Client ID")
     content.append(client_id_entry)
