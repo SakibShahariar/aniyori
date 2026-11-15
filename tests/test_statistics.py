@@ -204,7 +204,7 @@ class WatchHistoryInsightsTests(unittest.TestCase):
         self.assertEqual(result["completed_anime_count"], 2)
         self.assertEqual(
             [item["title"] for item in result["completed_anime"]],
-            ["completed anime", "Completed Anime"],
+            ["Completed Anime", "completed anime"],
         )
 
     def test_empty_year_is_zeroed_and_keeps_estimate_assumption(self):
