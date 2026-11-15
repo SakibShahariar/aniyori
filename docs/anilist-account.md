@@ -22,13 +22,14 @@ Until the project Client ID is bundled, development builds expose a Client ID fi
 4. Copy the access token displayed on the Auth Pin page and paste it into Aniyori.
 5. Select Connect Account. Aniyori validates the token against the authenticated AniList account before storing it.
 
-Access tokens are stored through the desktop Secret Service using secret-tool. If the keyring is unavailable, connection fails rather than writing the token to a plain-text configuration file. The settings file contains only the public Client ID and account label.
+Access tokens are stored through the desktop Secret Service using secret-tool. If the keyring is unavailable, connection fails rather than writing the token to a plain-text configuration file. The settings file contains only the public Client ID and account label. AniList does not support granular OAuth scopes, so approval grants broad account access; Aniyori uses it only to read your anime list and update anime status and episode progress.
 
 AniList access tokens last about one year and do not have refresh tokens. When a token expires, reconnect the account through the same authorization flow. Disconnecting removes the stored token; it does not delete the local library.
 
 ## Import and sync
 
 - Import AniList Library adds entries that are not already linked by AniList media ID. Existing local entries are left unchanged.
+- The import reads AniList's status and custom lists; duplicate appearances of the same media entry across lists are collapsed before import. AniList currently caps this collection at 11,000 most recently updated unique entries.
 - Review Sync previews new entries and identifies differing progress/status values before applying changes.
 - Each differing entry requires an explicit choice: keep the local value and update AniList, or use the AniList value and update the local entry.
 - Local-only entries remain local unless you explicitly choose to add them back to AniList.

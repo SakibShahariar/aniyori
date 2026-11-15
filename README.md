@@ -47,7 +47,7 @@ cd aniyori
 python3 main.py
 ```
 
-For qBittorrent WebUI password storage, install `secret-tool` and configure a desktop Secret Service provider. This integration is optional; desktop magnet-link handoff does not require it.
+For AniList account tokens and qBittorrent WebUI passwords, install `secret-tool` and configure a desktop Secret Service provider. These credential integrations require it; the local library and desktop magnet-link handoff remain available without it.
 
 ## Documentation
 

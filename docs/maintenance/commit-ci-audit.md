@@ -922,3 +922,20 @@ Reviewed the 24 commits after checkpoint `13a833c803d560f37db7b1808f1667307b34b7
 No regression or red run was observed in this range.
 
 - Reviewed checkpoint: `d2c7064940b80a24442e4cca183b934477976eea`
+
+## Reviewed range: 2026-11-15 — AniList follow-up validation (#22)
+
+Reviewed the commits after checkpoint `d2c7064940b80a24442e4cca183b934477976eea` through `69502c905cb556af057d3b6764e8d76b3654ebcf`.
+
+| Commit SHA | Subject | CI result | Workflow run |
+|---|---|---|---|
+| `3020b5cc1f5ce50b5cf38e7ed185b971cab2d5af` | docs(anilist): document account setup and sync (#22) | green | [43699723510](https://github.com/SakibShahariar/aniyori/actions/runs/43699723510) |
+| `2511c09f1670c161f7a542aba776d4eec21f7918` | fix(anilist): disable connection without a secure keyring (#22) | green | [43699758044](https://github.com/SakibShahariar/aniyori/actions/runs/43699758044) |
+| `a526e5df8f994360ccee7cbddc9d9f47d78e1ac2` | fix(anilist): clean up replaced account credentials safely (#22) | green | [43699795570](https://github.com/SakibShahariar/aniyori/actions/runs/43699795570) |
+| `3725e8122a2361f189aae1b1b89d57275c915eae` | fix(anilist): disclose broad AniList OAuth permissions (#22) | green | [43699806903](https://github.com/SakibShahariar/aniyori/actions/runs/43699806903) |
+| `43340924f281ad3250e8da0a8eae39b5df8f4902` | fix(anilist): deduplicate entries across custom lists (#22) | red — test expectation was updated in the following commit | [43699849647](https://github.com/SakibShahariar/aniyori/actions/runs/43699849647) |
+| `69502c905cb556af057d3b6764e8d76b3654ebcf` | test(anilist): cover custom-list duplicate handling (#22) | green — corrected the obsolete duplicate-rejection expectation; current head passes | [43699853998](https://github.com/SakibShahariar/aniyori/actions/runs/43699853998) |
+
+The single red run above was caused by the existing test still expecting duplicate custom-list entries to be rejected after the implementation changed to deduplicate them. The follow-up commit updated the test to cover identical duplicates and conflicting duplicates; its full Tests workflow passed. No history was rewritten.
+
+- Reviewed checkpoint: `69502c905cb556af057d3b6764e8d76b3654ebcf`
