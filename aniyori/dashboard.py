@@ -12,19 +12,31 @@ def count_library_statuses(entries: list[AnimeEntry]) -> dict[WatchStatus, int]:
 
 
 def continue_watching_entries(
-    entries: list[AnimeEntry], *, limit: int = 6
+    entries: list[AnimeEntry],
+    updated_at_by_id: dict[int, str] | None = None,
+    *,
+    limit: int = 6,
 ) -> list[AnimeEntry]:
-    """Return in-progress entries that can still advance."""
+    """Return unfinished watching entries, most recently updated first."""
     if limit <= 0:
         return []
-    return [
+    candidates = [
         entry for entry in entries
         if entry.status == WatchStatus.WATCHING
         and (
             entry.episodes_total is None
             or entry.episodes_watched < entry.episodes_total
         )
-    ][:limit]
+    ]
+    if updated_at_by_id is not None:
+        candidates.sort(
+            key=lambda entry: (
+                updated_at_by_id.get(entry.storage_id, "")
+                if entry.storage_id is not None else ""
+            ),
+            reverse=True,
+        )
+    return candidates[:limit]
 
 
 def recently_added_entries(
