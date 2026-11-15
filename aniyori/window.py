@@ -22,7 +22,7 @@ from gi.repository import Adw, Gdk, Gio, GLib, Gtk
 
 from .models import MAX_EPISODE_COUNT, AnimeEntry, WatchStatus, parse_episode_count
 from .dashboard import (
-    continue_watching_entries, count_library_statuses, recently_updated_entries,
+    continue_watching_entries, count_library_statuses, recently_added_entries,
 )
 from .backup import BackupError, create_backup, default_config_dir, restore_backup
 from .services.recognition_exclusions import RecognitionExclusionError, RecognitionExclusionStore
@@ -960,8 +960,8 @@ class AniyoriWindow(Adw.ApplicationWindow):
             stats.append(tile)
         self.home_page.append(stats)
 
-        updated = self.storage.get_updated_at_map()
-        recent = recently_updated_entries(self.entries, updated)
+        created = self.storage.get_created_at_map()
+        recent = recently_added_entries(self.entries, created)
         watching = continue_watching_entries(self.entries)
 
         self._append_home_entry_section(
@@ -969,7 +969,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
             "No anime in progress yet. Add a series and start tracking episodes.",
         )
         self._append_home_entry_section(
-            "Recently Updated", recent,
+            "Recently Added", recent,
             "Your library is empty. Add anime to start building your collection.",
         )
 
