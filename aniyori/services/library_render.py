@@ -9,3 +9,8 @@ def library_widget_signature(entry, airing, selected, layouts, compact):
 def library_stack_page(view, has_visible_entries):
     """Keep the empty-state page visible when switching library views."""
     return view if has_visible_entries else "empty"
+
+
+def library_view_for_preset(list_active, grid_active):
+    """Return the selected library view even while its empty-state page is shown."""
+    return "grid" if grid_active else "list"
