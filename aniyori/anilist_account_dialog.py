@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import threading
+from dataclasses import replace
 
 import gi
 
@@ -17,8 +18,22 @@ from .services.anilist_account import (
     build_authorization_url,
     parse_access_token,
     import_entry_from_anilist,
+    build_sync_plan,
+    anilist_status_for_local,
 )
 from .services.credentials import CredentialStoreError, SecretServiceCredentialStore
+
+
+
+def _remote_status_label(status: str) -> str:
+    return {
+        "CURRENT": "Watching",
+        "PLANNING": "Planning",
+        "COMPLETED": "Completed",
+        "PAUSED": "Paused",
+        "DROPPED": "Dropped",
+        "REPEATING": "Repeating",
+    }.get(status, "Unknown")
 
 
 def show_anilist_account_dialog(parent) -> None:
@@ -95,6 +110,9 @@ def show_anilist_account_dialog(parent) -> None:
     import_button = Gtk.Button(label="Import AniList Library")
     import_button.set_sensitive(False)
     action_row.append(import_button)
+    sync_button = Gtk.Button(label="Review Sync")
+    sync_button.set_sensitive(False)
+    action_row.append(sync_button)
     disconnect_button = Gtk.Button(label="Disconnect")
     disconnect_button.set_sensitive(False)
     action_row.append(disconnect_button)
@@ -140,11 +158,13 @@ def show_anilist_account_dialog(parent) -> None:
             if token_available:
                 account_label.set_text(f"Connected as {viewer_name} (AniList ID {viewer_id})")
                 import_button.set_sensitive(True)
+                sync_button.set_sensitive(True)
                 disconnect_button.set_sensitive(True)
                 status_label.set_text("Your AniList token is stored in the desktop keyring.")
             elif viewer_id is not None:
                 account_label.set_text("AniList account needs to be reconnected.")
                 import_button.set_sensitive(False)
+                sync_button.set_sensitive(False)
                 disconnect_button.set_sensitive(False)
                 status_label.set_text("No usable token was found in the desktop keyring.")
             else:
@@ -282,6 +302,194 @@ def show_anilist_account_dialog(parent) -> None:
 
         run_background(import_button, "Importing…", task, imported)
 
+
+    def review_sync(_button):
+        def task():
+            client, current = stored_client()
+            remote_entries = client.get_user_library(current["viewer_id"])
+            local_entries = parent.storage.list_entries()
+            return build_sync_plan(local_entries, remote_entries)
+
+        def show_plan(plan):
+            review = Adw.Dialog()
+            review.set_title("Review AniList Sync")
+            review.set_content_width(620)
+            review_content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
+            review_content.set_margin_top(16)
+            review_content.set_margin_bottom(16)
+            review_content.set_margin_start(16)
+            review_content.set_margin_end(16)
+
+            summary = Gtk.Label(
+                label=(
+                    f"{len(plan['imports'])} new AniList entries to import · "
+                    f"{len(plan['conflicts'])} differences to resolve · "
+                    f"{len(plan['local_only'])} local-only entries · "
+                    f"{plan['unchanged']} unchanged"
+                ),
+                xalign=0,
+                wrap=True,
+            )
+            summary.add_css_class("heading")
+            review_content.append(summary)
+
+            conflict_choices = []
+            if plan["conflicts"]:
+                heading = Gtk.Label(label="Different progress or status", xalign=0)
+                heading.add_css_class("title-4")
+                review_content.append(heading)
+                for conflict in plan["conflicts"]:
+                    local = conflict["local"]
+                    remote = conflict["remote"]
+                    remote_status = _remote_status_label(remote["status"])
+                    row = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
+                    row.set_margin_bottom(8)
+                    label = Gtk.Label(
+                        label=(
+                            f"{local.title}\n"
+                            f"Local: {local.status.value.title()} · {local.episodes_watched} watched\n"
+                            f"AniList: {remote_status} · {remote['progress']} watched"
+                        ),
+                        xalign=0,
+                        wrap=True,
+                    )
+                    row.append(label)
+                    choice = Gtk.DropDown.new_from_strings([
+                        "Choose how to resolve",
+                        "Keep local and update AniList",
+                        "Use AniList and update local",
+                    ])
+                    choice.set_selected(0)
+                    row.append(choice)
+                    review_content.append(row)
+                    conflict_choices.append((conflict, choice))
+
+            local_choices = []
+            if plan["local_only"]:
+                heading = Gtk.Label(label="Local entries missing from AniList", xalign=0)
+                heading.add_css_class("title-4")
+                review_content.append(heading)
+                for local in plan["local_only"]:
+                    row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+                    label = Gtk.Label(
+                        label=f"{local.title} · {local.episodes_watched} watched",
+                        xalign=0,
+                        wrap=True,
+                    )
+                    label.set_hexpand(True)
+                    row.append(label)
+                    choice = Gtk.DropDown.new_from_strings([
+                        "Leave local only",
+                        "Add back to AniList",
+                    ])
+                    choice.set_selected(0)
+                    row.append(choice)
+                    review_content.append(row)
+                    local_choices.append((local, choice))
+
+            if plan["imports"]:
+                note = Gtk.Label(
+                    label="New AniList entries will be added locally. Existing local entries are never replaced by import.",
+                    xalign=0,
+                    wrap=True,
+                )
+                note.add_css_class("dim-label")
+                review_content.append(note)
+
+            review_status = Gtk.Label(xalign=0, wrap=True)
+            review_content.append(review_status)
+            buttons = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+            cancel = Gtk.Button(label="Cancel")
+            buttons.append(cancel)
+            apply_button = Gtk.Button(label="Apply Sync")
+            apply_button.add_css_class("suggested-action")
+            buttons.append(apply_button)
+            review_content.append(buttons)
+            review.set_child(review_content)
+
+            def apply_sync(_apply_button):
+                unresolved = [
+                    choice for _conflict, choice in conflict_choices
+                    if choice.get_selected() == 0
+                ]
+                if unresolved:
+                    review_status.set_text("Choose a resolution for every differing entry.")
+                    return
+
+                resolutions = {
+                    conflict["local"].storage_id: choice.get_selected()
+                    for conflict, choice in conflict_choices
+                }
+                restore_remote = {
+                    local.storage_id
+                    for local, choice in local_choices
+                    if choice.get_selected() == 1
+                }
+
+                def apply_task():
+                    client, current = stored_client()
+                    imported = 0
+                    updated_local = 0
+                    updated_remote = 0
+                    skipped = 0
+                    for remote in plan["imports"]:
+                        try:
+                            parent.storage.add(import_entry_from_anilist(remote))
+                        except (AniListAccountError, ValueError):
+                            skipped += 1
+                        else:
+                            imported += 1
+                    for conflict in plan["conflicts"]:
+                        local = conflict["local"]
+                        remote = conflict["remote"]
+                        if resolutions[local.storage_id] == 1:
+                            client.save_media_list_entry(
+                                int(local.provider_id),
+                                anilist_status_for_local(local),
+                                local.episodes_watched,
+                            )
+                            updated_remote += 1
+                        else:
+                            remote_entry = import_entry_from_anilist(remote)
+                            parent.storage.update_entry(
+                                replace(remote_entry, storage_id=local.storage_id)
+                            )
+                            updated_local += 1
+                    for local in plan["local_only"]:
+                        if local.storage_id in restore_remote:
+                            client.save_media_list_entry(
+                                int(local.provider_id),
+                                anilist_status_for_local(local),
+                                local.episodes_watched,
+                            )
+                            updated_remote += 1
+                    return {
+                        "imported": imported,
+                        "updated_local": updated_local,
+                        "updated_remote": updated_remote,
+                        "skipped": skipped,
+                    }
+
+                def sync_applied(result):
+                    parent.entries = parent.storage.list_entries()
+                    parent._render_library()
+                    parent._refresh_airing_schedule()
+                    review.close()
+                    status_label.set_text(
+                        f"Sync complete: imported {result['imported']}, "
+                        f"updated local {result['updated_local']}, "
+                        f"updated AniList {result['updated_remote']}, "
+                        f"skipped {result['skipped']}."
+                    )
+
+                run_background(apply_button, "Syncing…", apply_task, sync_applied)
+
+            cancel.connect("clicked", lambda _button: review.close())
+            apply_button.connect("clicked", apply_sync)
+            review.present(parent)
+
+        run_background(sync_button, "Checking…", task, show_plan)
+
     def disconnect_account(_button):
         def task():
             current = current_settings()
@@ -304,6 +512,7 @@ def show_anilist_account_dialog(parent) -> None:
     authorize_button.connect("clicked", open_authorization)
     connect_button.connect("clicked", connect_account)
     import_button.connect("clicked", import_library)
+    sync_button.connect("clicked", review_sync)
     disconnect_button.connect("clicked", disconnect_account)
     close_button.connect("clicked", lambda _button: dialog.close())
 
