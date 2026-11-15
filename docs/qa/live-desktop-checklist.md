@@ -47,13 +47,13 @@ Use a disposable test profile or a backup of any library data you care about. Do
 ## Home dashboard — #91
 
 - [ ] Confirm Home is the initial destination and Home / My List navigation remains reachable by keyboard.
-- [ ] On a wide window, confirm the welcome panel, status tiles, Continue Watching, and Recently Updated sections have consistent spacing and alignment.
+- [ ] On a wide window, confirm the welcome panel, status tiles, Continue Watching, and Recently Added sections have consistent spacing and alignment.
 - [ ] On wide windows, confirm the `Adw.NavigationSplitView` sidebar remains visible at a stable width and Home / My List / Browse / Statistics actions are reachable.
 - [ ] Below the 720sp breakpoint, confirm navigation collapses, selecting Home or My List opens the content page, and the header back control returns to the sidebar.
 - [ ] After returning to the collapsed sidebar, activate the already-selected Home or My List item again; confirm it still opens the content page.
 - [ ] Confirm cover art loads from the existing cache without blocking the GTK main thread; missing/invalid covers retain the native placeholder.
 - [ ] Confirm horizontal poster strips can be scrolled with pointer, touchpad, and keyboard where supported; cards do not clip at the minimum window width.
-- [ ] Confirm title, watched/total progress, status, Details, and +1 actions are correct for each card.
+- [ ] Confirm title, watched/total progress, status, Edit, and +1 actions are correct for each card.
 - [ ] Change progress, status, and library entries while Home is visible; confirm counts and sections refresh without restarting.
 - [ ] Test empty library, no watching entries, unknown episode totals, and entries with no cover art.
 - [ ] Activate Add Anime, Discover This Season, AniList Account, Scan Library, Statistics, and View My List; confirm each opens the existing workflow.
