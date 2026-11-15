@@ -1164,3 +1164,19 @@ Each commit below was checked through the combined status endpoint. All returned
 - Reviewed through: `695fb5dc6e499c7a1f06d99352a41f8b5753020e`
 - New checkpoint: `695fb5dc6e499c7a1f06d99352a41f8b5753020e`
 - Outstanding: obtain actual push-triggered Actions results and execute the desktop checklist before treating the redesign as validated.
+
+
+### Anime Details follow-up
+
+Each commit was checked individually. The combined status endpoint returned no status records, and the commit workflow-run lookup returned no runs. These results are **unavailable**, not green; the workflow-run wrapper is documented to return only pull-request-triggered runs.
+
+| Commit SHA | Subject | CI result | Run / evidence |
+|---|---|---|---|
+| `5b100565b49a025e523c38a4fd8be72ef5985c38` | feat(ui): add native anime details dialog (#91) | unavailable | Status list empty; PR-only run lookup empty |
+| `45d221acd00f38298117366ff0af34edfd26962d` | fix(ui): make anime details content scrollable (#91) | unavailable | Status list empty; PR-only run lookup empty |
+| `c370ff2ebb045839c0a073f8f79613e16c95fb33` | docs(qa): cover anime details dialog interactions (#91) | unavailable | Status list empty; PR-only run lookup empty |
+
+- Previous checkpoint: `a4bd735096d1d8566486483646df772bd76fc9eb`
+- Reviewed through: `c370ff2ebb045839c0a073f8f79613e16c95fb33`
+- New checkpoint: `c370ff2ebb045839c0a073f8f79613e16c95fb33`
+- Outstanding: retrieve push-triggered Actions runs and execute the Home/Details live-desktop checklist before marking the redesign validated.
