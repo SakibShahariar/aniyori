@@ -71,7 +71,7 @@ from .services.network import NetworkSettings, NetworkSettingsError, NetworkSett
 from .services.profiles import ProfileError, ProfileStore
 from .services.library_layout import DEFAULT_LAYOUTS as DEFAULT_LIBRARY_LAYOUTS, LibraryLayoutError, LibraryLayoutStore
 from .services.library_view_presets import LibraryViewPresetError, LibraryViewPresetStore
-from .services.library_render import library_widget_signature, library_stack_page
+from .services.library_render import library_widget_signature, library_stack_page, library_view_for_preset
 
 LOGGER = logging.getLogger(__name__)
 
@@ -3463,9 +3463,10 @@ class AniyoriWindow(Adw.ApplicationWindow):
         )
 
     def _capture_library_view_settings(self):
-        view = self.stack.get_visible_child_name()
-        if view not in ("list", "grid"):
-            view = "list"
+        view = library_view_for_preset(
+            self.view_switches["list"].get_active(),
+            self.view_switches["grid"].get_active(),
+        )
         return {
             "filter": self.current_filter,
             "sort": self.library_sort_mode,
