@@ -9,10 +9,10 @@ Aniyori uses one project-owned AniList OAuth application. Users should not creat
 
    https://anilist.co/api/v2/oauth/pin
 
-3. Save the numeric public Client ID and provide it to the project maintainer so it can be bundled with the application.
+3. Aniyori's project Client ID is **57061**. It is bundled as a public identifier in the application; users do not need to register their own application.
 4. Do not put the Client Secret in Aniyori, source control, release files, or user configuration. The desktop app uses AniList's Implicit Grant/Auth Pin flow and does not need the secret.
 
-Until the project Client ID is bundled, development builds expose a Client ID field in Main menu → AniList Account for maintainer setup. End users should use the project-owned ID once it is included in a release.
+The account dialog pre-fills the project Client ID. The field remains editable for development/testing and alternative registrations.
 
 ## Connect an account
 
