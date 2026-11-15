@@ -24,10 +24,9 @@ class LibraryWidgetSignatureTests(unittest.TestCase):
 
 
     def test_presets_capture_selected_view_while_empty_state_is_visible(self):
-        self.assertEqual(library_view_for_preset(True, False), "list")
-        self.assertEqual(library_view_for_preset(False, True), "grid")
         # The stack displays the shared empty page, but the toggle retains Grid.
-        self.assertEqual(library_view_for_preset(False, True), "grid")
+        self.assertEqual(library_view_for_preset(True), "grid")
+        self.assertEqual(library_view_for_preset(False), "list")
 
     def test_empty_state_survives_list_and_grid_switches(self):
         for view in ("list", "grid"):
