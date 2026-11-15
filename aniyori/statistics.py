@@ -7,6 +7,7 @@ from collections.abc import Iterable, Mapping
 from datetime import datetime, timezone, tzinfo
 
 from .models import AnimeEntry, WatchStatus
+from .timezones import get_local_timezone
 
 
 DEFAULT_MINUTES_PER_EPISODE = 24
@@ -79,7 +80,7 @@ def calculate_history_insights(
         raise ValueError("Watch-history events must be an iterable of records.") from error
 
     if local_timezone is None:
-        local_timezone = datetime.now().astimezone().tzinfo or timezone.utc
+        local_timezone = get_local_timezone()
     if not isinstance(local_timezone, tzinfo):
         raise ValueError("A valid local timezone is required.")
 
