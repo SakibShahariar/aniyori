@@ -1243,3 +1243,30 @@ The commits below were checked individually. Combined-status queries returned em
 - Reviewed through: `f889e2fe5493c1bf2f3613e574180999a9285327`
 - New checkpoint: `f889e2fe5493c1bf2f3613e574180999a9285327`
 - Outstanding: obtain push-triggered Actions results and run the complete test suite. Benchmark the library render path with a large library before estimating latency improvement.
+
+
+### Library cache and episode-state follow-ups — 2026-11-15
+
+The combined-status endpoint returned empty status lists for every commit below. To verify actual push-triggered CI, queried the repository Actions API by exact `head_sha` and inspected the associated completed workflow runs. Results:
+
+| Commit SHA | Subject | CI result | Run / evidence |
+|---|---|---|---|
+| `d5bd9d6fb938216c0564cbd67adb63c572711a60` | docs(maintenance): record library render optimization CI (#15) | success | [43710941532](https://github.com/SakibShahariar/aniyori/actions/runs/43710941532) |
+| `88c1526cbb3ccef822fc363b23e220fe78f5e5e8` | perf(library): reuse layout cache signature (#15) | failure | [43711236323](https://github.com/SakibShahariar/aniyori/actions/runs/43711236323) |
+| `8d34de65fd514d32241746b9e2aca395fc1dce1e` | perf(library): compute layout signature once per render (#15) | failure | [43711241040](https://github.com/SakibShahariar/aniyori/actions/runs/43711241040) |
+| `c891f712ddf2e2fdca130aff7cbd45c84dd738de` | test(library): cover shared layout cache signature (#15) | success | [43711244028](https://github.com/SakibShahariar/aniyori/actions/runs/43711244028) |
+| `d8c68984862333e051c2acca73e3a12a6d13f77e` | fix(library): retain preset when reselecting filter (#89) | success | [43711305060](https://github.com/SakibShahariar/aniyori/actions/runs/43711305060) |
+| `22507208345ae1137d9718ce661031aff7de41a8` | fix(library): clear preset only on filter changes (#89) | success | [43711309585](https://github.com/SakibShahariar/aniyori/actions/runs/43711309585) |
+| `33fe3c0c6f660f9a79a14267eb5c914fabf5f513` | test(library): cover unchanged filter preset state (#89) | success | [43711312317](https://github.com/SakibShahariar/aniyori/actions/runs/43711312317) |
+| `0079ccd5f59da3e80a35fcac1e5c8d62ce0b67ad` | fix(storage): synchronize explicit episode progress (#24) | success | [43711526489](https://github.com/SakibShahariar/aniyori/actions/runs/43711526489), 471 tests |
+| `f947ab3728712243a5aa5963a56ae7f9e124230a` | test(storage): cover aggregate episode state sync (#24) | success | [43711550023](https://github.com/SakibShahariar/aniyori/actions/runs/43711550023), 474 tests |
+| `144f472143aed6893e6a78289a63f2338a77adff` | docs(qa): cover aggregate episode state synchronization (#24) | success | [43711725508](https://github.com/SakibShahariar/aniyori/actions/runs/43711725508) |
+| `251ce5270044d5e4500ffc59b3401f9c29a96d1c` | test(storage): cover bulk entry episode sync (#24) | success | [43711770577](https://github.com/SakibShahariar/aniyori/actions/runs/43711770577), 475 tests |
+| `0dca386db2be0b69232c7708dbf083d21db7c104` | docs(qa): include bulk status episode sync check (#24) | success | [43711866450](https://github.com/SakibShahariar/aniyori/actions/runs/43711866450) |
+
+The two cache-signature failures were caused by a stale unit-test call that passed the raw layout dictionary after the helper contract changed to accept its serialized signature. The follow-up test commit updated the callers in the test and passed. Both failed runs were inspected; they were not hidden or treated as green.
+
+- Previous checkpoint: `f889e2fe5493c1bf2f3613e574180999a9285327`
+- Reviewed through: `0dca386db2be0b69232c7708dbf083d21db7c104`
+- New checkpoint: `0dca386db2be0b69232c7708dbf083d21db7c104`
+- Outstanding: large-library performance benchmark and real GTK checks for layout/preset behavior and episode editor consistency.
