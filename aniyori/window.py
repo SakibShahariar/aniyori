@@ -5336,9 +5336,15 @@ class AniyoriWindow(Adw.ApplicationWindow):
         try:
             self.storage.restore_undo_state(pending["before"], pending["after"])
         except (ValueError, sqlite3.Error, OSError) as error:
-            self.toast_overlay.add_toast(
-                Adw.Toast.new(f"Could not undo this change: {error}")
-            )
+            if self._library_undo_stack:
+                self._library_undo_stack[-1]["description"] = (
+                    f"Undo unavailable: {error}. "
+                    + self._library_undo_stack[-1]["description"]
+                )
+            else:
+                self.toast_overlay.add_toast(
+                    Adw.Toast.new(f"Could not undo this change: {error}")
+                )
         else:
             self.entries = self.storage.list_entries()
             self._render_library()
