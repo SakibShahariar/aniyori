@@ -10,25 +10,15 @@ gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
 from gi.repository import Adw, Gio, GLib, Gtk
 
-from .models import AnimeEntry, WatchStatus
 from .services.anilist import AniListClient, AniListError
 from .services.anilist_account import (
     AniListAccountError,
     AniListAccountSettingsStore,
     build_authorization_url,
     parse_access_token,
+    import_entry_from_anilist,
 )
 from .services.credentials import CredentialStoreError, SecretServiceCredentialStore
-
-
-_STATUS_MAP = {
-    "CURRENT": WatchStatus.WATCHING,
-    "PLANNING": WatchStatus.PLANNING,
-    "COMPLETED": WatchStatus.COMPLETED,
-    "PAUSED": WatchStatus.PAUSED,
-    "DROPPED": WatchStatus.DROPPED,
-    "REPEATING": WatchStatus.WATCHING,
-}
 
 
 def show_anilist_account_dialog(parent) -> None:
@@ -267,24 +257,11 @@ def show_anilist_account_dialog(parent) -> None:
                 if media_id in existing_ids:
                     skipped += 1
                     continue
-                total = media.get("episodes")
-                progress = remote["progress"]
-                if isinstance(total, bool) or not isinstance(total, int) or total <= 0:
-                    total = None
-                if total is not None and progress > total:
-                    total = None
-                if progress > 10_000:
+                try:
+                    entry = import_entry_from_anilist(remote)
+                except AniListAccountError:
                     skipped += 1
                     continue
-                entry = AnimeEntry(
-                    title=media["title"],
-                    episodes_total=total,
-                    episodes_watched=progress,
-                    status=_STATUS_MAP[remote["status"]],
-                    provider="anilist",
-                    provider_id=media_id,
-                    cover_image=media.get("cover_image"),
-                )
                 try:
                     parent.storage.add(entry)
                 except ValueError:
