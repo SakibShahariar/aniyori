@@ -179,6 +179,7 @@ Use a disposable test profile or a backup of any library data you care about. Do
 
 - [ ] Complete core workflows using keyboard only; record any unreachable controls or focus traps.
 - [ ] Inspect accessible names, roles, and states for buttons, fields, menus, dialogs, and list/grid actions.
+- [ ] Confirm list/grid poster artwork has a meaningful accessible name, truncated list titles expose the full title, and progress bars announce the watched/total episode count.
 - [ ] Test with Orca or an equivalent screen reader and record announcements that are missing or misleading.
 - [ ] Test high-contrast and large-text settings; verify labels, focus, dialogs, and actions remain usable.
 - [ ] Test on the supported GNOME session and record Wayland/X11 behavior. Do not claim compatibility with an environment that was not tested.
