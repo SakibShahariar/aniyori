@@ -109,6 +109,18 @@ class AniListAccountSettingsStoreTests(unittest.TestCase):
         self.path.write_text('{"client_id": "123"}', encoding="utf-8")
         with self.assertRaises(AniListAccountError):
             self.store.load()
+        self.path.write_text(
+            json.dumps({
+                "format": "aniyori-anilist-account",
+                "version": True,
+                "client_id": "123",
+                "viewer_id": None,
+                "viewer_name": None,
+            }),
+            encoding="utf-8",
+        )
+        with self.assertRaises(AniListAccountError):
+            self.store.load()
 
 
 
@@ -300,6 +312,7 @@ class AniListImportMappingTests(unittest.TestCase):
             {"progress": -1},
             {"progress": 10_001},
             {"media": {"id": 21, "title": "  "}},
+            {"media": {"id": 22, "title": "Wrong identity"}},
         )
         for changes in variants:
             candidate = {**base, **changes}
