@@ -939,3 +939,11 @@ Reviewed the commits after checkpoint `d2c7064940b80a24442e4cca183b934477976eea`
 The single red run above was caused by the existing test still expecting duplicate custom-list entries to be rejected after the implementation changed to deduplicate them. The follow-up commit updated the test to cover identical duplicates and conflicting duplicates; its full Tests workflow passed. No history was rewritten.
 
 - Reviewed checkpoint: `69502c905cb556af057d3b6764e8d76b3654ebcf`
+
+## Reviewed range: 2026-11-15 — documentation follow-up (#22)
+
+| Commit SHA | Subject | CI result | Workflow run |
+|---|---|---|---|
+| `1c2f1aef9c962f95e22d134fa1aaa70096d045d0` | docs(anilist): clarify keyring and custom-list behavior (#22) | green | [43699922263](https://github.com/SakibShahariar/aniyori/actions/runs/43699922263) |
+
+- Reviewed checkpoint: `1c2f1aef9c962f95e22d134fa1aaa70096d045d0`

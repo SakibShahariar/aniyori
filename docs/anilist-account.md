@@ -38,3 +38,9 @@ AniList access tokens last about one year and do not have refresh tokens. When a
 The current implementation treats every mismatch as a conflict because it does not yet keep a last-synchronized snapshot. This is intentionally conservative: it may ask you to resolve a difference even when only one side changed, but it will not silently overwrite either side.
 
 Aniyori's local library remains available when disconnected or offline. Only account import and synchronization require AniList connectivity.
+
+## Sync limitations
+
+Only AniList list status and aggregate watched-episode progress are synchronized. AniList's list entry stores one numeric progress value, so Aniyori's per-episode checkbox state and non-sequential gaps cannot be represented remotely. Keep Aniyori as the source of truth for detailed episode-by-episode history.
+
+Scores, start/completion dates, repeat counts, notes, and custom-list membership are not synchronized. These fields are left untouched on AniList when Aniyori updates status or progress.
