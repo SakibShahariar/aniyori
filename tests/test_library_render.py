@@ -4,8 +4,8 @@ import unittest
 from types import SimpleNamespace
 
 from aniyori.services.library_render import (
-    library_layout_signature, library_stack_page,
-    library_view_for_preset, library_widget_signature,
+    library_filter_changes_preset, library_layout_signature,
+    library_stack_page, library_view_for_preset, library_widget_signature,
 )
 
 
@@ -23,6 +23,11 @@ class LibraryWidgetSignatureTests(unittest.TestCase):
         self.assertEqual(unselected[0:2], selected[0:2])
         self.assertNotEqual(unselected, selected)
 
+
+    def test_reselecting_current_filter_does_not_detach_active_preset(self):
+        self.assertFalse(library_filter_changes_preset("watching", "watching", False))
+        self.assertTrue(library_filter_changes_preset("watching", "completed", False))
+        self.assertFalse(library_filter_changes_preset("watching", "completed", True))
 
     def test_presets_capture_selected_view_while_empty_state_is_visible(self):
         # The stack displays the shared empty page, but the toggle retains Grid.
