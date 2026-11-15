@@ -168,7 +168,8 @@ class LibraryStorage:
 
     @staticmethod
     def _sync_explicit_episode_progress(
-        connection: sqlite3.Connection, storage_id: int, episodes_watched: int
+        connection: sqlite3.Connection, storage_id: int, episodes_watched: int,
+        episodes_total: int | None,
     ) -> None:
         """Keep an existing per-episode map aligned with an aggregate count.
 
@@ -184,7 +185,18 @@ class LibraryStorage:
         if not rows:
             return
 
-        watched = sorted(int(row["episode"]) for row in rows if row["watched"])
+        upper_bound = episodes_total if episodes_total is not None else MAX_EPISODE_COUNT
+        for row in rows:
+            if row["watched"] and int(row["episode"]) > upper_bound:
+                connection.execute(
+                    "UPDATE episode_progress SET watched = 0, updated_at = CURRENT_TIMESTAMP "
+                    "WHERE anime_id = ? AND episode = ?",
+                    (storage_id, int(row["episode"])),
+                )
+        watched = sorted(
+            int(row["episode"]) for row in rows
+            if row["watched"] and int(row["episode"]) <= upper_bound
+        )
         if len(watched) > episodes_watched:
             for episode in reversed(watched[episodes_watched:]):
                 connection.execute(
@@ -197,7 +209,7 @@ class LibraryStorage:
         if len(watched) < episodes_watched:
             states = {int(row["episode"]): bool(row["watched"]) for row in rows}
             episode = 1
-            while len(watched) < episodes_watched:
+            while len(watched) < episodes_watched and episode <= upper_bound:
                 if not states.get(episode, False):
                     connection.execute(
                         """
@@ -317,7 +329,7 @@ class LibraryStorage:
                 """,
                 (episodes_watched, status, storage_id),
             )
-            self._sync_explicit_episode_progress(connection, storage_id, episodes_watched)
+            self._sync_explicit_episode_progress(connection, storage_id, episodes_watched, total)
             if episodes_watched != row["episodes_watched"]:
                 self._insert_history_event(
                     connection, anime_id=storage_id, anime_title=row["title"],
@@ -358,7 +370,8 @@ class LibraryStorage:
                      entry.cover_image, entry.storage_id),
                 )
                 self._sync_explicit_episode_progress(
-                    connection, entry.storage_id, entry.episodes_watched
+                    connection, entry.storage_id, entry.episodes_watched,
+                    entry.episodes_total,
                 )
                 if previous["episodes_watched"] != entry.episodes_watched:
                     self._insert_history_event(
@@ -412,7 +425,8 @@ class LibraryStorage:
                         ),
                     )
                     self._sync_explicit_episode_progress(
-                        connection, entry.storage_id, entry.episodes_watched
+                        connection, entry.storage_id, entry.episodes_watched,
+                        entry.episodes_total,
                     )
                     if cursor.rowcount == 0:
                         raise ValueError(f"Library entry {entry.storage_id} no longer exists.")
@@ -487,7 +501,7 @@ class LibraryStorage:
                     (episodes_watched, status, storage_id),
                 )
                 self._sync_explicit_episode_progress(
-                    connection, storage_id, episodes_watched
+                    connection, storage_id, episodes_watched, total
                 )
                 if episodes_watched != row["episodes_watched"]:
                     self._insert_history_event(
