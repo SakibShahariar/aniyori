@@ -46,6 +46,14 @@ Use a disposable test profile or a backup of any library data you care about. Do
 - [ ] Check all reviewed dialogs and the main window with keyboard-only navigation, dark mode, high contrast, and large text; confirm focus, labels, and controls remain usable.
 
 
+## Library view presets — #89
+
+- [ ] With a non-empty library, save and apply presets in both List and Grid; verify filter, sort order, and both layouts are restored.
+- [ ] With a search/status filter that produces no results, keep Grid selected, save a preset, clear the search, and verify applying the preset restores Grid rather than List.
+- [ ] Repeat the empty-results check with List selected; confirm the preset retains List.
+- [ ] Rename, duplicate, delete, and set/clear the default preset; verify feedback and startup behavior without changing library entries.
+
+
 ## Home dashboard — #91
 
 - [ ] Confirm Home is the initial destination and Home / My List navigation remains reachable by keyboard.
