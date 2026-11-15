@@ -71,7 +71,10 @@ from .services.network import NetworkSettings, NetworkSettingsError, NetworkSett
 from .services.profiles import ProfileError, ProfileStore
 from .services.library_layout import DEFAULT_LAYOUTS as DEFAULT_LIBRARY_LAYOUTS, LibraryLayoutError, LibraryLayoutStore
 from .services.library_view_presets import LibraryViewPresetError, LibraryViewPresetStore
-from .services.library_render import library_widget_signature, library_stack_page, library_view_for_preset
+from .services.library_render import (
+    library_layout_signature, library_widget_signature,
+    library_stack_page, library_view_for_preset,
+)
 
 LOGGER = logging.getLogger(__name__)
 
@@ -4926,7 +4929,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
             entry,
             self._airing_by_id.get(storage_id),
             selected,
-            self.library_layouts,
+            library_layout_signature(self.library_layouts),
             self._compact_layout,
         )
         self._update_bulk_bar()
@@ -5105,6 +5108,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
             airing_by_id=self._airing_by_id,
             updated_at_by_id=updated_at_by_id,
         )
+        layout_signature = library_layout_signature(self.library_layouts)
         for position, entry in enumerate(ordered_entries):
             key = entry.storage_id if entry.storage_id is not None else ("transient", id(entry))
             row = self._row_widgets.get(key)
@@ -5113,7 +5117,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
             airing = self._airing_by_id.get(key)
             selected = entry.storage_id in self._selected_entry_ids
             widget_signature = library_widget_signature(
-                entry, airing, selected, self.library_layouts, self._compact_layout
+                entry, airing, selected, layout_signature, self._compact_layout
             )
             if row is None or self._widget_entries.get(key) != widget_signature:
                 if row is not None:
