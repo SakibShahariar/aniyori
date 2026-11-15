@@ -54,6 +54,9 @@ Use a disposable test profile or a backup of any library data you care about. Do
 - [ ] Confirm cover art loads from the existing cache without blocking the GTK main thread; missing/invalid covers retain the native placeholder.
 - [ ] Confirm horizontal poster strips can be scrolled with pointer, touchpad, and keyboard where supported; cards do not clip at the minimum window width.
 - [ ] Confirm title, watched/total progress, status, Edit, and +1 actions are correct for each card.
+- [ ] Open a dashboard card's Details action; verify cover, title, status, progress, provider identity, and all available actions.
+- [ ] From anime Details, verify Edit details, Episode history, External links, Download preferences, and Mark next episode watched open the correct existing workflows.
+- [ ] Confirm the details dialog scrolls vertically at narrow sizes and remains keyboard accessible.
 - [ ] Confirm Continue Watching is ordered by most recently updated library entries and Recently Added is ordered by immutable creation time.
 - [ ] Confirm the Total tile matches the number of saved library entries and all status totals add up correctly.
 - [ ] Change progress, status, and library entries while Home is visible; confirm counts and sections refresh without restarting.
