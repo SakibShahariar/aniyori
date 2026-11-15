@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import base64
+from dataclasses import replace
 import json
 import os
 import re
@@ -162,6 +163,8 @@ def build_sync_plan(local_entries, remote_entries: list[dict]) -> dict:
         if not isinstance(entry, AnimeEntry):
             raise AniListAccountError("Local library contains an invalid entry.")
         if entry.provider == "anilist" and entry.provider_id:
+            if not entry.provider_id.isdecimal() or int(entry.provider_id) <= 0:
+                raise AniListAccountError("Local library contains an invalid AniList ID.")
             if entry.provider_id in local_by_id:
                 raise AniListAccountError("Local library contains duplicate AniList IDs.")
             local_by_id[entry.provider_id] = entry
@@ -209,6 +212,33 @@ def build_sync_plan(local_entries, remote_entries: list[dict]) -> dict:
         "local_only": tuple(local_only),
         "unchanged": unchanged,
     }
+
+
+def local_entry_sync_payload(entry: AnimeEntry) -> dict:
+    """Build a validated AniList mutation payload from one linked local entry."""
+    if (
+        not isinstance(entry, AnimeEntry)
+        or entry.provider != "anilist"
+        or not isinstance(entry.provider_id, str)
+        or not entry.provider_id.isdecimal()
+        or int(entry.provider_id) <= 0
+    ):
+        raise AniListAccountError("A valid AniList-linked local entry is required.")
+    return {
+        "media_id": int(entry.provider_id),
+        "status": anilist_status_for_local(entry),
+        "progress": entry.episodes_watched,
+    }
+
+
+def local_entry_from_remote(remote: dict, existing: AnimeEntry) -> AnimeEntry:
+    """Apply a remote snapshot to one local row while preserving its database ID."""
+    if not isinstance(existing, AnimeEntry) or existing.storage_id is None:
+        raise AniListAccountError("A saved local entry is required for a remote update.")
+    imported = import_entry_from_anilist(remote)
+    if existing.provider != "anilist" or existing.provider_id != imported.provider_id:
+        raise AniListAccountError("The remote entry does not match the selected local entry.")
+    return replace(imported, storage_id=existing.storage_id)
 
 
 class AniListAccountSettingsStore:
