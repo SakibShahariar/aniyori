@@ -5334,6 +5334,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
             toast.dismiss()
         self._library_undo_toast = None
         self._library_undo_dismiss_handler = None
+        undone = False
         try:
             self.storage.restore_undo_state(pending["before"], pending["after"])
         except (ValueError, sqlite3.Error, OSError) as error:
@@ -5344,8 +5345,11 @@ class AniyoriWindow(Adw.ApplicationWindow):
             self.entries = self.storage.list_entries()
             self._render_library()
             self._update_bulk_bar()
+            undone = True
+        if self._library_undo_stack:
+            self._show_library_undo_toast()
+        elif undone:
             self.toast_overlay.add_toast(Adw.Toast.new("Change undone."))
-        self._show_library_undo_toast()
 
     def _increment_progress(self, entry: AnimeEntry):
         if entry.episodes_total is not None and entry.episodes_watched >= entry.episodes_total:
