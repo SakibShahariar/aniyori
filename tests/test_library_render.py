@@ -4,7 +4,7 @@ import unittest
 from types import SimpleNamespace
 
 from aniyori.services.library_render import (
-    library_stack_page, library_widget_signature,
+    library_stack_page, library_view_for_preset, library_widget_signature,
 )
 
 
@@ -22,6 +22,12 @@ class LibraryWidgetSignatureTests(unittest.TestCase):
         self.assertEqual(unselected[0:2], selected[0:2])
         self.assertNotEqual(unselected, selected)
 
+
+    def test_presets_capture_selected_view_while_empty_state_is_visible(self):
+        self.assertEqual(library_view_for_preset(True, False), "list")
+        self.assertEqual(library_view_for_preset(False, True), "grid")
+        # The stack displays the shared empty page, but the toggle retains Grid.
+        self.assertEqual(library_view_for_preset(False, True), "grid")
 
     def test_empty_state_survives_list_and_grid_switches(self):
         for view in ("list", "grid"):
