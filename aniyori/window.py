@@ -71,7 +71,7 @@ from .services.network import NetworkSettings, NetworkSettingsError, NetworkSett
 from .services.profiles import ProfileError, ProfileStore
 from .services.library_layout import DEFAULT_LAYOUTS as DEFAULT_LIBRARY_LAYOUTS, LibraryLayoutError, LibraryLayoutStore
 from .services.library_view_presets import LibraryViewPresetError, LibraryViewPresetStore
-from .services.library_render import library_widget_signature
+from .services.library_render import library_widget_signature, library_stack_page
 
 LOGGER = logging.getLogger(__name__)
 
@@ -3456,7 +3456,11 @@ class AniyoriWindow(Adw.ApplicationWindow):
             return
         if not self._applying_view_preset:
             self._active_view_preset = None
-        self.stack.set_visible_child_name(key)
+        self.stack.set_visible_child_name(
+            library_stack_page(
+                key, getattr(self, "_library_has_visible_entries", True)
+            )
+        )
 
     def _capture_library_view_settings(self):
         view = self.stack.get_visible_child_name()
@@ -5162,6 +5166,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
             if is_visible:
                 visible_count += 1
 
+        self._library_has_visible_entries = visible_count > 0
         if not visible_count:
             if not self.entries:
                 self.empty_title.set_label("Your library is empty")
