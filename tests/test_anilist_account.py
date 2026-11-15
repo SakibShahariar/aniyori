@@ -198,7 +198,7 @@ class AniListAuthenticatedClientTests(unittest.TestCase):
         with patch.object(client, "_request", return_value={"MediaListCollection": None}):
             self.assertEqual(client.get_user_library(42), [])
 
-    def test_user_library_rejects_malformed_and_duplicate_entries(self):
+    def test_user_library_rejects_malformed_entries_and_deduplicates_custom_lists(self):
         from unittest.mock import patch
         from aniyori.services.anilist import AniListClient, AniListError
 
@@ -218,13 +218,24 @@ class AniListAuthenticatedClientTests(unittest.TestCase):
                     client.get_user_library(42)
         duplicate = {"MediaListCollection": {"lists": [
             {"entries": [
-                {"mediaId": 21, "status": "CURRENT", "progress": 1, "updatedAt": 1, "media": {"id": 21}},
+                {"mediaId": 21, "status": "CURRENT", "progress": 1, "updatedAt": 1, "media": {"id": 21, "title": {"romaji": "Example"}}},
             ]},
             {"entries": [
-                {"mediaId": 21, "status": "CURRENT", "progress": 1, "updatedAt": 1, "media": {"id": 21}},
+                {"mediaId": 21, "status": "CURRENT", "progress": 1, "updatedAt": 1, "media": {"id": 21, "title": {"romaji": "Example"}}},
             ]},
         ]}}
         with patch.object(client, "_request", return_value=duplicate):
+            entries = client.get_user_library(42)
+        self.assertEqual(len(entries), 1)
+        inconsistent = {"MediaListCollection": {"lists": [
+            {"entries": [
+                {"mediaId": 21, "status": "CURRENT", "progress": 1, "updatedAt": 1, "media": {"id": 21}},
+            ]},
+            {"entries": [
+                {"mediaId": 21, "status": "COMPLETED", "progress": 12, "updatedAt": 2, "media": {"id": 21}},
+            ]},
+        ]}}
+        with patch.object(client, "_request", return_value=inconsistent):
             with self.assertRaises(AniListError):
                 client.get_user_library(42)
 
