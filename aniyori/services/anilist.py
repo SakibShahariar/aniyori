@@ -515,7 +515,9 @@ class AniListClient:
             raise AniListError("Connect an AniList account before updating AniList.")
         if isinstance(media_id, bool) or not isinstance(media_id, int) or media_id <= 0:
             raise ValueError("media_id must be a positive integer.")
-        if status not in {"CURRENT", "PLANNING", "COMPLETED", "PAUSED", "DROPPED", "REPEATING"}:
+        if not isinstance(status, str) or status not in {
+            "CURRENT", "PLANNING", "COMPLETED", "PAUSED", "DROPPED", "REPEATING"
+        }:
             raise ValueError("Unsupported AniList list status.")
         if isinstance(progress, bool) or not isinstance(progress, int) or progress < 0:
             raise ValueError("progress must be a non-negative integer.")
