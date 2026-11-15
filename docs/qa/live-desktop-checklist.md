@@ -38,6 +38,7 @@ Use a disposable test profile or a backup of any library data you care about. Do
 - [ ] In Grid view at the minimum window width, set card width to its maximum; confirm the grid falls back to one column rather than clipping cards.
 - [ ] Select multiple anime at the minimum width; confirm bulk status and progress actions remain visible and usable.
 - [ ] Open Releases at the minimum width; confirm search/sort filters and feed/rule/download actions remain reachable in their separate rows.
+- [ ] Resize across the 720sp breakpoint with bulk selection active and while Releases is open; confirm bulk controls and release filters/actions stack vertically at narrow widths, return to horizontal rows when widened, and never clip.
 - [ ] Open Notification Preferences, Local Player Detection, and Network Settings; confirm each uses a searchable, adaptive Preferences dialog with correctly grouped rows.
 - [ ] Open Notification Center, Watch History, Customize Library Layout, Release Preferences, and Share Message Format; confirm each opens as an adaptive dialog with its description, controls, and close behavior intact.
 - [ ] Open Download Queue at wide and narrow sizes; confirm the adaptive dialog remains usable and closing it stops its automatic refresh timer.
