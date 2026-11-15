@@ -11,6 +11,7 @@ import re
 from typing import Any
 
 from .metadata_cache import MetadataCache
+from ..models import MAX_EPISODE_COUNT
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 from .network import open_request
@@ -491,7 +492,7 @@ class AniListClient:
                     or media_id in seen_ids
                     or not isinstance(status, str)
                     or status not in {"CURRENT", "PLANNING", "COMPLETED", "PAUSED", "DROPPED", "REPEATING"}
-                    or isinstance(progress, bool) or not isinstance(progress, int) or progress < 0
+                    or isinstance(progress, bool) or not isinstance(progress, int) or not 0 <= progress <= MAX_EPISODE_COUNT
                     or isinstance(updated_at, bool) or not isinstance(updated_at, int) or updated_at < 0
                 ):
                     raise AniListError("AniList returned an invalid or duplicate list entry.")
@@ -519,8 +520,8 @@ class AniListClient:
             "CURRENT", "PLANNING", "COMPLETED", "PAUSED", "DROPPED", "REPEATING"
         }:
             raise ValueError("Unsupported AniList list status.")
-        if isinstance(progress, bool) or not isinstance(progress, int) or progress < 0:
-            raise ValueError("progress must be a non-negative integer.")
+        if isinstance(progress, bool) or not isinstance(progress, int) or not 0 <= progress <= MAX_EPISODE_COUNT:
+            raise ValueError(f"progress must be between 0 and {MAX_EPISODE_COUNT:,}.")
         data = self._request(
             SAVE_MEDIA_LIST_ENTRY_MUTATION,
             {"mediaId": media_id, "status": status, "progress": progress},
