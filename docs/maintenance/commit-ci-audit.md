@@ -1211,3 +1211,20 @@ Reviewed every commit after the prior ledger checkpoint `c370ff2ebb045839c0a073f
 - Result: 18 commits reviewed; 18 unavailable; no red or green result was exposed by the queried endpoint.
 - New checkpoint: `3efe5d884ccc72cf77b8ea0f2d681665a7746079`
 - Outstanding: retrieve the actual push-triggered Actions results and run the test suite before treating these changes as CI-verified. The live GTK checks for card sizing, selection, empty states, and presets remain outstanding.
+
+
+### Preset-view helper cleanup and audit-ledger commit
+
+These commits were checked individually through the combined-status endpoint. Each returned an empty status list, so each is **unavailable**, not green. The workflow-run wrapper returned no runs for the audit-ledger commit and is limited to pull-request-triggered runs.
+
+| Commit SHA | Subject | CI result | Run / evidence |
+|---|---|---|---|
+| `b44b4889403619b45ea7fdb4158eb27d8d37ab36` | docs(maintenance): audit library follow-up CI evidence (#15) | unavailable | Combined status empty; workflow-run lookup empty |
+| `7bbc129ab625915d7d079bdb46048ad666050b69` | refactor(library): simplify selected view helper (#89) | unavailable | Combined status empty |
+| `615b01bdd024109b65fbbf03ff7b55e114cc5ed3` | refactor(library): simplify selected view capture (#89) | unavailable | Combined status empty |
+| `a4436f449f240cadcb440f3346f4945d8efbfd5e` | test(library): simplify selected view regression (#89) | unavailable | Combined status empty |
+
+- Previous checkpoint: `3efe5d884ccc72cf77b8ea0f2d681665a7746079`
+- Reviewed through: `a4436f449f240cadcb440f3346f4945d8efbfd5e`
+- New checkpoint: `a4436f449f240cadcb440f3346f4945d8efbfd5e`
+- Outstanding: obtain push-triggered Actions results and run the complete unittest suite; the three helper-cleanup commits and prior 18-commit range remain CI-unverified.
