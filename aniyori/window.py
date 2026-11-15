@@ -961,8 +961,9 @@ class AniyoriWindow(Adw.ApplicationWindow):
         self.home_page.append(stats)
 
         created = self.storage.get_created_at_map()
+        updated = self.storage.get_updated_at_map()
         recent = recently_added_entries(self.entries, created)
-        watching = continue_watching_entries(self.entries)
+        watching = continue_watching_entries(self.entries, updated)
 
         self._append_home_entry_section(
             "Continue Watching", watching,
