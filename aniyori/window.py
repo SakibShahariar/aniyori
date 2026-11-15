@@ -71,6 +71,7 @@ from .services.network import NetworkSettings, NetworkSettingsError, NetworkSett
 from .services.profiles import ProfileError, ProfileStore
 from .services.library_layout import DEFAULT_LAYOUTS as DEFAULT_LIBRARY_LAYOUTS, LibraryLayoutError, LibraryLayoutStore
 from .services.library_view_presets import LibraryViewPresetError, LibraryViewPresetStore
+from .services.library_render import library_widget_signature
 
 LOGGER = logging.getLogger(__name__)
 
@@ -4917,8 +4918,12 @@ class AniyoriWindow(Adw.ApplicationWindow):
             widget = widgets.get(storage_id)
             if widget is not None and widget.selection_check.get_active() != selected:
                 widget.selection_check.set_active(selected)
-        self._widget_entries[storage_id] = (
-            entry, self._airing_by_id.get(storage_id), selected
+        self._widget_entries[storage_id] = library_widget_signature(
+            entry,
+            self._airing_by_id.get(storage_id),
+            selected,
+            self.library_layouts,
+            self._compact_layout,
         )
         self._update_bulk_bar()
 
@@ -5098,8 +5103,8 @@ class AniyoriWindow(Adw.ApplicationWindow):
 
             airing = self._airing_by_id.get(key)
             selected = entry.storage_id in self._selected_entry_ids
-            widget_signature = (
-                entry, airing, selected, repr(self.library_layouts), self._compact_layout
+            widget_signature = library_widget_signature(
+                entry, airing, selected, self.library_layouts, self._compact_layout
             )
             if row is None or self._widget_entries.get(key) != widget_signature:
                 if row is not None:
