@@ -58,6 +58,10 @@ def show_anilist_account_dialog(parent) -> None:
     dialog.set_title("AniList Account")
     dialog.set_content_width(520)
 
+    toolbar_view = Adw.ToolbarView()
+    header = Adw.HeaderBar()
+    toolbar_view.add_top_bar(header)
+
     content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
     content.set_margin_top(18)
     content.set_margin_bottom(18)
@@ -126,11 +130,11 @@ def show_anilist_account_dialog(parent) -> None:
     status_label.add_css_class("dim-label")
     content.append(status_label)
 
-    close_button = Gtk.Button(label="Close")
-    close_button.set_halign(Gtk.Align.END)
-    content.append(close_button)
-
-    dialog.set_child(content)
+    scroll = Gtk.ScrolledWindow()
+    scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+    scroll.set_child(content)
+    toolbar_view.set_content(scroll)
+    dialog.set_child(toolbar_view)
 
     def current_settings():
         return settings_store.load()
@@ -333,6 +337,9 @@ def show_anilist_account_dialog(parent) -> None:
             review = Adw.Dialog()
             review.set_title("Review AniList Sync")
             review.set_content_width(620)
+            review_toolbar = Adw.ToolbarView()
+            review_header = Adw.HeaderBar()
+            review_toolbar.add_top_bar(review_header)
             review_content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
             review_content.set_margin_top(16)
             review_content.set_margin_bottom(16)
@@ -435,7 +442,11 @@ def show_anilist_account_dialog(parent) -> None:
             apply_button.add_css_class("suggested-action")
             buttons.append(apply_button)
             review_content.append(buttons)
-            review.set_child(review_content)
+            review_scroll = Gtk.ScrolledWindow()
+            review_scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+            review_scroll.set_child(review_content)
+            review_toolbar.set_content(review_scroll)
+            review.set_child(review_toolbar)
 
             def apply_sync(_apply_button):
                 unresolved = [
@@ -541,7 +552,5 @@ def show_anilist_account_dialog(parent) -> None:
     import_button.connect("clicked", import_library)
     sync_button.connect("clicked", review_sync)
     disconnect_button.connect("clicked", disconnect_account)
-    close_button.connect("clicked", lambda _button: dialog.close())
-
     refresh_account_state()
     dialog.present(parent)
