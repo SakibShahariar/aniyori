@@ -20,6 +20,7 @@ Use a disposable test profile or a backup of any library data you care about. Do
 - [ ] Launch with `python3 main.py`; confirm the main window appears without traceback, warning dialog, or missing-resource error.
 - [ ] Add a manual anime, edit its title/status/progress, close the app, relaunch, and confirm the data persists.
 - [ ] Search and filter the library; switch between list and grid views and confirm the same entries remain available.
+- [ ] Enter a search with no matches, then switch between List and Grid; confirm the empty-state explanation and recovery guidance remain visible.
 - [ ] Select and deselect multiple entries in both List and Grid; confirm selection stays synchronized across views and subsequent search/sort changes do not recreate unchanged rows/cards.
 - [ ] Exercise keyboard focus from the header through search, toolbar, library rows/cards, and menu; confirm focus remains visible and logical.
 - [ ] Resize the window down to the supported minimum and back; confirm controls remain reachable and content does not overlap.
