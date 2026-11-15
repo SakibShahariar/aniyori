@@ -18,6 +18,7 @@ from ..backup import default_config_dir
 
 AUTH_PIN_REDIRECT_URI = "https://anilist.co/api/v2/oauth/pin"
 AUTHORIZATION_URL = "https://anilist.co/api/v2/oauth/authorize"
+DEFAULT_CLIENT_ID = "57061"
 _ACCOUNT_FORMAT = "aniyori-anilist-account"
 _ACCOUNT_VERSION = 1
 _CLIENT_ID = re.compile(r"^[0-9]{1,20}$")
