@@ -5272,7 +5272,9 @@ class AniyoriWindow(Adw.ApplicationWindow):
             return
         pending = self._library_undo_stack[-1]
         remaining = max(1, (pending["expires_at"] - now + 999_999) // 1_000_000)
-        toast = Adw.Toast.new(pending["description"])
+        toast = Adw.Toast.new(
+            f"{pending['description']} · Undo available for {int(remaining)}s"
+        )
         toast.set_button_label("Undo")
         toast.set_action_name("win.undo-library-change")
         toast.set_action_target_value(GLib.Variant.new_string(pending["token"]))
