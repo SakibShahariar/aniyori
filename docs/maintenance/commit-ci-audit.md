@@ -1124,3 +1124,25 @@ The following commits were checked individually. The combined commit-status endp
 - Reviewed through: `5207c9e3fd558665c1e2cbc7deb1a7b246d420d4`
 - New checkpoint: `5207c9e3fd558665c1e2cbc7deb1a7b246d420d4`
 - The missing push-run result remains unresolved; do not interpret unavailable as a pass.
+
+
+### Recently Added data follow-up
+
+The following commits were checked individually. Every combined status lookup returned an empty status list, so each result is **unavailable**, not green. Push-run evidence remains inaccessible through the available Actions lookup.
+
+| Commit SHA | Subject | CI result | Run / evidence |
+|---|---|---|---|
+| `0f884b092373f0379fd562aa19b1052d4586af3f` | feat(storage): expose library creation timestamps (#91) | unavailable | Combined status lookup returned no entries |
+| `1c89db089a568bbbdd1f505b7fee4636bf5b77e3` | feat(ui): select recently added dashboard entries (#91) | unavailable | Combined status lookup returned no entries |
+| `e691785bceae8ca955658e90187f601a67174238` | test(ui): verify recently added dashboard ordering (#91) | unavailable | Combined status lookup returned no entries |
+| `feb25937da4513766e427053b3e2928092776163` | fix(ui): order recently added by creation date (#91) | unavailable | Combined status lookup returned no entries |
+| `505dc47e3dd8187ba7e52469004a7c55cd3391a5` | test(storage): cover library creation timestamps (#91) | unavailable | Combined status lookup returned no entries |
+| `fe89f8c3792890e08d0d7e63e5756340bf505e06` | refactor(ui): keep dashboard selectors focused (#91) | unavailable | Combined status lookup returned no entries |
+| `7b547bf25531d38258486d48f6d9c70d59f9b28b` | test(ui): focus dashboard tests on creation ordering (#91) | unavailable | Combined status lookup returned no entries |
+| `1d6c516a27c564ba45503795da8365b1a523fd0d` | docs(qa): align dashboard checks with added-date cards (#91) | unavailable | Combined status lookup returned no entries |
+| `9004593e4b3a6b754ec8c95ce8497d31720b4a88` | test(storage): preserve creation timestamps across edits (#91) | unavailable | Combined status lookup returned no entries |
+
+- Previous checkpoint: `5207c9e3fd558665c1e2cbc7deb1a7b246d420d4`
+- Reviewed through: `9004593e4b3a6b754ec8c95ce8497d31720b4a88`
+- New checkpoint: `9004593e4b3a6b754ec8c95ce8497d31720b4a88`
+- The Home page now labels the section Recently Added and orders it using the database's immutable `created_at` field, not `updated_at`.
