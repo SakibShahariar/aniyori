@@ -475,8 +475,7 @@ class AniListClient:
             return []
         if not isinstance(collection, dict) or not isinstance(collection.get("lists"), list):
             raise AniListError("AniList returned an invalid user library.")
-        results = []
-        seen_ids = set()
+        results_by_id = {}
         for media_list in collection["lists"]:
             if not isinstance(media_list, dict) or not isinstance(media_list.get("entries"), list):
                 raise AniListError("AniList returned an invalid user list.")
@@ -489,7 +488,6 @@ class AniListClient:
                 updated_at = entry.get("updatedAt")
                 if (
                     isinstance(media_id, bool) or not isinstance(media_id, int) or media_id <= 0
-                    or media_id in seen_ids
                     or not isinstance(status, str)
                     or status not in {"CURRENT", "PLANNING", "COMPLETED", "PAUSED", "DROPPED", "REPEATING"}
                     or isinstance(progress, bool) or not isinstance(progress, int) or not 0 <= progress <= MAX_EPISODE_COUNT
@@ -499,16 +497,21 @@ class AniListClient:
                 media = _normalise_media(entry["media"])
                 if media.get("id") != media_id:
                     raise AniListError("AniList list entry media IDs did not match.")
-                seen_ids.add(media_id)
-                results.append({
+                normalized = {
                     "media_id": media_id,
                     "status": status,
                     "progress": progress,
                     "score": entry.get("score"),
                     "updated_at": updated_at,
                     "media": media,
-                })
-        return results
+                }
+                previous = results_by_id.get(media_id)
+                if previous is not None:
+                    if previous != normalized:
+                        raise AniListError("AniList returned conflicting duplicate list entries.")
+                    continue
+                results_by_id[media_id] = normalized
+        return list(results_by_id.values())
 
     def save_media_list_entry(self, media_id: int, status: str, progress: int) -> dict[str, Any]:
         """Create or update one authenticated AniList list entry."""
