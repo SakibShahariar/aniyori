@@ -523,7 +523,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
             (self.library_nav_button, "library"),
         ):
             button.set_halign(Gtk.Align.FILL)
-            button.connect("toggled", self._on_primary_navigation, page_name)
+            button.connect("clicked", self._on_primary_navigation, page_name)
             sidebar.append(button)
 
         sidebar_separator = Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL)
@@ -823,6 +823,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
         self.view_switches["list"].set_active(True)
         self._render_library()
         self.home_nav_button.set_active(True)
+        self._on_primary_navigation(self.home_nav_button, "home")
         self._refresh_home()
         self.filter_buttons["all"].set_active(True)
         if self.library_view_presets["default"]:
@@ -853,6 +854,10 @@ class AniyoriWindow(Adw.ApplicationWindow):
             self.set_title("Aniyori")
         else:
             self.set_title("Aniyori — My List")
+
+    def _show_library_page(self):
+        self.library_nav_button.set_active(True)
+        self._on_primary_navigation(self.library_nav_button, "library")
 
     def _set_navigation_compact(self, compact):
         self.navigation_split_view.set_collapsed(compact)
@@ -976,10 +981,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
         heading_row.append(heading)
         view_all = Gtk.Button(label="View My List")
         view_all.add_css_class("flat")
-        view_all.connect(
-            "clicked",
-            lambda _button: self.library_nav_button.set_active(True),
-        )
+        view_all.connect("clicked", lambda _button: self._show_library_page())
         heading_row.append(view_all)
         section.append(heading_row)
 
@@ -1060,8 +1062,12 @@ class AniyoriWindow(Adw.ApplicationWindow):
                 actions.set_margin_start(8)
                 actions.set_margin_end(8)
                 actions.set_margin_bottom(8)
-                edit_button = Gtk.Button(label="Details")
+                edit_button = Gtk.Button(label="Edit")
                 edit_button.set_hexpand(True)
+                edit_button.set_tooltip_text("Edit anime details")
+                edit_button.update_property(
+                    [Gtk.AccessibleProperty.LABEL], ["Edit anime details"]
+                )
                 edit_button.connect(
                     "clicked",
                     lambda _button, item=entry: self._show_edit_dialog(item),
@@ -1073,6 +1079,10 @@ class AniyoriWindow(Adw.ApplicationWindow):
                 ):
                     next_button = Gtk.Button(label="+1")
                     next_button.set_tooltip_text("Mark one more episode watched")
+                    next_button.update_property(
+                        [Gtk.AccessibleProperty.LABEL],
+                        ["Mark one more episode watched"],
+                    )
                     next_button.connect(
                         "clicked",
                         lambda _button, item=entry: self._increment_progress(item),
