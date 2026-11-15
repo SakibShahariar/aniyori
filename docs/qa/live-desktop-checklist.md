@@ -65,6 +65,7 @@ Use a disposable test profile or a backup of any library data you care about. Do
 - [ ] Confirm dashboard card cover art has an accessible name and all actions remain keyboard reachable.
 - [ ] In My List grid view, confirm poster dimensions match Home cards, titles remain readable at two lines, and card heights follow their content without clipping.
 - [ ] Confirm grid cards expose a primary Details action alongside the compact +1 progress action and contextual episode, external-link, edit, and remove controls.
+- [ ] At the narrowest supported grid-card width, confirm Details and +1 remain usable on the primary row and the four icon actions fit on their own secondary row without clipping or horizontal overflow.
 - [ ] Confirm poster placeholders, accessible names, tooltips, and keyboard focus remain correct when covers are missing or titles are long.
 - [ ] Repeat at the supported minimum size, with large text, dark/light themes, and high contrast; verify no horizontal overflow outside the intentionally scrollable poster strips.
 
