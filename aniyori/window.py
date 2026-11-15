@@ -514,7 +514,14 @@ class AniyoriWindow(Adw.ApplicationWindow):
         self.library_page = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
         self.page_stack.add_named(self.library_page, "library")
         self.home_page = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=16)
-        self.page_stack.add_named(self.home_page, "home")
+        self.home_page.set_margin_start(4)
+        self.home_page.set_margin_end(4)
+        self.home_page.set_margin_top(8)
+        self.home_page.set_margin_bottom(8)
+        self.home_scroll = Gtk.ScrolledWindow()
+        self.home_scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        self.home_scroll.set_child(self.home_page)
+        self.page_stack.add_named(self.home_scroll, "home")
 
         toolbar = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
         toolbar.set_margin_bottom(12)
@@ -4944,6 +4951,8 @@ class AniyoriWindow(Adw.ApplicationWindow):
         if updated:
             self.entries = self.storage.list_entries()
             self._render_library()
+            if self.page_stack.get_visible_child_name() == "home":
+                self._refresh_home()
             updated_entry = next((item for item in self.entries if item.storage_id == entry.storage_id), entry)
             self._dispatch_webhook_event(updated_entry, "progress")
             self.toast_overlay.add_toast(Adw.Toast.new(f"Progress updated: {entry.title}"))
