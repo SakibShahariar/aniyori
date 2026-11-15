@@ -419,7 +419,7 @@ class LibraryStorageTests(unittest.TestCase):
         updated = {entry.storage_id: entry for entry in self.storage.list_entries()}
         self.assertEqual(updated[first.storage_id].episodes_watched, 1)
         self.assertEqual(updated[second.storage_id].episodes_watched, 0)
-        self.assertEqual(self.storage.list_episode_progress(first.storage_id), {1: True, 2: False, 3: True})
+        self.assertEqual(self.storage.list_episode_progress(first.storage_id), {3: True})
         self.assertEqual(self.storage.list_episode_progress(second.storage_id), {})
 
 
