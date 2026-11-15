@@ -326,12 +326,13 @@ class AnimeCard(Gtk.Box):
         next_button.update_property(
             [Gtk.AccessibleProperty.LABEL], [next_button.get_tooltip_text()]
         )
-        next_button.set_halign(Gtk.Align.CENTER)
+        next_button.set_hexpand(False)
         next_button.connect("clicked", lambda _button: on_progress(entry))
-        self.append(next_button)
 
-        actions = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
-        actions.set_halign(Gtk.Align.CENTER)
+        primary_actions = Gtk.Box(
+            orientation=Gtk.Orientation.HORIZONTAL, spacing=6
+        )
+        primary_actions.set_halign(Gtk.Align.FILL)
         details_button = Gtk.Button(label="Details")
         details_button.set_hexpand(True)
         details_button.set_tooltip_text("View anime details and actions")
@@ -342,7 +343,14 @@ class AnimeCard(Gtk.Box):
             "clicked",
             lambda _button: (on_details or on_edit)(entry),
         )
-        actions.append(details_button)
+        primary_actions.append(details_button)
+        primary_actions.append(next_button)
+        self.append(primary_actions)
+
+        secondary_actions = Gtk.Box(
+            orientation=Gtk.Orientation.HORIZONTAL, spacing=2
+        )
+        secondary_actions.set_halign(Gtk.Align.FILL)
         for icon_name, tooltip, callback in (
             ("view-list-symbolic", "Edit watched state for individual episodes",
              lambda _button: on_episodes(entry) if on_episodes else None),
@@ -354,12 +362,14 @@ class AnimeCard(Gtk.Box):
              lambda _button: on_remove(entry)),
         ):
             button = Gtk.Button.new_from_icon_name(icon_name)
+            button.set_size_request(30, -1)
+            button.set_hexpand(True)
             button.set_tooltip_text(tooltip)
             button.update_property([Gtk.AccessibleProperty.LABEL], [tooltip])
             button.add_css_class("flat")
             button.connect("clicked", callback)
-            actions.append(button)
-        self.append(actions)
+            secondary_actions.append(button)
+        self.append(secondary_actions)
 
 
 class AniyoriWindow(Adw.ApplicationWindow):
