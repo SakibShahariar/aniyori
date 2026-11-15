@@ -431,15 +431,12 @@ class AniyoriWindow(Adw.ApplicationWindow):
 
         header = Adw.HeaderBar()
         root.add_top_bar(header)
+        self.back_button = Gtk.Button.new_from_icon_name("go-previous-symbolic")
+        self.back_button.set_tooltip_text("Back to navigation")
+        self.back_button.set_visible(False)
+        self.back_button.connect("clicked", self._on_navigation_back)
+        header.pack_start(self.back_button)
         header.set_title_widget(Adw.WindowTitle(title="Aniyori", subtitle="Your anime library"))
-
-        self.home_nav_button = Gtk.ToggleButton(label="Home")
-        self.library_nav_button = Gtk.ToggleButton(label="My List")
-        self.library_nav_button.set_group(self.home_nav_button)
-        self.home_nav_button.connect("toggled", self._on_primary_navigation, "home")
-        self.library_nav_button.connect("toggled", self._on_primary_navigation, "library")
-        header.pack_start(self.home_nav_button)
-        header.pack_start(self.library_nav_button)
 
         add_button = Gtk.Button.new_from_icon_name("list-add-symbolic")
         add_button.set_tooltip_text("Add anime")
@@ -507,7 +504,58 @@ class AniyoriWindow(Adw.ApplicationWindow):
         body_clamp = Adw.Clamp()
         body_clamp.set_maximum_size(1200)
         body_clamp.set_child(body)
-        root.set_content(body_clamp)
+
+        sidebar = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
+        sidebar.set_margin_start(12)
+        sidebar.set_margin_end(12)
+        sidebar.set_margin_top(18)
+        sidebar.set_margin_bottom(12)
+        brand = Gtk.Label(label="Aniyori", xalign=0)
+        brand.add_css_class("title-2")
+        brand.set_margin_bottom(12)
+        sidebar.append(brand)
+
+        self.home_nav_button = Gtk.ToggleButton(label="Home")
+        self.library_nav_button = Gtk.ToggleButton(label="My List")
+        self.library_nav_button.set_group(self.home_nav_button)
+        for button, page_name in (
+            (self.home_nav_button, "home"),
+            (self.library_nav_button, "library"),
+        ):
+            button.set_halign(Gtk.Align.FILL)
+            button.connect("toggled", self._on_primary_navigation, page_name)
+            sidebar.append(button)
+
+        sidebar_separator = Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL)
+        sidebar_separator.set_margin_top(8)
+        sidebar_separator.set_margin_bottom(8)
+        sidebar.append(sidebar_separator)
+
+        browse_button = Gtk.Button(label="Browse")
+        browse_button.set_halign(Gtk.Align.FILL)
+        browse_button.connect(
+            "clicked", lambda _button: self._show_season_discovery()
+        )
+        sidebar.append(browse_button)
+        statistics_button = Gtk.Button(label="Statistics")
+        statistics_button.set_halign(Gtk.Align.FILL)
+        statistics_button.connect(
+            "clicked", lambda _button: self._show_statistics_dialog()
+        )
+        sidebar.append(statistics_button)
+        sidebar.append(Gtk.Box(vexpand=True))
+
+        self.navigation_split_view = Adw.NavigationSplitView()
+        self.navigation_split_view.set_min_sidebar_width(156)
+        self.navigation_split_view.set_max_sidebar_width(224)
+        self.navigation_split_view.set_sidebar_width_fraction(0.21)
+        self.navigation_split_view.set_sidebar(
+            Adw.NavigationPage.new(sidebar, "Navigation")
+        )
+        self.navigation_split_view.set_content(
+            Adw.NavigationPage.new(body_clamp, "Aniyori")
+        )
+        root.set_content(self.navigation_split_view)
 
         self.page_stack = Gtk.Stack()
         self.page_stack.set_transition_type(Gtk.StackTransitionType.CROSSFADE)
@@ -772,6 +820,17 @@ class AniyoriWindow(Adw.ApplicationWindow):
         )
         self.add_breakpoint(compact_breakpoint)
 
+        navigation_breakpoint = Adw.Breakpoint.new(
+            Adw.BreakpointCondition.parse("max-width: 720sp")
+        )
+        navigation_breakpoint.connect(
+            "apply", lambda *_args: self._set_navigation_compact(True)
+        )
+        navigation_breakpoint.connect(
+            "unapply", lambda *_args: self._set_navigation_compact(False)
+        )
+        self.add_breakpoint(navigation_breakpoint)
+
         self.view_switches["list"].set_active(True)
         self._render_library()
         self.home_nav_button.set_active(True)
@@ -797,11 +856,27 @@ class AniyoriWindow(Adw.ApplicationWindow):
         if not button.get_active():
             return
         self.page_stack.set_visible_child_name(page_name)
+        if self.navigation_split_view.get_collapsed():
+            self.navigation_split_view.set_show_content(True)
+            self.back_button.set_visible(True)
         if page_name == "home":
             self._refresh_home()
             self.set_title("Aniyori")
         else:
             self.set_title("Aniyori — My List")
+
+    def _set_navigation_compact(self, compact):
+        self.navigation_split_view.set_collapsed(compact)
+        if not compact:
+            self.back_button.set_visible(False)
+        else:
+            self.back_button.set_visible(
+                self.navigation_split_view.get_show_content()
+            )
+
+    def _on_navigation_back(self, _button):
+        self.navigation_split_view.set_show_content(False)
+        self.back_button.set_visible(False)
 
     def _refresh_home(self):
         if not hasattr(self, "home_page"):
