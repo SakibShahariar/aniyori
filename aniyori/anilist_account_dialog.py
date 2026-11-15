@@ -241,6 +241,13 @@ def show_anilist_account_dialog(parent) -> None:
                 raise CredentialStoreError(
                     initial_keyring_error or "The desktop Secret Service is unavailable."
                 )
+            previous_settings = settings_store.load()
+            previous_id = previous_settings.get("viewer_id")
+            previous_key = f"anilist:{previous_id}" if previous_id is not None else None
+            previous_token = (
+                credential_store.lookup("aniyori", previous_key)
+                if previous_key is not None else None
+            )
             credential_store.store("aniyori", account_key, token)
             try:
                 settings_store.save(
@@ -249,8 +256,16 @@ def show_anilist_account_dialog(parent) -> None:
                     viewer_name=viewer["name"],
                 )
             except Exception:
-                credential_store.remove("aniyori", account_key)
+                if previous_id == viewer["id"] and previous_token:
+                    credential_store.store("aniyori", account_key, previous_token)
+                else:
+                    credential_store.remove("aniyori", account_key)
                 raise
+            if previous_key is not None and previous_id != viewer["id"]:
+                try:
+                    credential_store.remove("aniyori", previous_key)
+                except CredentialStoreError:
+                    pass
             return viewer
 
         def connected(viewer):
