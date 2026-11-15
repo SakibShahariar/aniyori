@@ -3745,14 +3745,14 @@ class AniyoriWindow(Adw.ApplicationWindow):
                 ("Clear Default", clear_default),
             ),
         ):
-            row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+            buttons = []
             for label, callback in zip(labels, callbacks):
                 button = Gtk.Button(label=label)
                 if label == "Delete":
                     button.add_css_class("destructive-action")
                 button.connect("clicked", callback)
-                row.append(button)
-            content.append(row)
+                buttons.append(button)
+            content.append(_responsive_control_row(*buttons, max_per_line=4))
         reset_button = Gtk.Button(label="Return to Default View")
         reset_button.connect("clicked", reset_view)
         reset_button.set_halign(Gtk.Align.START)
@@ -3815,7 +3815,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
                 continue
 
             for release in result.releases:
-                row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
+                row = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
                 row.set_margin_top(10)
                 row.set_margin_bottom(10)
                 row.set_margin_start(12)
@@ -3861,6 +3861,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
                 subtitle.set_tooltip_text(release.decision_explanation)
                 details.append(subtitle)
                 row.append(details)
+                release_actions = []
                 if release.entry.magnet_uri:
                     send_button = Gtk.Button(label="Send to qBittorrent")
                     send_button.set_tooltip_text(
@@ -3877,7 +3878,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
                         lambda _button, magnet=release.entry.magnet_uri:
                             self._send_release_to_qbittorrent(magnet),
                     )
-                    row.append(send_button)
+                    release_actions.append(send_button)
                     link = Gtk.LinkButton.new_with_label(
                         release.entry.magnet_uri, "Open in default app"
                     )
@@ -3888,11 +3889,13 @@ class AniyoriWindow(Adw.ApplicationWindow):
                     )
                     link.set_sensitive(release.eligible)
                     link.set_valign(Gtk.Align.CENTER)
-                    row.append(link)
+                    release_actions.append(link)
                 elif release.entry.link:
                     link = Gtk.LinkButton.new_with_label(release.entry.link, "Open source")
                     link.set_valign(Gtk.Align.CENTER)
-                    row.append(link)
+                    release_actions.append(link)
+                if release_actions:
+                    row.append(_responsive_control_row(*release_actions, max_per_line=2))
                 self.release_list_box.append(row)
                 rendered += 1
 
@@ -3940,10 +3943,12 @@ class AniyoriWindow(Adw.ApplicationWindow):
         status = Gtk.Label(label="Loading queue…", xalign=0)
         status.add_css_class("dim-label")
         content.append(status)
-        toolbar = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         refresh_button = Gtk.Button(label="Refresh")
-        toolbar.append(refresh_button)
-        toolbar.append(Gtk.Label(label="Refreshes automatically every 10 seconds", xalign=0))
+        toolbar = _responsive_control_row(
+            refresh_button,
+            Gtk.Label(label="Refreshes automatically every 10 seconds", xalign=0),
+            max_per_line=2,
+        )
         content.append(toolbar)
         queue_list = Gtk.ListBox()
         queue_list.set_selection_mode(Gtk.SelectionMode.NONE)
@@ -3991,7 +3996,6 @@ class AniyoriWindow(Adw.ApplicationWindow):
                 queue_list.append(Gtk.Label(label="The qBittorrent queue is empty.", margin_top=24, margin_bottom=24))
                 return GLib.SOURCE_REMOVE
             for torrent in torrents:
-                row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
                 details = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=3)
                 details.set_hexpand(True)
                 name = Gtk.Label(label=torrent["name"], xalign=0)
@@ -4012,7 +4016,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
                     label=f"{torrent['state']} · {downloaded} / {total} · {speed} down · {upload_speed} · {format_eta(torrent['eta'])}",
                     xalign=0,
                 ))
-                row.append(details)
+                queue_actions = []
                 state = torrent["state"].casefold()
                 if state in {"error", "missingfiles"}:
                     recheck = Gtk.Button(label="Recheck")
@@ -4021,7 +4025,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
                         "clicked",
                         lambda _button, info_hash=torrent["hash"]: run_action("recheck", info_hash),
                     )
-                    row.append(recheck)
+                    queue_actions.append(recheck)
                 else:
                     paused = "paused" in state or "stopped" in state
                     toggle = Gtk.Button(label="Resume" if paused else "Pause")
@@ -4029,12 +4033,14 @@ class AniyoriWindow(Adw.ApplicationWindow):
                         "clicked",
                         lambda _button, info_hash=torrent["hash"], action="resume" if paused else "pause": run_action(action, info_hash),
                     )
-                    row.append(toggle)
+                    queue_actions.append(toggle)
                 remove = Gtk.Button(label="Remove")
                 remove.set_tooltip_text("Remove from qBittorrent without deleting downloaded files")
                 remove.connect("clicked", lambda _button, item=torrent: confirm_remove(item))
-                row.append(remove)
-                queue_list.append(row)
+                queue_actions.append(remove)
+                queue_list.append(_responsive_control_row(
+                    details, *queue_actions, max_per_line=3,
+                ))
             return GLib.SOURCE_REMOVE
 
         def refresh(_button=None):
@@ -4359,7 +4365,6 @@ class AniyoriWindow(Adw.ApplicationWindow):
                 self.toast_overlay.add_toast(Adw.Toast.new(f"Could not load rules: {error}"))
                 return ()
             for index, rule in enumerate(rules):
-                row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
                 toggle = Gtk.CheckButton()
                 toggle.set_active(rule.enabled)
                 toggle.set_tooltip_text("Enable or disable this rule")
@@ -4392,8 +4397,10 @@ class AniyoriWindow(Adw.ApplicationWindow):
                 remove_button = Gtk.Button.new_from_icon_name("user-trash-symbolic")
                 remove_button.set_tooltip_text("Remove rule")
                 remove_button.connect("clicked", lambda _button, item=rule: remove_rule(item.rule_id))
-                row.append(remove_button)
-                rule_list.append(row)
+                rule_list.append(_responsive_control_row(
+                    toggle, summary, up_button, down_button, edit_button,
+                    remove_button, max_per_line=6,
+                ))
             return rules
 
         def update_rule(rule_id, **changes):
@@ -4593,7 +4600,6 @@ class AniyoriWindow(Adw.ApplicationWindow):
                 self.toast_overlay.add_toast(Adw.Toast.new(f"Could not load feeds: {error}"))
                 return
             for feed in feeds:
-                row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
                 label = Gtk.Label(label=feed.name, xalign=0)
                 label.set_hexpand(True)
                 label.set_ellipsize(3)
@@ -4616,8 +4622,10 @@ class AniyoriWindow(Adw.ApplicationWindow):
                     "clicked",
                     lambda _button, item=feed: remove_feed(item.url),
                 )
-                row.append(remove_button)
-                feed_list.append(row)
+                feed_list.append(_responsive_control_row(
+                    label, state, toggle_button, edit_button, remove_button,
+                    max_per_line=5,
+                ))
 
         def add_nyaa_search(_button):
             query = nyaa_search_entry.get_text().strip()
