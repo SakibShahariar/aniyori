@@ -491,5 +491,42 @@ class LibraryStorageTests(unittest.TestCase):
             self.storage.list_watch_history_for_year(2026, local_timezone="UTC")
 
 
+    def test_undo_rejects_an_entry_deleted_after_the_edit(self):
+        self.storage.add(AnimeEntry(title="Deleted after edit", episodes_total=12))
+        entry = self.storage.list_entries()[0]
+        before = self.storage.capture_undo_state((entry.storage_id,))
+
+        self.storage.update_progress(entry.storage_id, 1)
+        after = self.storage.capture_undo_state((entry.storage_id,))
+        self.storage.remove(entry.storage_id)
+
+        with self.assertRaisesRegex(ValueError, "changed after the action"):
+            self.storage.restore_undo_state(before, after)
+        self.assertEqual(self.storage.list_entries(), [])
+
+    def test_undo_rejects_episode_total_changes_after_the_edit(self):
+        self.storage.add(AnimeEntry(title="Changed total", episodes_total=12))
+        entry = self.storage.list_entries()[0]
+        before = self.storage.capture_undo_state((entry.storage_id,))
+
+        self.storage.update_progress(entry.storage_id, 2)
+        after = self.storage.capture_undo_state((entry.storage_id,))
+        changed_total = AnimeEntry(
+            title=entry.title,
+            episodes_total=2,
+            episodes_watched=2,
+            status=WatchStatus.COMPLETED,
+            storage_id=entry.storage_id,
+        )
+        self.storage.update_entry(changed_total)
+
+        with self.assertRaisesRegex(ValueError, "changed after the action"):
+            self.storage.restore_undo_state(before, after)
+        updated = self.storage.list_entries()[0]
+        self.assertEqual(updated.episodes_total, 2)
+        self.assertEqual(updated.episodes_watched, 2)
+        self.assertEqual(updated.status, WatchStatus.COMPLETED)
+
+
 if __name__ == "__main__":
     unittest.main()
