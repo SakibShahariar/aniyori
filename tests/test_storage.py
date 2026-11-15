@@ -2,6 +2,7 @@
 
 import tempfile
 import unittest
+from datetime import timedelta, timezone
 from unittest.mock import patch
 from pathlib import Path
 
@@ -453,6 +454,41 @@ class LibraryStorageTests(unittest.TestCase):
             self.storage.list_episode_progress(entry.storage_id),
             {1: True, 2: True, 3: True, 4: True, 6: True},
         )
+
+
+    def test_watch_history_year_query_uses_local_timezone_boundaries(self):
+        self.storage.add(AnimeEntry(title="Year boundary", episodes_total=12))
+        entry = self.storage.list_entries()[0]
+        event_ids = [
+            self.storage.record_watch_event(entry.storage_id, episode=1)
+            for _ in range(4)
+        ]
+        timestamps = (
+            "2025-01-01 04:59:59",
+            "2025-01-01 05:00:00",
+            "2026-01-01 04:59:59",
+            "2026-01-01 05:00:00",
+        )
+        with self.storage._connect() as connection:
+            connection.executemany(
+                "UPDATE watch_history SET created_at = ? WHERE id = ?",
+                zip(timestamps, event_ids),
+            )
+
+        events = self.storage.list_watch_history_for_year(
+            2025, local_timezone=timezone(timedelta(hours=-5))
+        )
+
+        self.assertEqual(
+            {event["id"] for event in events},
+            {event_ids[1], event_ids[2]},
+        )
+
+    def test_watch_history_year_query_rejects_invalid_year_and_timezone(self):
+        with self.assertRaises(ValueError):
+            self.storage.list_watch_history_for_year(True)
+        with self.assertRaises(ValueError):
+            self.storage.list_watch_history_for_year(2026, local_timezone="UTC")
 
 
 if __name__ == "__main__":
