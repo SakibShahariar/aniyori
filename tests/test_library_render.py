@@ -3,7 +3,9 @@
 import unittest
 from types import SimpleNamespace
 
-from aniyori.services.library_render import library_widget_signature
+from aniyori.services.library_render import (
+    library_stack_page, library_widget_signature,
+)
 
 
 class LibraryWidgetSignatureTests(unittest.TestCase):
@@ -19,6 +21,13 @@ class LibraryWidgetSignatureTests(unittest.TestCase):
         self.assertEqual(selected, (entry, airing, True, repr(layouts), False))
         self.assertEqual(unselected[0:2], selected[0:2])
         self.assertNotEqual(unselected, selected)
+
+
+    def test_empty_state_survives_list_and_grid_switches(self):
+        for view in ("list", "grid"):
+            with self.subTest(view=view):
+                self.assertEqual(library_stack_page(view, False), "empty")
+                self.assertEqual(library_stack_page(view, True), view)
 
     def test_layout_and_compact_changes_invalidate_cached_widgets(self):
         entry = SimpleNamespace(title="Example", storage_id=7)
