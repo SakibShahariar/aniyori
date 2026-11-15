@@ -302,5 +302,89 @@ class LibraryStorageTests(unittest.TestCase):
         self.assertEqual(self.storage.list_entries()[0].status, WatchStatus.COMPLETED)
 
 
+    def test_undo_progress_restores_legacy_state_and_removes_its_history(self):
+        self.storage.add(AnimeEntry(
+            title="Legacy progress", episodes_total=12, episodes_watched=3,
+            status=WatchStatus.WATCHING,
+        ))
+        entry = self.storage.list_entries()[0]
+        before = self.storage.capture_undo_state((entry.storage_id,))
+
+        self.storage.update_progress(entry.storage_id, 5)
+        after = self.storage.capture_undo_state((entry.storage_id,))
+        self.storage.restore_undo_state(before, after)
+
+        restored = self.storage.list_entries()[0]
+        self.assertEqual(restored.episodes_watched, 3)
+        self.assertEqual(restored.status, WatchStatus.WATCHING)
+        self.assertEqual(self.storage.list_episode_progress(entry.storage_id), {})
+        self.assertEqual(self.storage.list_watch_history(), [])
+
+    def test_undo_episode_edit_restores_absence_of_legacy_episode_map(self):
+        self.storage.add(AnimeEntry(
+            title="Episode undo", episodes_total=12, episodes_watched=2,
+            status=WatchStatus.WATCHING,
+        ))
+        entry = self.storage.list_entries()[0]
+        before = self.storage.capture_undo_state((entry.storage_id,))
+
+        self.storage.set_episode_watched(entry.storage_id, 4, True)
+        after = self.storage.capture_undo_state((entry.storage_id,))
+        self.storage.restore_undo_state(before, after)
+
+        restored = self.storage.list_entries()[0]
+        self.assertEqual(restored.episodes_watched, 2)
+        self.assertEqual(self.storage.list_episode_progress(entry.storage_id), {})
+        self.assertEqual(self.storage.list_watch_history(), [])
+
+    def test_undo_rejects_a_stale_snapshot_without_overwriting_newer_edits(self):
+        self.storage.add(AnimeEntry(title="Stale undo", episodes_total=12))
+        entry = self.storage.list_entries()[0]
+        before = self.storage.capture_undo_state((entry.storage_id,))
+
+        self.storage.update_progress(entry.storage_id, 1)
+        after = self.storage.capture_undo_state((entry.storage_id,))
+        self.storage.update_progress(entry.storage_id, 2)
+
+        with self.assertRaisesRegex(ValueError, "changed after the action"):
+            self.storage.restore_undo_state(before, after)
+
+        self.assertEqual(self.storage.list_entries()[0].episodes_watched, 2)
+        self.assertEqual(len(self.storage.list_watch_history()), 2)
+
+    def test_undo_snapshots_support_reverse_order_for_rapid_edits(self):
+        self.storage.add(AnimeEntry(title="Rapid edits", episodes_total=12))
+        entry = self.storage.list_entries()[0]
+
+        first_before = self.storage.capture_undo_state((entry.storage_id,))
+        self.storage.update_progress(entry.storage_id, 1)
+        first_after = self.storage.capture_undo_state((entry.storage_id,))
+
+        second_before = self.storage.capture_undo_state((entry.storage_id,))
+        self.storage.update_progress(entry.storage_id, 2)
+        second_after = self.storage.capture_undo_state((entry.storage_id,))
+
+        self.storage.restore_undo_state(second_before, second_after)
+        self.storage.restore_undo_state(first_before, first_after)
+
+        self.assertEqual(self.storage.list_entries()[0].episodes_watched, 0)
+        self.assertEqual(self.storage.list_watch_history(), [])
+
+    def test_undo_for_one_entry_does_not_revert_an_unrelated_entry(self):
+        self.storage.add(AnimeEntry(title="Undo target", episodes_total=12))
+        self.storage.add(AnimeEntry(title="Unrelated", episodes_total=24))
+        target, unrelated = self.storage.list_entries()
+        before = self.storage.capture_undo_state((target.storage_id,))
+
+        self.storage.update_progress(target.storage_id, 1)
+        after = self.storage.capture_undo_state((target.storage_id,))
+        self.storage.update_progress(unrelated.storage_id, 7)
+        self.storage.restore_undo_state(before, after)
+
+        updated = {entry.storage_id: entry for entry in self.storage.list_entries()}
+        self.assertEqual(updated[target.storage_id].episodes_watched, 0)
+        self.assertEqual(updated[unrelated.storage_id].episodes_watched, 7)
+
+
 if __name__ == "__main__":
     unittest.main()
