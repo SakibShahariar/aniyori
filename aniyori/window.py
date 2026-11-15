@@ -820,17 +820,6 @@ class AniyoriWindow(Adw.ApplicationWindow):
         )
         self.add_breakpoint(compact_breakpoint)
 
-        navigation_breakpoint = Adw.Breakpoint.new(
-            Adw.BreakpointCondition.parse("max-width: 720sp")
-        )
-        navigation_breakpoint.connect(
-            "apply", lambda *_args: self._set_navigation_compact(True)
-        )
-        navigation_breakpoint.connect(
-            "unapply", lambda *_args: self._set_navigation_compact(False)
-        )
-        self.add_breakpoint(navigation_breakpoint)
-
         self.view_switches["list"].set_active(True)
         self._render_library()
         self.home_nav_button.set_active(True)
@@ -4993,6 +4982,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
         self.toast_overlay.add_toast(Adw.Toast.new(f"Deleted {removed} anime."))
 
     def _set_compact_layout(self, compact: bool):
+        self._set_navigation_compact(compact)
         if self._compact_layout == compact:
             return
         self._compact_layout = compact
