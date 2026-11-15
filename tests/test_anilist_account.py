@@ -111,5 +111,126 @@ class AniListAccountSettingsStoreTests(unittest.TestCase):
             self.store.load()
 
 
+
+class AniListAuthenticatedClientTests(unittest.TestCase):
+    def test_viewer_request_uses_bearer_token(self):
+        import io
+        from unittest.mock import patch
+        from aniyori.services.anilist import AniListClient
+
+        payload = {"data": {"Viewer": {"id": 42, "name": "AniUser", "siteUrl": "https://anilist.co/user/AniUser"}}}
+        response = io.BytesIO(json.dumps(payload).encode("utf-8"))
+        with patch("aniyori.services.anilist.urlopen", return_value=response) as request:
+            viewer = AniListClient(access_token="jwt.token.signature").get_viewer()
+        sent_request = request.call_args.args[0]
+        self.assertEqual(sent_request.get_header("Authorization"), "Bearer jwt.token.signature")
+        self.assertEqual(viewer["id"], 42)
+        self.assertEqual(viewer["name"], "AniUser")
+
+    def test_account_requests_require_a_token(self):
+        from aniyori.services.anilist import AniListClient, AniListError
+
+        client = AniListClient()
+        with self.assertRaises(AniListError):
+            client.get_viewer()
+        with self.assertRaises(AniListError):
+            client.get_user_library(42)
+        with self.assertRaises(AniListError):
+            client.save_media_list_entry(21, "CURRENT", 2)
+
+    def test_user_library_flattens_lists_and_normalises_media(self):
+        from unittest.mock import patch
+        from aniyori.services.anilist import AniListClient
+
+        payload = {
+            "MediaListCollection": {
+                "lists": [
+                    {"entries": [{
+                        "mediaId": 21, "status": "CURRENT", "progress": 4,
+                        "score": 8, "updatedAt": 1700000000,
+                        "media": {
+                            "id": 21, "title": {"english": "Example", "romaji": "Example"},
+                            "episodes": 12, "coverImage": {"large": "https://img.test/cover.jpg"},
+                        },
+                    }]},
+                    {"entries": [{
+                        "mediaId": 22, "status": "PLANNING", "progress": 0,
+                        "score": 0, "updatedAt": 1700000001,
+                        "media": {"id": 22, "title": {"romaji": "Next"}, "episodes": 24},
+                    }]},
+                ],
+            },
+        }
+        client = AniListClient(access_token="token")
+        with patch.object(client, "_request", return_value=payload) as request:
+            entries = client.get_user_library(42)
+        request.assert_called_once()
+        self.assertEqual(request.call_args.args[1], {"userId": 42})
+        self.assertEqual([item["media_id"] for item in entries], [21, 22])
+        self.assertEqual(entries[0]["media"]["title"], "Example")
+        self.assertEqual(entries[0]["progress"], 4)
+        self.assertEqual(entries[1]["status"], "PLANNING")
+
+    def test_user_library_accepts_empty_collection(self):
+        from unittest.mock import patch
+        from aniyori.services.anilist import AniListClient
+
+        client = AniListClient(access_token="token")
+        with patch.object(client, "_request", return_value={"MediaListCollection": None}):
+            self.assertEqual(client.get_user_library(42), [])
+
+    def test_user_library_rejects_malformed_and_duplicate_entries(self):
+        from unittest.mock import patch
+        from aniyori.services.anilist import AniListClient, AniListError
+
+        client = AniListClient(access_token="token")
+        malformed = (
+            {"MediaListCollection": []},
+            {"MediaListCollection": {"lists": [None]}},
+            {"MediaListCollection": {"lists": [{"entries": [None]}]}},
+            {"MediaListCollection": {"lists": [{"entries": [{
+                "mediaId": 21, "status": "UNKNOWN", "progress": 0,
+                "updatedAt": 1, "media": {"id": 21},
+            }]}]}},
+        )
+        for payload in malformed:
+            with self.subTest(payload=payload), patch.object(client, "_request", return_value=payload):
+                with self.assertRaises(AniListError):
+                    client.get_user_library(42)
+        duplicate = {"MediaListCollection": {"lists": [
+            {"entries": [
+                {"mediaId": 21, "status": "CURRENT", "progress": 1, "updatedAt": 1, "media": {"id": 21}},
+            ]},
+            {"entries": [
+                {"mediaId": 21, "status": "CURRENT", "progress": 1, "updatedAt": 1, "media": {"id": 21}},
+            ]},
+        ]}}
+        with patch.object(client, "_request", return_value=duplicate):
+            with self.assertRaises(AniListError):
+                client.get_user_library(42)
+
+    def test_save_media_list_entry_validates_and_confirms_mutation(self):
+        from unittest.mock import patch
+        from aniyori.services.anilist import AniListClient, AniListError
+
+        client = AniListClient(access_token="token")
+        response = {"SaveMediaListEntry": {
+            "id": 10, "mediaId": 21, "status": "CURRENT",
+            "progress": 4, "updatedAt": 1700000000,
+        }}
+        with patch.object(client, "_request", return_value=response) as request:
+            result = client.save_media_list_entry(21, "CURRENT", 4)
+        self.assertEqual(result, response["SaveMediaListEntry"])
+        self.assertEqual(request.call_args.args[1], {
+            "mediaId": 21, "status": "CURRENT", "progress": 4,
+        })
+        with patch.object(client, "_request", return_value={"SaveMediaListEntry": None}):
+            with self.assertRaises(AniListError):
+                client.save_media_list_entry(21, "CURRENT", 4)
+        for args in ((True, "CURRENT", 1), (21, "UNKNOWN", 1), (21, "CURRENT", -1), (21, "CURRENT", True)):
+            with self.subTest(args=args), self.assertRaises(ValueError):
+                client.save_media_list_entry(*args)
+
+
 if __name__ == "__main__":
     unittest.main()
