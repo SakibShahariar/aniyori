@@ -10,6 +10,7 @@ from urllib.parse import urlparse, parse_qs
 
 from aniyori.services.anilist_account import (
     AUTH_PIN_REDIRECT_URI,
+    DEFAULT_CLIENT_ID,
     AniListAccountError,
     AniListAccountSettingsStore,
     build_authorization_url,
@@ -32,6 +33,13 @@ class AniListOAuthHelperTests(unittest.TestCase):
             with self.subTest(value=value):
                 with self.assertRaises(AniListAccountError):
                     validate_client_id(value)
+
+    def test_project_client_id_is_the_default_authorization_id(self):
+        self.assertEqual(DEFAULT_CLIENT_ID, "57061")
+        parsed = urlparse(build_authorization_url(DEFAULT_CLIENT_ID))
+        self.assertEqual(parse_qs(parsed.query), {
+            "client_id": ["57061"], "response_type": ["token"],
+        })
 
     def test_authorization_url_uses_implicit_grant(self):
         url = build_authorization_url("12345")
