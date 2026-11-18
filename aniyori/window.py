@@ -1159,36 +1159,28 @@ class AniyoriWindow(Adw.ApplicationWindow):
         intro.add_css_class("dim-label")
         hero.append(intro)
 
-        actions = Gtk.FlowBox()
-        actions.set_selection_mode(Gtk.SelectionMode.NONE)
-        actions.set_row_spacing(8)
-        actions.set_column_spacing(8)
-        actions.set_min_children_per_line(1)
-        actions.set_max_children_per_line(4)
-        add = Gtk.Button(label="Add Anime")
-        add.add_css_class("suggested-action")
-        add.connect("clicked", self._show_add_dialog)
-        actions.append(add)
-        browse = Gtk.Button(label="Discover This Season")
-        browse.connect("clicked", lambda _button: self._show_season_discovery())
-        actions.append(browse)
-        sync = Gtk.Button(label="AniList Account")
-        sync.connect("clicked", lambda _button: show_anilist_account_dialog(self))
-        actions.append(sync)
-        scan = Gtk.Button(label="Scan Library")
-        scan.connect(
-            "clicked",
-            lambda _button: self._show_scan_folders_dialog(),
-        )
-        actions.append(scan)
-        statistics = Gtk.Button(label="Statistics")
-        statistics.connect(
-            "clicked",
-            lambda _button: self._show_statistics_dialog(),
-        )
-        actions.append(statistics)
-        hero.append(actions)
+        explore = Gtk.Button(label="Explore Anime")
+        explore.add_css_class("suggested-action")
+        explore.set_halign(Gtk.Align.START)
+        explore.connect("clicked", lambda _button: self._show_season_discovery())
+        hero.append(explore)
         self.home_page.append(hero)
+
+        columns = Gtk.FlowBox()
+        columns.set_selection_mode(Gtk.SelectionMode.NONE)
+        columns.set_homogeneous(False)
+        columns.set_min_children_per_line(1)
+        columns.set_max_children_per_line(2)
+        columns.set_row_spacing(16)
+        columns.set_column_spacing(16)
+        columns.set_hexpand(True)
+        left_column = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=16)
+        left_column.set_hexpand(True)
+        right_column = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=16)
+        right_column.set_hexpand(True)
+        columns.append(left_column)
+        columns.append(right_column)
+        self.home_page.append(columns)
 
         stats = Gtk.FlowBox()
         stats.set_selection_mode(Gtk.SelectionMode.NONE)
@@ -1231,7 +1223,31 @@ class AniyoriWindow(Adw.ApplicationWindow):
             caption.set_xalign(0)
             tile.append(caption)
             stats.append(tile)
-        self.home_page.append(stats)
+        right_column.append(stats)
+
+        quick = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+        quick.add_css_class("card")
+        quick_heading = Gtk.Label(label="Quick Actions", xalign=0, wrap=True)
+        quick_heading.add_css_class("title-2")
+        quick.append(quick_heading)
+        quick_buttons = Gtk.FlowBox()
+        quick_buttons.set_selection_mode(Gtk.SelectionMode.NONE)
+        quick_buttons.set_row_spacing(8)
+        quick_buttons.set_column_spacing(8)
+        quick_buttons.set_min_children_per_line(1)
+        quick_buttons.set_max_children_per_line(2)
+        for label, handler in (
+            ("Add Anime", lambda _button: self._show_add_dialog()),
+            ("Scan Library", lambda _button: self._show_scan_folders_dialog()),
+            ("AniList Account", lambda _button: show_anilist_account_dialog(self)),
+            ("Statistics", lambda _button: self._show_statistics_dialog()),
+        ):
+            button = Gtk.Button(label=label)
+            button.set_hexpand(True)
+            button.connect("clicked", handler)
+            quick_buttons.append(button)
+        quick.append(quick_buttons)
+        right_column.append(quick)
 
         created = self.storage.get_created_at_map()
         updated = self.storage.get_updated_at_map()
@@ -1242,14 +1258,17 @@ class AniyoriWindow(Adw.ApplicationWindow):
             "Continue Watching", watching,
             "No anime in progress yet. Add a series and start tracking episodes.",
             "Nothing in progress",
+            right_column,
         )
         self._append_home_entry_section(
             "Recently Added", recent,
             "Your library is empty. Add anime to start building your collection.",
             "No recent additions",
+            left_column,
         )
+        self._append_popular_season_section(left_column)
 
-    def _append_home_entry_section(self, title, entries, empty_message, empty_title):
+    def _append_home_entry_section(self, title, entries, empty_message, empty_title, parent=None):
         section = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
         heading = Gtk.Label(label=title, xalign=0, wrap=True)
         heading.add_css_class("title-2")
@@ -1368,7 +1387,127 @@ class AniyoriWindow(Adw.ApplicationWindow):
             horizontal_scroll.set_kinetic_scrolling(True)
             section.append(horizontal_scroll)
 
-        self.home_page.append(section)
+        (parent or self.home_page).append(section)
+
+    def _append_popular_season_section(self, parent):
+        section = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
+        heading = Gtk.Label(label="Popular This Season", xalign=0, wrap=True)
+        heading.add_css_class("title-2")
+        heading.set_hexpand(True)
+        view_all = Gtk.Button(label="View All")
+        view_all.add_css_class("flat")
+        view_all.connect("clicked", lambda _button: self._show_season_discovery())
+        section.append(_responsive_control_row(heading, view_all, max_per_line=2))
+
+        self.popular_season_content = Gtk.Box(
+            orientation=Gtk.Orientation.VERTICAL, spacing=8
+        )
+        section.append(self.popular_season_content)
+        parent.append(section)
+        self._render_popular_season()
+
+    def _render_popular_season(self):
+        holder = getattr(self, "popular_season_content", None)
+        if holder is None:
+            return GLib.SOURCE_REMOVE
+        child = holder.get_first_child()
+        while child is not None:
+            following = child.get_next_sibling()
+            holder.remove(child)
+            child = following
+
+        season, year = season_for_date()
+        key = (season, year)
+        results = getattr(self, "_popular_season_results", {}).get(key)
+        error = getattr(self, "_popular_season_error", {}).get(key)
+        if results is None and error is None:
+            spinner = Gtk.Spinner()
+            spinner.set_spinning(True)
+            spinner.set_halign(Gtk.Align.CENTER)
+            label = Gtk.Label(label="Loading seasonal anime…", wrap=True)
+            label.add_css_class("dim-label")
+            holder.append(spinner)
+            holder.append(label)
+            self._load_popular_season(key)
+            return GLib.SOURCE_REMOVE
+        if error is not None:
+            empty = Adw.StatusPage(
+                icon_name="network-server-symbolic",
+                title="Season unavailable",
+                description=error,
+            )
+            retry = Gtk.Button(label="Retry")
+            retry.connect("clicked", lambda _button: self._retry_popular_season(key))
+            empty.set_child(retry)
+            holder.append(empty)
+            return GLib.SOURCE_REMOVE
+
+        if not results:
+            holder.append(Adw.StatusPage(
+                icon_name="system-search-symbolic",
+                title="No seasonal results",
+                description="AniList returned no titles for the current season.",
+            ))
+            return GLib.SOURCE_REMOVE
+
+        listing = Gtk.ListBox()
+        listing.add_css_class("boxed-list")
+        for item in results[:6]:
+            title = str(item.get("title") or "Untitled anime")
+            details = []
+            if item.get("format"):
+                details.append(str(item["format"]).replace("_", " ").title())
+            if item.get("average_score"):
+                details.append(f"Score {item['average_score']}/100")
+            row = Adw.ActionRow(
+                title=title,
+                subtitle=" · ".join(details) or "AniList title",
+            )
+            if item.get("site_url"):
+                link = Gtk.LinkButton.new_with_label(item["site_url"], "AniList")
+                link.set_valign(Gtk.Align.CENTER)
+                row.add_suffix(link)
+            listing.append(row)
+        holder.append(listing)
+        return GLib.SOURCE_REMOVE
+
+    def _load_popular_season(self, key):
+        if getattr(self, "_popular_season_running", False):
+            return
+        self._popular_season_running = True
+
+        def worker():
+            result = None
+            error = None
+            try:
+                result = AniListClient().search_season(key[0], key[1], per_page=8)
+            except (AniListError, ValueError, OSError) as caught:
+                error = str(caught)
+
+            def finish():
+                self._popular_season_running = False
+                if not hasattr(self, "_popular_season_results"):
+                    self._popular_season_results = {}
+                    self._popular_season_error = {}
+                if error is None:
+                    self._popular_season_results[key] = result or []
+                    self._popular_season_error.pop(key, None)
+                else:
+                    self._popular_season_error[key] = error
+                self._render_popular_season()
+                return GLib.SOURCE_REMOVE
+
+            GLib.idle_add(finish)
+
+        threading.Thread(target=worker, daemon=True).start()
+
+    def _retry_popular_season(self, key):
+        if not hasattr(self, "_popular_season_error"):
+            return
+        self._popular_season_error.pop(key, None)
+        if hasattr(self, "_popular_season_results"):
+            self._popular_season_results.pop(key, None)
+        self._render_popular_season()
 
     def _show_release_scoring_dialog(self):
         try:
