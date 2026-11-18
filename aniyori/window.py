@@ -6443,17 +6443,16 @@ class AniyoriWindow(Adw.ApplicationWindow):
             return GLib.SOURCE_REMOVE
 
         def load_default_results():
-            """Show real current-season titles before the user types a query."""
-            season, year = season_for_date()
-            key = ("season", season, year)
+            """Show real trending catalogue titles before the user types a query."""
+            key = ("trending",)
             request_id = generation.begin()
             status_label.set_label(
-                f"Showing {season.title()} {year} — enter a title to search the catalogue."
+                "Showing trending anime — enter a title to search the catalogue."
             )
 
             def worker():
                 try:
-                    results = AniListClient().search_season(season, year)
+                    results = AniListClient().get_trending_anime()
                     GLib.idle_add(apply_results, results, request_id, key)
                 except (AniListError, ValueError) as error:
                     GLib.idle_add(show_error, str(error), request_id)

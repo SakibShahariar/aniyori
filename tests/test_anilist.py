@@ -9,7 +9,8 @@ from unittest.mock import patch
 from urllib.error import HTTPError, URLError
 
 from aniyori.services.anilist import (
-    MAX_ANILIST_RESPONSE_BYTES, AIRING_QUERY, SEARCH_QUERY, SEASON_QUERY, AniListClient, AniListError, _normalise_media,
+    MAX_ANILIST_RESPONSE_BYTES, AIRING_QUERY, SEARCH_QUERY, SEASON_QUERY, TRENDING_QUERY,
+    AniListClient, AniListError, _normalise_media,
 )
 from aniyori.services.metadata_cache import MetadataCache
 
@@ -330,6 +331,32 @@ class AniListClientTests(unittest.TestCase):
     def test_search_and_season_queries_request_trailer_metadata(self):
         self.assertIn("trailer { id site thumbnail }", SEARCH_QUERY)
         self.assertIn("trailer { id site thumbnail }", SEASON_QUERY)
+        self.assertIn("trailer { id site thumbnail }", TRENDING_QUERY)
+        self.assertIn("sort: TRENDING_DESC", TRENDING_QUERY)
+
+    def test_get_trending_anime_normalises_results_and_caches(self):
+        payload = {"Page": {"media": [{
+            "id": 21, "title": {"romaji": "Trending Example", "english": "Trending Example"},
+            "episodes": 12, "format": "TV", "status": "RELEASING", "seasonYear": 2026,
+            "popularity": 999, "averageScore": 87, "genres": ["Action"],
+            "coverImage": {"large": "https://example.test/cover.jpg"},
+            "siteUrl": "https://anilist.co/anime/21",
+        }]}}
+        with patch.object(self.client, "_request", return_value=payload) as request:
+            first = self.client.get_trending_anime(per_page=10)
+            second = self.client.get_trending_anime(per_page=10)
+        self.assertEqual(request.call_args.args[1], {"perPage": 10})
+        self.assertEqual(request.call_count, 1)
+        self.assertEqual(first, second)
+        self.assertEqual(first[0]["title"], "Trending Example")
+        self.assertEqual(first[0]["average_score"], 87)
+        self.assertEqual(first[0]["genres"], ["Action"])
+
+    def test_get_trending_anime_rejects_invalid_page_size(self):
+        for per_page in (0, 51, True, "10"):
+            with self.subTest(per_page=per_page):
+                with self.assertRaises(ValueError):
+                    self.client.get_trending_anime(per_page)
 
     def test_search_season_normalises_results_and_uses_season_variables(self):
         payload = {"Page": {"media": [{

@@ -69,6 +69,28 @@ query SeasonAnime($season: MediaSeason!, $seasonYear: Int!, $perPage: Int!) {
 """
 
 
+TRENDING_QUERY = """
+query TrendingAnime($perPage: Int!) {
+  Page(page: 1, perPage: $perPage) {
+    media(type: ANIME, sort: TRENDING_DESC) {
+      id
+      title { romaji english native }
+      episodes
+      format
+      status
+      seasonYear
+      popularity
+      averageScore
+      coverImage { medium large }
+      siteUrl
+      genres
+      trailer { id site thumbnail }
+    }
+  }
+}
+"""
+
+
 AIRING_QUERY = """
 query AiringSchedules($ids: [Int!]!) {
   Page(perPage: 50) {
@@ -354,6 +376,30 @@ class AniListClient:
                 return cached[0]
             raise
         self.cache.set("season", cache_key, results)
+        return results
+
+    def get_trending_anime(self, per_page: int = 50, *, refresh: bool = False) -> list[dict[str, Any]]:
+        """Return currently trending anime from the public catalogue."""
+        if isinstance(per_page, bool) or not isinstance(per_page, int) or not 1 <= per_page <= 50:
+            raise ValueError("per_page must be between 1 and 50")
+        cache_key = str(per_page)
+        cached = self.cache.get("trending", cache_key)
+        if cached is not None and cached[1] and not refresh:
+            return cached[0]
+        try:
+            data = self._request(TRENDING_QUERY, {"perPage": per_page})
+            page = data.get("Page")
+            if not isinstance(page, dict):
+                raise AniListError("AniList trending response did not contain a page")
+            media = page.get("media")
+            if not isinstance(media, list) or not all(isinstance(item, dict) for item in media):
+                raise AniListError("AniList trending response contained invalid media results")
+            results = [_normalise_media(item) for item in media]
+        except AniListError:
+            if cached is not None:
+                return cached[0]
+            raise
+        self.cache.set("trending", cache_key, results)
         return results
 
     def get_airing_schedules(self, media_ids) -> dict[int, tuple[int, int] | None]:
