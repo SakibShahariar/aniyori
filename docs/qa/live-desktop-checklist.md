@@ -50,6 +50,7 @@ Use a disposable test profile or a backup of any library data you care about. Do
 - [ ] With AniList entries in the library, confirm Calendar rows show the episode and countdown for upcoming airings and refresh when airing data changes.
 - [ ] On Home at wide and narrow widths, confirm the hero, two dashboard columns, Quick Actions, statistics, Continue Watching, Recently Added, and Popular This Season sections are readable and do not clip; columns should stack at narrow widths.
 - [ ] Confirm Popular This Season shows real AniList titles with a loading state and an offline/error state with Retry; do not treat placeholder or sample titles as a passing result.
+- [ ] Open Scan Folders, Recognition Exclusions, Profiles, Webhooks, per-anime Download Preferences, and Season Discovery at narrow widths; confirm their action buttons wrap and remain fully reachable.
 - [ ] Open Download Queue at wide and narrow sizes; confirm the adaptive dialog remains usable and closing it stops its automatic refresh timer.
 - [ ] Open Season Discovery at wide and narrow sizes; confirm season/year, search/genre, format/status, and sort controls wrap without clipping.
 - [ ] Open Add Anime, Watch History, and Release Feeds at narrow sizes; confirm catalogue search, saved-search controls, history filters/actions, and feed actions wrap and remain reachable.
