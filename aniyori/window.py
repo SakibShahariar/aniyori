@@ -6470,12 +6470,17 @@ class AniyoriWindow(Adw.ApplicationWindow):
         pages = Gtk.Stack()
         pages.set_transition_type(Gtk.StackTransitionType.SLIDE_LEFT_RIGHT)
 
-        search_page = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
-        title_entry = Gtk.Entry()
-        title_entry.set_placeholder_text("Anime title (manual entry)")
-        search_page.append(title_entry)
+        search_page = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
 
-        catalogue_search = Gtk.Entry()
+        manual_group = Adw.PreferencesGroup(
+            title="Anime title",
+            description="Enter a title yourself, or search the AniList catalogue below.",
+        )
+        title_entry = Adw.EntryRow(title="Title")
+        manual_group.add(title_entry)
+        search_page.append(manual_group)
+
+        catalogue_search = Gtk.SearchEntry()
         catalogue_search.set_placeholder_text("Search AniList catalogue")
         catalogue_search.set_hexpand(True)
         catalogue_button = Gtk.Button(label="Search")
@@ -6484,49 +6489,42 @@ class AniyoriWindow(Adw.ApplicationWindow):
         )
         search_page.append(catalogue_row)
 
-        catalogue_dropdown = Gtk.DropDown(
-            model=Gtk.StringList.new(["Search results will appear here"])
-        )
+        results_group = Adw.PreferencesGroup(title="Catalogue results")
+        catalogue_dropdown = Adw.ComboRow(title="Matching titles")
+        catalogue_dropdown.set_model(Gtk.StringList.new(["Search results will appear here"]))
         catalogue_dropdown.set_sensitive(False)
-        search_page.append(catalogue_dropdown)
+        results_group.add(catalogue_dropdown)
+        search_page.append(results_group)
 
-        history_dropdown = Gtk.DropDown(
-            model=Gtk.StringList.new(["No recent or saved searches"])
-        )
+        history_group = Adw.PreferencesGroup(title="Search history")
+        history_dropdown = Adw.ComboRow(title="Recent and saved searches")
+        history_dropdown.set_model(Gtk.StringList.new(["No recent or saved searches"]))
         history_dropdown.set_hexpand(True)
         history_dropdown.set_sensitive(False)
+        history_group.add(history_dropdown)
         use_history_button = Gtk.Button(label="Use")
         save_history_button = Gtk.Button(label="Save")
         remove_history_button = Gtk.Button(label="Remove")
         clear_history_button = Gtk.Button(label="Clear")
         history_row = _responsive_control_row(
-            history_dropdown, use_history_button, save_history_button,
-            remove_history_button, clear_history_button, max_per_line=5,
+            use_history_button, save_history_button,
+            remove_history_button, clear_history_button, max_per_line=4,
         )
-        search_page.append(history_row)
+        history_group.add(history_row)
+        search_page.append(history_group)
         next_button = Gtk.Button(label="Review details")
         next_button.add_css_class("suggested-action")
         next_button.set_halign(Gtk.Align.END)
         search_page.append(next_button)
         pages.add_named(search_page, "search")
 
-        details_page = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
-        detail_title_entry = Gtk.Entry()
-        detail_title_entry.set_placeholder_text("Anime title")
-        details_page.append(detail_title_entry)
-        details_summary = Gtk.Label(xalign=0, wrap=True)
-        details_summary.add_css_class("dim-label")
-        details_page.append(details_summary)
-        trailer_button = Gtk.Button(label="Watch Trailer")
-        trailer_button.set_halign(Gtk.Align.START)
-        trailer_button.set_visible(False)
-        details_page.append(trailer_button)
-
-        total_entry = Gtk.Entry()
-        total_entry.set_placeholder_text("Total episodes (optional)")
+        details_page = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
+        details_group = Adw.PreferencesGroup(title="Review details")
+        detail_title_entry = Adw.EntryRow(title="Anime title")
+        details_group.add(detail_title_entry)
+        total_entry = Adw.EntryRow(title="Total episodes (optional)")
         total_entry.set_input_purpose(Gtk.InputPurpose.DIGITS)
-        details_page.append(total_entry)
-
+        details_group.add(total_entry)
         statuses = [
             WatchStatus.PLANNING,
             WatchStatus.WATCHING,
@@ -6534,10 +6532,20 @@ class AniyoriWindow(Adw.ApplicationWindow):
             WatchStatus.PAUSED,
             WatchStatus.DROPPED,
         ]
-        status_dropdown = Gtk.DropDown(
-            model=Gtk.StringList.new([status.value.title() for status in statuses])
+        status_dropdown = Adw.ComboRow(title="Status")
+        status_dropdown.set_model(
+            Gtk.StringList.new([status.value.title() for status in statuses])
         )
-        details_page.append(status_dropdown)
+        details_group.add(status_dropdown)
+        details_page.append(details_group)
+
+        details_summary = Gtk.Label(xalign=0, wrap=True)
+        details_summary.add_css_class("dim-label")
+        details_page.append(details_summary)
+        trailer_button = Gtk.Button(label="Watch Trailer")
+        trailer_button.set_halign(Gtk.Align.START)
+        trailer_button.set_visible(False)
+        details_page.append(trailer_button)
         back_button = Gtk.Button(label="Back")
         back_button.set_halign(Gtk.Align.START)
         details_page.append(back_button)
