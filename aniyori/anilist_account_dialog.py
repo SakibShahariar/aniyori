@@ -297,7 +297,8 @@ def show_anilist_account_dialog(parent) -> None:
             sync_button.set_sensitive(True)
             disconnect_button.set_sensitive(True)
             set_status(
-                "Account connected. Your access token is stored in the desktop keyring.",
+                "Connected. Token stored in the keyring — next, use Import AniList "
+                "Library or Review Sync. Nothing changes until you choose one.",
                 toast=True,
             )
 
