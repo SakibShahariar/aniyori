@@ -702,6 +702,24 @@ class AniyoriWindow(Adw.ApplicationWindow):
         self.page_stack.add_named(self.settings_page, "settings")
         self._build_settings_page(settings_scroll)
 
+        self.browse_page = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+        self.browse_scroll = Gtk.ScrolledWindow()
+        self.browse_scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        self.browse_scroll.set_hexpand(True)
+        self.browse_scroll.set_vexpand(True)
+        self.browse_page.append(self.browse_scroll)
+        self.page_stack.add_named(self.browse_page, "browse")
+        self._build_season_page()
+
+        self.statistics_page = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+        self.statistics_scroll = Gtk.ScrolledWindow()
+        self.statistics_scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        self.statistics_scroll.set_hexpand(True)
+        self.statistics_scroll.set_vexpand(True)
+        self.statistics_page.append(self.statistics_scroll)
+        self.page_stack.add_named(self.statistics_page, "statistics")
+        self._build_statistics_page()
+
         toolbar = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
         toolbar.set_margin_bottom(12)
         self.library_page.append(toolbar)
@@ -1084,20 +1102,16 @@ class AniyoriWindow(Adw.ApplicationWindow):
         if row is None:
             return
         page_name = self._nav_pages.get(row)
-        if page_name in ("home", "library", "calendar", "settings"):
+        if page_name is not None:
             self._apply_navigation(page_name)
-        elif page_name == "browse":
-            self._show_season_discovery()
-            self.nav_list.select_row(self._active_nav_row)
-        elif page_name == "statistics":
-            self._show_statistics_dialog()
-            self.nav_list.select_row(self._active_nav_row)
 
     def _apply_navigation(self, page_name):
         self._active_nav_row = {
             "home": self.home_row,
             "library": self.library_row,
+            "browse": self.browse_row,
             "calendar": self.calendar_row,
+            "statistics": self.statistics_row,
             "settings": self.settings_row,
         }.get(page_name, self.home_row)
         self.page_stack.set_visible_child_name(page_name)
@@ -1112,6 +1126,16 @@ class AniyoriWindow(Adw.ApplicationWindow):
         elif page_name == "calendar":
             self._refresh_calendar()
             self.set_title("Aniyori — Calendar")
+        elif page_name == "browse":
+            self.set_title("Aniyori — Browse")
+            if not getattr(self, "_season_loaded", False):
+                self._season_loaded = True
+                self._load_season()
+        elif page_name == "statistics":
+            self.set_title("Aniyori — Statistics")
+            if not getattr(self, "_statistics_loaded", False):
+                self._statistics_loaded = True
+                self._update_statistics_year()
         else:
             self.set_title("Aniyori — Settings")
 
@@ -3604,6 +3628,10 @@ class AniyoriWindow(Adw.ApplicationWindow):
         prune_button.connect('clicked', prune_history)
         refresh()
     def _show_statistics_dialog(self):
+        """Navigate to the in-window statistics page."""
+        self._apply_navigation("statistics")
+
+    def _build_statistics_page(self):
         stats = calculate_library_statistics(self.entries)
         statuses = stats["status_counts"]
         status_lines = [
@@ -3620,12 +3648,18 @@ class AniyoriWindow(Adw.ApplicationWindow):
             "(24 minutes per episode)\n\n"
             + "\n".join(status_lines)
         )
-        dialog = Adw.AlertDialog(
-            heading="Library Statistics",
-            body=body,
-        )
+        heading = Gtk.Label(label="Library Statistics", xalign=0, wrap=True)
+        heading.add_css_class("title-2")
+        body_label = Gtk.Label(label=body, xalign=0, wrap=True, selectable=True)
+        body_label.add_css_class("dim-label")
 
         panel = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+        panel.set_margin_start(16)
+        panel.set_margin_end(16)
+        panel.set_margin_top(12)
+        panel.set_margin_bottom(16)
+        panel.append(heading)
+        panel.append(body_label)
         panel.set_margin_top(12)
         panel.set_margin_bottom(4)
         year_label = Gtk.Label(label="Viewing year", xalign=0)
@@ -3748,11 +3782,8 @@ class AniyoriWindow(Adw.ApplicationWindow):
             threading.Thread(target=worker, daemon=True).start()
 
         year_spin.connect("value-changed", update_history_year)
-        dialog.set_extra_child(panel)
-        dialog.add_response("close", "Close")
-        dialog.set_default_response("close")
-        dialog.present(self)
-        update_history_year()
+        self.statistics_scroll.set_child(panel)
+        self._update_statistics_year = update_history_year
 
     def _show_about_dialog(self):
         about = Adw.AboutDialog(
@@ -6190,14 +6221,11 @@ class AniyoriWindow(Adw.ApplicationWindow):
         threading.Thread(target=worker, daemon=True).start()
 
     def _show_season_discovery(self):
-        """Browse AniList seasonal charts without blocking the GTK main thread."""
-        dialog = Adw.Dialog()
-        dialog.set_title("Season Discovery")
-        dialog.set_content_width(760)
-        toolbar_view = Adw.ToolbarView()
-        header = Adw.HeaderBar()
-        toolbar_view.add_top_bar(header)
+        """Navigate to the in-window seasonal discovery page."""
+        self._apply_navigation("browse")
 
+    def _build_season_page(self):
+        """Build the seasonal discovery page content once."""
         content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
         content.set_margin_top(16)
         content.set_margin_bottom(16)
@@ -6250,8 +6278,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
         scroll.set_vexpand(True)
         scroll.set_child(flow)
         content.append(scroll)
-        toolbar_view.set_content(content)
-        dialog.set_child(toolbar_view)
+        self.browse_scroll.set_child(content)
         state = {"results": [], "loaded_for": None}
         generation = SearchGeneration()
 
@@ -6406,8 +6433,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
         for dropdown in (genre_dropdown, format_dropdown, status_dropdown, sort_dropdown):
             dropdown.connect("notify::selected", render_results)
         search_entry.connect("search-changed", render_results)
-        dialog.present(self)
-        load_season()
+        self._load_season = load_season
 
     def _show_add_dialog(self, _button):
         dialog = Adw.AlertDialog(
