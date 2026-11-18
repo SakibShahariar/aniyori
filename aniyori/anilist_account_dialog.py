@@ -144,6 +144,12 @@ def show_anilist_account_dialog(parent) -> None:
 
     dialog.add(page)
 
+    def set_status(message, *, toast=False):
+        """Keep the status readable even when the group is below the fold."""
+        status_group.set_description(message)
+        if toast:
+            dialog.add_toast(Adw.Toast.new(message))
+
     def current_settings():
         return settings_store.load()
 
@@ -171,7 +177,7 @@ def show_anilist_account_dialog(parent) -> None:
                 import_button.set_sensitive(True)
                 sync_button.set_sensitive(True)
                 disconnect_button.set_sensitive(True)
-                status_group.set_description(
+                set_status(
                     "The access token is retrieved from the desktop keyring when an account action starts."
                 )
             elif viewer_id is not None:
@@ -179,13 +185,13 @@ def show_anilist_account_dialog(parent) -> None:
                 import_button.set_sensitive(False)
                 sync_button.set_sensitive(False)
                 disconnect_button.set_sensitive(False)
-                status_group.set_description(initial_keyring_error or "The desktop keyring is unavailable.")
+                set_status(initial_keyring_error or "The desktop keyring is unavailable.")
             else:
                 account_group.set_description("Not connected to AniList")
                 import_button.set_sensitive(False)
                 sync_button.set_sensitive(False)
                 disconnect_button.set_sensitive(False)
-                status_group.set_description(
+                set_status(
                     initial_keyring_error or "Your local library remains available offline."
                 )
         except (AniListAccountError, CredentialStoreError) as error:
@@ -193,7 +199,7 @@ def show_anilist_account_dialog(parent) -> None:
             import_button.set_sensitive(False)
             sync_button.set_sensitive(False)
             disconnect_button.set_sensitive(False)
-            status_group.set_description(str(error))
+            set_status(str(error))
 
     def run_background(button, working_label, task, on_success):
         original_label = button.get_label()
@@ -212,7 +218,7 @@ def show_anilist_account_dialog(parent) -> None:
                 button.set_label(original_label)
                 button.set_sensitive(True)
                 if error is not None:
-                    status_group.set_description(str(error))
+                    set_status(str(error), toast=True)
                 else:
                     on_success(result)
                 return GLib.SOURCE_REMOVE
@@ -232,12 +238,13 @@ def show_anilist_account_dialog(parent) -> None:
                 viewer_name=current.get("viewer_name"),
             )
             Gio.AppInfo.launch_default_for_uri(url, None)
-            status_group.set_description(
+            set_status(
                 "Authorize Aniyori in your browser, copy the token shown on the Auth Pin page, "
-                "then paste it above."
+                "then paste it above.",
+                toast=True,
             )
         except Exception as error:
-            status_group.set_description(str(error))
+            set_status(str(error), toast=True)
 
     def connect_account(_button):
         try:
@@ -245,7 +252,7 @@ def show_anilist_account_dialog(parent) -> None:
             build_authorization_url(client_id)
             token = parse_access_token(token_row.get_text())
         except AniListAccountError as error:
-            status_group.set_description(str(error))
+            set_status(str(error), toast=True)
             return
 
         def task():
@@ -287,8 +294,12 @@ def show_anilist_account_dialog(parent) -> None:
             token_row.set_text("")
             account_group.set_description(f"Connected as {viewer['name']} (AniList ID {viewer['id']})")
             import_button.set_sensitive(True)
+            sync_button.set_sensitive(True)
             disconnect_button.set_sensitive(True)
-            status_group.set_description("Account connected. Your access token is stored in the desktop keyring.")
+            set_status(
+                "Account connected. Your access token is stored in the desktop keyring.",
+                toast=True,
+            )
 
         run_background(connect_button, "Connecting…", task, connected)
 
@@ -326,9 +337,10 @@ def show_anilist_account_dialog(parent) -> None:
             parent.entries = parent.storage.list_entries()
             parent._render_library()
             parent._refresh_airing_schedule()
-            status_group.set_description(
+            set_status(
                 f"Import complete: added {result['added']} anime; "
-                f"left {result['skipped']} existing or unsupported entries unchanged."
+                f"left {result['skipped']} existing or unsupported entries unchanged.",
+                toast=True,
             )
 
         run_background(import_button, "Importing…", task, imported)
@@ -523,11 +535,12 @@ def show_anilist_account_dialog(parent) -> None:
                     parent._render_library()
                     parent._refresh_airing_schedule()
                     review.close()
-                    status_group.set_description(
+                    set_status(
                         f"Sync complete: imported {result['imported']}, "
                         f"updated local {result['updated_local']}, "
                         f"updated AniList {result['updated_remote']}, "
-                        f"skipped {result['skipped']}."
+                        f"skipped {result['skipped']}.",
+                        toast=True,
                     )
 
                 run_background(apply_button, "Syncing…", apply_task, sync_applied)
@@ -553,7 +566,10 @@ def show_anilist_account_dialog(parent) -> None:
 
         def disconnected(_result):
             refresh_account_state()
-            status_group.set_description("AniList disconnected. Your local library was not changed.")
+            set_status(
+                "AniList disconnected. Your local library was not changed.",
+                toast=True,
+            )
 
         run_background(disconnect_button, "Disconnecting…", task, disconnected)
 
