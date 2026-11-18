@@ -6306,10 +6306,10 @@ class AniyoriWindow(Adw.ApplicationWindow):
             state["results"] = []
             state["loaded_for"] = None
             render_results()
-            status_label.set_label(
-                "Enter a title, then search the AniList catalogue."
-                if searching else "Choose a season and load its chart."
-            )
+            if searching:
+                load_default_results()
+            else:
+                status_label.set_label("Choose a season and load its chart.")
 
         def render_results(*_args):
             child = flow.get_first_child()
@@ -6441,6 +6441,24 @@ class AniyoriWindow(Adw.ApplicationWindow):
             load_button.set_sensitive(True)
             load_button.set_label("Retry")
             return GLib.SOURCE_REMOVE
+
+        def load_default_results():
+            """Show real current-season titles before the user types a query."""
+            season, year = season_for_date()
+            key = ("season", season, year)
+            request_id = generation.begin()
+            status_label.set_label(
+                f"Showing {season.title()} {year} — enter a title to search the catalogue."
+            )
+
+            def worker():
+                try:
+                    results = AniListClient().search_season(season, year)
+                    GLib.idle_add(apply_results, results, request_id, key)
+                except (AniListError, ValueError) as error:
+                    GLib.idle_add(show_error, str(error), request_id)
+
+            threading.Thread(target=worker, daemon=True).start()
 
         def load_season(_button=None):
             searching = is_search_mode()
