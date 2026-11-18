@@ -54,89 +54,97 @@ def show_anilist_account_dialog(parent) -> None:
     else:
         initial_keyring_error = None
 
-    dialog = Adw.Dialog()
+    dialog = Adw.PreferencesDialog()
     dialog.set_title("AniList Account")
-    dialog.set_content_width(680)
+    dialog.set_content_width(640)
     dialog.set_content_height(620)
 
-    toolbar_view = Adw.ToolbarView()
-    header = Adw.HeaderBar()
-    toolbar_view.add_top_bar(header)
+    page = Adw.PreferencesPage(title="AniList Account", icon_name="user-symbolic")
 
-    content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
-    content.set_margin_top(18)
-    content.set_margin_bottom(18)
-    content.set_margin_start(18)
-    content.set_margin_end(18)
+    account_group = Adw.PreferencesGroup(title="Account")
 
-    account_label = Gtk.Label(xalign=0, wrap=True)
-    account_label.add_css_class("heading")
-    content.append(account_label)
-
-    client_id_label = Gtk.Label(
-        label="Project AniList Client ID",
-        xalign=0,
+    import_row = Adw.ActionRow(
+        title="Import AniList Library",
+        subtitle="Add anime from your list without replacing local entries.",
     )
-    content.append(client_id_label)
-    client_id_entry = Gtk.Entry()
-    client_id_entry.set_text(settings.get("client_id") or DEFAULT_CLIENT_ID)
-    client_id_entry.set_input_purpose(Gtk.InputPurpose.DIGITS)
-    client_id_entry.set_placeholder_text("Numeric public Client ID")
-    content.append(client_id_entry)
+    import_button = Gtk.Button(label="Import")
+    import_button.add_css_class("suggested-action")
+    import_button.set_valign(Gtk.Align.CENTER)
+    import_button.set_sensitive(False)
+    import_row.add_suffix(import_button)
+    import_row.set_activatable_widget(import_button)
+    account_group.add(import_row)
 
-    redirect_hint = Gtk.Label(
-        label=(
+    sync_row = Adw.ActionRow(
+        title="Review Sync",
+        subtitle="Compare local and AniList progress before applying any change.",
+    )
+    sync_button = Gtk.Button(label="Review")
+    sync_button.set_valign(Gtk.Align.CENTER)
+    sync_button.set_sensitive(False)
+    sync_row.add_suffix(sync_button)
+    sync_row.set_activatable_widget(sync_button)
+    account_group.add(sync_row)
+
+    disconnect_row = Adw.ActionRow(
+        title="Disconnect",
+        subtitle="Remove the stored token. Your local library is not changed.",
+    )
+    disconnect_button = Gtk.Button(label="Disconnect")
+    disconnect_button.add_css_class("destructive-action")
+    disconnect_button.set_valign(Gtk.Align.CENTER)
+    disconnect_button.set_sensitive(False)
+    disconnect_row.add_suffix(disconnect_button)
+    disconnect_row.set_activatable_widget(disconnect_button)
+    account_group.add(disconnect_row)
+    page.add(account_group)
+
+    setup_group = Adw.PreferencesGroup(
+        title="Authorization",
+        description=(
             "In AniList Developer Settings, set this application's Redirect URL to "
             "https://anilist.co/api/v2/oauth/pin. The app uses the implicit flow; "
             "no client secret is needed. AniList has no granular OAuth scopes, so "
             "authorization grants broad account access. Aniyori uses it only to read "
             "your anime list and update anime status and episode progress."
         ),
-        xalign=0,
-        wrap=True,
     )
-    redirect_hint.add_css_class("dim-label")
-    content.append(redirect_hint)
+    client_row = Adw.EntryRow(title="Project AniList Client ID")
+    client_row.set_text(settings.get("client_id") or DEFAULT_CLIENT_ID)
+    client_row.set_input_purpose(Gtk.InputPurpose.DIGITS)
+    setup_group.add(client_row)
 
-    authorize_button = Gtk.Button(label="Open AniList Authorization")
+    authorize_row = Adw.ActionRow(
+        title="Open AniList Authorization",
+        subtitle="Sign in on AniList, then copy the token from the Auth Pin page.",
+    )
+    authorize_button = Gtk.Button(label="Open")
     authorize_button.add_css_class("suggested-action")
-    content.append(authorize_button)
+    authorize_button.set_valign(Gtk.Align.CENTER)
+    authorize_row.add_suffix(authorize_button)
+    authorize_row.set_activatable_widget(authorize_button)
+    setup_group.add(authorize_row)
 
-    token_label = Gtk.Label(label="Paste the access token from AniList", xalign=0)
-    content.append(token_label)
-    token_entry = Gtk.Entry()
-    token_entry.set_visibility(False)
-    token_entry.set_input_purpose(Gtk.InputPurpose.PASSWORD)
-    token_entry.set_placeholder_text("AniList access token")
-    content.append(token_entry)
+    token_row = Adw.PasswordEntryRow(title="AniList access token")
+    setup_group.add(token_row)
 
-    connect_button = Gtk.Button(label="Connect Account")
+    connect_row = Adw.ActionRow(
+        title="Connect Account",
+        subtitle="Verify the token and store it in the desktop keyring.",
+    )
+    connect_button = Gtk.Button(label="Connect")
     connect_button.add_css_class("suggested-action")
+    connect_button.set_valign(Gtk.Align.CENTER)
     connect_button.set_sensitive(credential_store is not None)
-    content.append(connect_button)
+    connect_row.add_suffix(connect_button)
+    connect_row.set_activatable_widget(connect_button)
+    setup_group.add(connect_row)
+    page.add(setup_group)
 
-    action_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-    import_button = Gtk.Button(label="Import AniList Library")
-    import_button.set_sensitive(False)
-    action_row.append(import_button)
-    sync_button = Gtk.Button(label="Review Sync")
-    sync_button.set_sensitive(False)
-    action_row.append(sync_button)
-    disconnect_button = Gtk.Button(label="Disconnect")
-    disconnect_button.set_sensitive(False)
-    action_row.append(disconnect_button)
-    content.append(action_row)
+    status_group = Adw.PreferencesGroup(title="Status")
+    page.add(status_group)
 
-    status_label = Gtk.Label(xalign=0, wrap=True)
-    status_label.add_css_class("dim-label")
-    content.append(status_label)
-
-    scroll = Gtk.ScrolledWindow()
-    scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
-    scroll.set_min_content_height(380)
-    scroll.set_child(content)
-    toolbar_view.set_content(scroll)
-    dialog.set_child(toolbar_view)
+    dialog.add(page)
 
     def current_settings():
         return settings_store.load()
@@ -161,33 +169,33 @@ def show_anilist_account_dialog(parent) -> None:
             viewer_id = current.get("viewer_id")
             viewer_name = current.get("viewer_name")
             if viewer_id is not None and credential_store is not None:
-                account_label.set_text(f"AniList account: {viewer_name} (ID {viewer_id})")
+                account_group.set_description(f"AniList account: {viewer_name} (ID {viewer_id})")
                 import_button.set_sensitive(True)
                 sync_button.set_sensitive(True)
                 disconnect_button.set_sensitive(True)
-                status_label.set_text(
+                status_group.set_description(
                     "The access token is retrieved from the desktop keyring when an account action starts."
                 )
             elif viewer_id is not None:
-                account_label.set_text("AniList account needs to be reconnected.")
+                account_group.set_description("AniList account needs to be reconnected.")
                 import_button.set_sensitive(False)
                 sync_button.set_sensitive(False)
                 disconnect_button.set_sensitive(False)
-                status_label.set_text(initial_keyring_error or "The desktop keyring is unavailable.")
+                status_group.set_description(initial_keyring_error or "The desktop keyring is unavailable.")
             else:
-                account_label.set_text("Not connected to AniList")
+                account_group.set_description("Not connected to AniList")
                 import_button.set_sensitive(False)
                 sync_button.set_sensitive(False)
                 disconnect_button.set_sensitive(False)
-                status_label.set_text(
+                status_group.set_description(
                     initial_keyring_error or "Your local library remains available offline."
                 )
         except (AniListAccountError, CredentialStoreError) as error:
-            account_label.set_text("AniList account status unavailable")
+            account_group.set_description("AniList account status unavailable")
             import_button.set_sensitive(False)
             sync_button.set_sensitive(False)
             disconnect_button.set_sensitive(False)
-            status_label.set_text(str(error))
+            status_group.set_description(str(error))
 
     def run_background(button, working_label, task, on_success):
         original_label = button.get_label()
@@ -206,7 +214,7 @@ def show_anilist_account_dialog(parent) -> None:
                 button.set_label(original_label)
                 button.set_sensitive(True)
                 if error is not None:
-                    status_label.set_text(str(error))
+                    status_group.set_description(str(error))
                 else:
                     on_success(result)
                 return GLib.SOURCE_REMOVE
@@ -217,7 +225,7 @@ def show_anilist_account_dialog(parent) -> None:
 
     def open_authorization(_button):
         try:
-            client_id = client_id_entry.get_text().strip()
+            client_id = client_row.get_text().strip()
             url = build_authorization_url(client_id)
             current = current_settings()
             settings_store.save(
@@ -226,20 +234,20 @@ def show_anilist_account_dialog(parent) -> None:
                 viewer_name=current.get("viewer_name"),
             )
             Gio.AppInfo.launch_default_for_uri(url, None)
-            status_label.set_text(
+            status_group.set_description(
                 "Authorize Aniyori in your browser, copy the token shown on the Auth Pin page, "
                 "then paste it above."
             )
         except Exception as error:
-            status_label.set_text(str(error))
+            status_group.set_description(str(error))
 
     def connect_account(_button):
         try:
-            client_id = client_id_entry.get_text().strip()
+            client_id = client_row.get_text().strip()
             build_authorization_url(client_id)
-            token = parse_access_token(token_entry.get_text())
+            token = parse_access_token(token_row.get_text())
         except AniListAccountError as error:
-            status_label.set_text(str(error))
+            status_group.set_description(str(error))
             return
 
         def task():
@@ -278,11 +286,11 @@ def show_anilist_account_dialog(parent) -> None:
             return viewer
 
         def connected(viewer):
-            token_entry.set_text("")
-            account_label.set_text(f"Connected as {viewer['name']} (AniList ID {viewer['id']})")
+            token_row.set_text("")
+            account_group.set_description(f"Connected as {viewer['name']} (AniList ID {viewer['id']})")
             import_button.set_sensitive(True)
             disconnect_button.set_sensitive(True)
-            status_label.set_text("Account connected. Your access token is stored in the desktop keyring.")
+            status_group.set_description("Account connected. Your access token is stored in the desktop keyring.")
 
         run_background(connect_button, "Connecting…", task, connected)
 
@@ -320,7 +328,7 @@ def show_anilist_account_dialog(parent) -> None:
             parent.entries = parent.storage.list_entries()
             parent._render_library()
             parent._refresh_airing_schedule()
-            status_label.set_text(
+            status_group.set_description(
                 f"Import complete: added {result['added']} anime; "
                 f"left {result['skipped']} existing or unsupported entries unchanged."
             )
@@ -338,7 +346,7 @@ def show_anilist_account_dialog(parent) -> None:
         def show_plan(plan):
             review = Adw.Dialog()
             review.set_title("Review AniList Sync")
-            review.set_content_width(700)
+            review.set_content_width(640)
             review.set_content_height(620)
             review_toolbar = Adw.ToolbarView()
             review_header = Adw.HeaderBar()
@@ -517,7 +525,7 @@ def show_anilist_account_dialog(parent) -> None:
                     parent._render_library()
                     parent._refresh_airing_schedule()
                     review.close()
-                    status_label.set_text(
+                    status_group.set_description(
                         f"Sync complete: imported {result['imported']}, "
                         f"updated local {result['updated_local']}, "
                         f"updated AniList {result['updated_remote']}, "
@@ -547,7 +555,7 @@ def show_anilist_account_dialog(parent) -> None:
 
         def disconnected(_result):
             refresh_account_state()
-            status_label.set_text("AniList disconnected. Your local library was not changed.")
+            status_group.set_description("AniList disconnected. Your local library was not changed.")
 
         run_background(disconnect_button, "Disconnecting…", task, disconnected)
 

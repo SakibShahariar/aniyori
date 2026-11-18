@@ -41,7 +41,7 @@ Use a disposable test profile or a backup of any library data you care about. Do
 - [ ] Resize across the 720sp breakpoint with bulk selection active and while Releases is open; confirm bulk controls and release filters/actions stack vertically at narrow widths, return to horizontal rows when widened, and never clip.
 - [ ] Open Notification Preferences, Local Player Detection, and Network Settings; confirm each uses a searchable, adaptive Preferences dialog with correctly grouped rows.
 - [ ] Open Notification Center, Watch History, Customize Library Layout, Release Preferences, and Share Message Format; confirm each opens as an adaptive dialog with its description, controls, and close behavior intact.
-- [ ] Open AniList Account and Review AniList Sync at wide and narrow sizes; confirm both dialogs open at a usable size with their form fields visible and scroll vertically instead of collapsing to a sliver.
+- [ ] Open AniList Account and Review AniList Sync at wide and narrow sizes; confirm both dialogs open at a usable size with grouped preference rows, a password field, visible form fields, and vertical scrolling instead of collapsing to a sliver.
 - [ ] Open Download Queue at wide and narrow sizes; confirm the adaptive dialog remains usable and closing it stops its automatic refresh timer.
 - [ ] Open Season Discovery at wide and narrow sizes; confirm season/year, search/genre, format/status, and sort controls wrap without clipping.
 - [ ] Open Add Anime, Watch History, and Release Feeds at narrow sizes; confirm catalogue search, saved-search controls, history filters/actions, and feed actions wrap and remain reachable.
