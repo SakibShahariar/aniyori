@@ -42,7 +42,7 @@ Use a disposable test profile or a backup of any library data you care about. Do
 - [ ] Open Notification Preferences, Local Player Detection, and Network Settings; confirm each uses a searchable, adaptive Preferences dialog with correctly grouped rows.
 - [ ] Open Notification Center, Watch History, Customize Library Layout, Release Preferences, and Share Message Format; confirm each opens as an adaptive dialog with its description, controls, and close behavior intact.
 - [ ] Open AniList Account and Review AniList Sync at wide and narrow sizes; confirm both dialogs open at a usable size with grouped preference rows, a password field, visible form fields, and vertical scrolling instead of collapsing to a sliver.
-- [ ] Confirm the sidebar uses an icon-bearing navigation list with a persistent Home/My List selection, and that Browse and Statistics open their dialogs without leaving the wrong row selected.
+- [ ] Confirm a single click on each sidebar row opens its page or dialog: Home, My List, Calendar, and Settings switch pages; Browse and Statistics open their dialogs and restore the previous page selection.
 - [ ] Open a saved anime's details at wide and narrow sizes; confirm the dialog opens at a usable size and its content scrolls instead of collapsing.
 - [ ] At a narrow window width, confirm the Releases action buttons wrap and the main window does not log a width-overflow warning or clip content.
 - [ ] Confirm the empty library and empty Home sections use native status pages with icon, title, description, and action where applicable.

@@ -629,7 +629,8 @@ class AniyoriWindow(Adw.ApplicationWindow):
         }
         for row in self._nav_pages:
             self.nav_list.append(row)
-            row.connect("activated", self._on_nav_activated)
+        self.nav_list.connect("row-selected", self._on_nav_selected)
+        self.nav_list.connect("row-activated", self._on_nav_selected)
         sidebar.append(self.nav_list)
         sidebar.append(Gtk.Box(vexpand=True))
 
@@ -948,8 +949,6 @@ class AniyoriWindow(Adw.ApplicationWindow):
         self._render_library()
         self._active_nav_row = self.home_row
         self.nav_list.select_row(self.home_row)
-        self._apply_navigation("home")
-        self._refresh_home()
         self.filter_buttons["all"].set_active(True)
         if self.library_view_presets["default"]:
             try:
@@ -1081,10 +1080,11 @@ class AniyoriWindow(Adw.ApplicationWindow):
         )
         return GLib.SOURCE_REMOVE
 
-    def _on_nav_activated(self, row):
+    def _on_nav_selected(self, _listbox, row):
+        if row is None:
+            return
         page_name = self._nav_pages.get(row)
         if page_name in ("home", "library", "calendar", "settings"):
-            self.nav_list.select_row(row)
             self._apply_navigation(page_name)
         elif page_name == "browse":
             self._show_season_discovery()
@@ -1117,7 +1117,6 @@ class AniyoriWindow(Adw.ApplicationWindow):
 
     def _show_library_page(self):
         self.nav_list.select_row(self.library_row)
-        self._apply_navigation("library")
 
     def _set_navigation_compact(self, compact):
         self.navigation_split_view.set_collapsed(compact)
