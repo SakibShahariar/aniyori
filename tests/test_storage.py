@@ -35,6 +35,21 @@ class LibraryStorageTests(unittest.TestCase):
                     Path("/home/test/.local/share/aniyori/library.sqlite3"),
                 )
 
+    def test_scores_survive_add_update_and_reload(self):
+        self.storage.add(AnimeEntry(title="Scored", my_score=7.5, global_score=8.2))
+        entry = self.storage.list_entries()[0]
+        self.assertEqual(entry.my_score, 7.5)
+        self.assertEqual(entry.global_score, 8.2)
+        updated = AnimeEntry(
+            title=entry.title, episodes_total=entry.episodes_total,
+            episodes_watched=entry.episodes_watched, status=entry.status,
+            my_score=9.0, global_score=8.4, storage_id=entry.storage_id,
+        )
+        self.assertTrue(self.storage.update_entry(updated))
+        reloaded = self.storage.list_entries()[0]
+        self.assertEqual(reloaded.my_score, 9.0)
+        self.assertEqual(reloaded.global_score, 8.4)
+
     def test_created_at_map_returns_stable_timestamps_for_saved_entries(self):
         self.storage.add(
             AnimeEntry(title="Recently Added", episodes_total=12)

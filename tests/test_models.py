@@ -78,6 +78,15 @@ class AnimeEntryTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "title must be text"):
             AnimeEntry(title=None)
 
+    def test_model_accepts_and_validates_scores(self):
+        entry = AnimeEntry(title="Scored", my_score=8.5, global_score=7.2)
+        self.assertEqual(entry.my_score, 8.5)
+        self.assertEqual(entry.global_score, 7.2)
+        for value in (-1, 11, True, "8"):
+            with self.subTest(value=value):
+                with self.assertRaisesRegex(ValueError, "between 0 and 10"):
+                    AnimeEntry(title="Scored", my_score=value)
+
     def test_model_rejects_invalid_storage_ids(self):
         for value in (0, -1, True, 1.5, "1"):
             with self.subTest(storage_id=value):

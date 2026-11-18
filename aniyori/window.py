@@ -1,5 +1,6 @@
 """Main library window for Aniyori."""
 
+from concurrent.futures import ThreadPoolExecutor
 import copy
 import hashlib
 import json
@@ -97,8 +98,55 @@ def _responsive_control_row(*widgets, spacing=8, max_per_line=5):
     return row
 
 
+def _score_text(entry: AnimeEntry) -> str:
+    parts = []
+    if entry.my_score is not None:
+        parts.append(f"Mine {entry.my_score:g}/10")
+    if entry.global_score is not None:
+        parts.append(f"Community {entry.global_score:g}/10")
+    return " · ".join(parts)
+
+
+def _global_score(value) -> float | None:
+    """Convert AniList's 0-100 average score to the local 0-10 scale."""
+    if isinstance(value, bool) or not isinstance(value, (int, float)) or not 0 <= value <= 100:
+        return None
+    return round(float(value) / 10, 1)
+
+
+def _status_label(status: WatchStatus, text: str, *, center: bool = False) -> Gtk.Box:
+    """Status text with a semantic colour dot (no hard-coded colours)."""
+    row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
+    dot = Gtk.Label(label="●")
+    dot.add_css_class({
+        WatchStatus.WATCHING: "accent",
+        WatchStatus.COMPLETED: "success",
+        WatchStatus.PLANNING: "dim-label",
+        WatchStatus.PAUSED: "warning",
+        WatchStatus.DROPPED: "error",
+    }.get(status, "dim-label"))
+    dot.set_tooltip_text(status.value.replace("_", " ").title())
+    row.append(dot)
+    label = Gtk.Label(label=text)
+    if center:
+        label.set_justify(Gtk.Justification.CENTER)
+        label.set_hexpand(True)
+    else:
+        label.set_xalign(0)
+    row.append(label)
+    return row
+
+
+_COVER_POOL = ThreadPoolExecutor(max_workers=6, thread_name_prefix="aniyori-cover")
+
+
 def _load_cover_async(picture: Gtk.Picture, url: str | None) -> None:
-    """Load a cached/downloaded cover without blocking the GTK main thread."""
+    """Load a cover without blocking GTK, with bounded concurrency.
+
+    A large library can queue thousands of rows at once; a bounded pool keeps
+    image downloads from exhausting threads or the network while still filling
+    in covers progressively.
+    """
     if not url:
         return
 
@@ -110,7 +158,7 @@ def _load_cover_async(picture: Gtk.Picture, url: str | None) -> None:
             return
         GLib.idle_add(_apply_cover_texture, picture, str(path))
 
-    threading.Thread(target=worker, daemon=True).start()
+    _COVER_POOL.submit(worker)
 
 
 def _apply_cover_texture(picture: Gtk.Picture, path: str):
@@ -174,15 +222,11 @@ class AnimeRow(Gtk.Box):
         details.append(title)
 
         status_text = entry.status.value.replace("_", " ").title()
-        source_text = (
-            f"{entry.provider.title()} #{entry.provider_id}"
-            if entry.provider and entry.provider_id
-            else f"Manual entry #{entry.storage_id}" if entry.storage_id is not None else "Manual entry"
-        )
+        source_text = entry.provider.title() if entry.provider else "Local"
         metadata = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
         metadata.set_hexpand(True)
         self.layout_fields = {
-            "status": Gtk.Label(label=status_text, xalign=0),
+            "status": _status_label(entry.status, status_text),
             "progress": Gtk.Label(label=entry.progress_label, xalign=0),
             "source": Gtk.Label(label=source_text, xalign=0),
             "airing": Gtk.Label(label=format_airing_countdown(*airing) if airing is not None else "", xalign=0),
@@ -204,6 +248,13 @@ class AnimeRow(Gtk.Box):
         self.airing_label.add_css_class("accent")
         metadata.set_visible(not compact)
         details.append(metadata)
+
+        score_text = _score_text(entry)
+        if score_text:
+            score_label = Gtk.Label(label=score_text, xalign=0)
+            score_label.add_css_class("dim-label")
+            score_label.add_css_class("caption")
+            details.append(score_label)
 
         if entry.progress_fraction is not None:
             progress = Gtk.ProgressBar()
@@ -302,13 +353,9 @@ class AnimeCard(Gtk.Box):
         layout = layout or DEFAULT_LIBRARY_LAYOUTS["grid"]
 
         status = entry.status.value.replace("_", " ").title()
-        source_text = (
-            f"{entry.provider.title()} #{entry.provider_id}"
-            if entry.provider and entry.provider_id
-            else f"Manual entry #{entry.storage_id}" if entry.storage_id is not None else "Manual entry"
-        )
+        source_text = entry.provider.title() if entry.provider else "Local"
         self.layout_fields = {
-            "status": Gtk.Label(label=status, justify=Gtk.Justification.CENTER),
+            "status": _status_label(entry.status, status, center=True),
             "progress": Gtk.Label(label=entry.progress_label, justify=Gtk.Justification.CENTER),
             "source": Gtk.Label(label=source_text, justify=Gtk.Justification.CENTER),
             "airing": Gtk.Label(label=format_airing_countdown(*airing) if airing is not None else "", justify=Gtk.Justification.CENTER),
@@ -322,6 +369,13 @@ class AnimeCard(Gtk.Box):
             field.add_css_class("dim-label")
             field.add_css_class("caption")
             self.append(field)
+
+        score_text = _score_text(entry)
+        if score_text:
+            score_label = Gtk.Label(label=score_text, justify=Gtk.Justification.CENTER)
+            score_label.add_css_class("dim-label")
+            score_label.add_css_class("caption")
+            self.append(score_label)
 
         if entry.progress_fraction is not None:
             progress = Gtk.ProgressBar()
@@ -471,6 +525,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
             ("focus-search", lambda: self.search.grab_focus()),
             ("quit", lambda: self.get_application().quit()),
             ("statistics", self._show_statistics_dialog),
+            ("settings", lambda: self._apply_navigation("settings")),
             ("watch-history", self._show_watch_history_dialog),
             ("manage-webhooks", self._show_webhook_manager),
             ("notifications", self._show_notification_center),
@@ -509,6 +564,14 @@ class AniyoriWindow(Adw.ApplicationWindow):
         self.back_button.set_visible(False)
         self.back_button.connect("clicked", self._on_navigation_back)
         header.pack_start(self.back_button)
+        self.sidebar_toggle = Gtk.ToggleButton()
+        self.sidebar_toggle.set_child(
+            Gtk.Image.new_from_icon_name("sidebar-show-symbolic")
+        )
+        self.sidebar_toggle.set_tooltip_text("Show navigation")
+        self.sidebar_toggle.set_visible(False)
+        self.sidebar_toggle.connect("toggled", self._on_sidebar_toggled)
+        header.pack_start(self.sidebar_toggle)
         header.set_title_widget(Adw.WindowTitle(title="Aniyori", subtitle="Your anime library"))
 
         add_button = Gtk.Button.new_from_icon_name("list-add-symbolic")
@@ -520,6 +583,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
         # Sidebar pages and the Settings page own navigation and preferences.
         # Keep the primary menu to app-level commands and the search shortcut.
         primary_menu = Gio.Menu()
+        primary_menu.append("Settings", "win.settings")
         primary_menu.append("Search Library", "win.focus-search")
         primary_menu.append("About Aniyori", "win.about")
         primary_menu.append("Quit", "win.quit")
@@ -1094,6 +1158,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
         self.page_stack.set_visible_child_name(page_name)
         if self.navigation_split_view.get_collapsed():
             self.navigation_split_view.set_show_content(True)
+            self.sidebar_toggle.set_active(False)
             self.back_button.set_visible(True)
         if page_name == "home":
             self._refresh_home()
@@ -1121,6 +1186,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
 
     def _set_navigation_compact(self, compact):
         self.navigation_split_view.set_collapsed(compact)
+        self.sidebar_toggle.set_visible(compact)
         if not compact:
             self.back_button.set_visible(False)
         else:
@@ -1128,9 +1194,16 @@ class AniyoriWindow(Adw.ApplicationWindow):
                 self.navigation_split_view.get_show_content()
             )
 
+    def _on_sidebar_toggled(self, button):
+        # In collapsed mode the split view shows either the sidebar or the
+        # content; toggling the drawer simply flips which one is visible.
+        self.navigation_split_view.set_show_content(not button.get_active())
+        self.back_button.set_visible(not button.get_active())
+
     def _on_navigation_back(self, _button):
         self.navigation_split_view.set_show_content(False)
         self.back_button.set_visible(False)
+        self.sidebar_toggle.set_active(True)
 
     def _refresh_home(self):
         if not hasattr(self, "home_page"):
@@ -1334,13 +1407,10 @@ class AniyoriWindow(Adw.ApplicationWindow):
                     progress_bar.set_show_text(False)
                     details.append(progress_bar)
 
-                status_label = Gtk.Label(
-                    label=entry.status.value.replace("_", " ").title(),
-                    xalign=0,
-                )
-                status_label.add_css_class("dim-label")
-                status_label.add_css_class("caption")
-                details.append(status_label)
+                details.append(_status_label(
+                    entry.status,
+                    entry.status.value.replace("_", " ").title(),
+                ))
                 card.append(details)
 
                 actions = Gtk.Box(
@@ -1380,7 +1450,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
 
             horizontal_scroll = Gtk.ScrolledWindow()
             horizontal_scroll.set_policy(
-                Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.NEVER
+                Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC
             )
             horizontal_scroll.set_min_content_height(200)
             horizontal_scroll.set_child(strip)
@@ -6390,6 +6460,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
                             provider="anilist",
                             provider_id=str(media_id),
                             cover_image=anime.get("cover_image"),
+                            global_score=_global_score(anime.get("average_score")),
                         )
                     except ValueError as error:
                         self.toast_overlay.add_toast(Adw.Toast.new(str(error)))
@@ -6888,6 +6959,10 @@ class AniyoriWindow(Adw.ApplicationWindow):
                 ),
                 cover_image=(
                     catalogue_state["selected"].get("cover_image")
+                    if catalogue_state["selected"] else None
+                ),
+                global_score=(
+                    _global_score(catalogue_state["selected"].get("average_score"))
                     if catalogue_state["selected"] else None
                 ),
             )

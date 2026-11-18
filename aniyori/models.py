@@ -48,6 +48,8 @@ class AnimeEntry:
     provider: str | None = None
     provider_id: str | None = None
     cover_image: str | None = None
+    my_score: float | None = None
+    global_score: float | None = None
     storage_id: int | None = field(default=None, compare=False, repr=False)
 
     def __post_init__(self) -> None:
@@ -74,6 +76,14 @@ class AnimeEntry:
             if value is not None and not isinstance(value, str):
                 label = field_name.replace("_", " ").capitalize()
                 raise ValueError(f"{label} must be text.")
+        for field_name in ("my_score", "global_score"):
+            value = getattr(self, field_name)
+            if value is not None and (
+                isinstance(value, bool) or not isinstance(value, (int, float))
+                or not 0 <= value <= 10
+            ):
+                label = field_name.replace("_", " ").capitalize()
+                raise ValueError(f"{label} must be a number between 0 and 10.")
 
         if self.storage_id is not None and (
             isinstance(self.storage_id, bool)

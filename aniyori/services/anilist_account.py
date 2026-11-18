@@ -95,6 +95,15 @@ _STATUS_MAP = {
 }
 
 
+def _normalise_score(value, *, maximum: float) -> float | None:
+    """Convert AniList scores to the local 0-10 scale, or omit invalid values."""
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    if not 0 <= value <= maximum:
+        return None
+    return round(float(value) * 10 / maximum, 1)
+
+
 def import_entry_from_anilist(remote: dict) -> AnimeEntry:
     """Convert one validated AniList list entry without losing watch progress."""
     if not isinstance(remote, dict) or not isinstance(remote.get("media"), dict):
@@ -133,6 +142,10 @@ def import_entry_from_anilist(remote: dict) -> AnimeEntry:
         provider="anilist",
         provider_id=str(media_id),
         cover_image=cover,
+        my_score=_normalise_score(remote.get("score"), maximum=10),
+        global_score=_normalise_score(
+            media.get("average_score", media.get("averageScore")), maximum=100
+        ),
     )
 
 

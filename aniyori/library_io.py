@@ -19,6 +19,8 @@ CSV_FIELDS = (
     "provider",
     "provider_id",
     "cover_image",
+    "my_score",
+    "global_score",
 )
 
 
@@ -31,6 +33,8 @@ def _entry_to_record(entry: AnimeEntry) -> dict[str, object]:
         "provider": entry.provider,
         "provider_id": entry.provider_id,
         "cover_image": entry.cover_image,
+        "my_score": entry.my_score,
+        "global_score": entry.global_score,
     }
 
 
@@ -46,6 +50,23 @@ def _record_to_entry(record: Mapping[str, object]) -> AnimeEntry:
         if not isinstance(value, str):
             raise ValueError(f"Imported {field.replace('_', ' ')} must be text.")
         return value
+
+    def optional_score(field: str) -> float | None:
+        value = record.get(field)
+        if value is None or value == "":
+            return None
+        if isinstance(value, str):
+            value = value.strip()
+            try:
+                value = float(value)
+            except ValueError:
+                raise ValueError(f"Imported {field.replace('_', ' ')} must be numeric.") from None
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            raise ValueError(f"Imported {field.replace('_', ' ')} must be numeric.")
+        score = float(value)
+        if not 0 <= score <= 10:
+            raise ValueError(f"Imported {field.replace('_', ' ')} must be between 0 and 10.")
+        return score
 
     def optional_count(field: str) -> int | None:
         value = record.get(field)
@@ -75,6 +96,8 @@ def _record_to_entry(record: Mapping[str, object]) -> AnimeEntry:
         provider=optional_text("provider"),
         provider_id=optional_text("provider_id"),
         cover_image=optional_text("cover_image"),
+        my_score=optional_score("my_score"),
+        global_score=optional_score("global_score"),
     )
 
 

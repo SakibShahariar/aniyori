@@ -24,7 +24,7 @@ def default_database_path() -> Path:
 class LibraryStorage:
     """Store the local library in a small SQLite database."""
 
-    LATEST_SCHEMA_VERSION = 4
+    LATEST_SCHEMA_VERSION = 5
 
     @staticmethod
     def _is_duplicate_catalogue_error(error: sqlite3.IntegrityError) -> bool:
@@ -116,8 +116,19 @@ class LibraryStorage:
             "ON episode_progress(anime_id, watched, episode)"
         )
 
+    @staticmethod
+    def _migration_5(connection: sqlite3.Connection) -> None:
+        """Add optional personal and community scores without changing existing rows."""
+        columns = {
+            row["name"] for row in connection.execute("PRAGMA table_info(anime)")
+        }
+        if "my_score" not in columns:
+            connection.execute("ALTER TABLE anime ADD COLUMN my_score REAL")
+        if "global_score" not in columns:
+            connection.execute("ALTER TABLE anime ADD COLUMN global_score REAL")
+
     def _initialize(self) -> None:
-        migrations = {1: self._migration_1, 2: self._migration_2, 3: self._migration_3, 4: self._migration_4}
+        migrations = {1: self._migration_1, 2: self._migration_2, 3: self._migration_3, 4: self._migration_4, 5: self._migration_5}
         with self._connect() as connection:
             version = connection.execute("PRAGMA user_version").fetchone()[0]
             if version > self.LATEST_SCHEMA_VERSION:
@@ -145,6 +156,8 @@ class LibraryStorage:
             provider=row["provider"],
             provider_id=row["provider_id"],
             cover_image=row["cover_image"],
+            my_score=row["my_score"],
+            global_score=row["global_score"],
         )
 
     @staticmethod
@@ -240,7 +253,7 @@ class LibraryStorage:
     def list_entries(self) -> list[AnimeEntry]:
         with self._connect() as connection:
             rows = connection.execute(
-                "SELECT id, title, episodes_total, episodes_watched, status, provider, provider_id, cover_image "
+                "SELECT id, title, episodes_total, episodes_watched, status, provider, provider_id, cover_image, my_score, global_score "
                 "FROM anime ORDER BY title COLLATE NOCASE, id"
             ).fetchall()
         return [self._to_entry(row) for row in rows]
@@ -253,7 +266,8 @@ class LibraryStorage:
         with self._connect() as connection:
             rows = connection.execute(
                 """
-                SELECT id, title, episodes_total, episodes_watched, status, provider, provider_id, cover_image
+                SELECT id, title, episodes_total, episodes_watched, status, provider, provider_id, cover_image,
+                       my_score, global_score
                 FROM anime
                 WHERE provider IS NULL AND provider_id IS NULL
                 ORDER BY title COLLATE NOCASE, id
@@ -271,8 +285,9 @@ class LibraryStorage:
                 connection.execute(
                     """
                     INSERT INTO anime
-                        (title, episodes_total, episodes_watched, status, provider, provider_id, cover_image)
-                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                        (title, episodes_total, episodes_watched, status, provider, provider_id, cover_image,
+                         my_score, global_score)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         entry.title.strip(),
@@ -282,6 +297,8 @@ class LibraryStorage:
                         entry.provider,
                         entry.provider_id,
                         entry.cover_image,
+                        entry.my_score,
+                        entry.global_score,
                     ),
                 )
         except sqlite3.IntegrityError as error:
@@ -363,12 +380,14 @@ class LibraryStorage:
                     """
                     UPDATE anime
                     SET title = ?, episodes_total = ?, episodes_watched = ?, status = ?,
-                        provider = ?, provider_id = ?, cover_image = ?, updated_at = CURRENT_TIMESTAMP
+                        provider = ?, provider_id = ?, cover_image = ?, my_score = ?,
+                        global_score = ?, updated_at = CURRENT_TIMESTAMP
                     WHERE id = ?
                     """,
                     (entry.title.strip(), entry.episodes_total, entry.episodes_watched,
                      entry.status.value, entry.provider, entry.provider_id,
-                     entry.cover_image, entry.storage_id),
+                     entry.cover_image, entry.my_score, entry.global_score,
+                     entry.storage_id),
                 )
                 self._sync_explicit_episode_progress(
                     connection, entry.storage_id, entry.episodes_watched,
@@ -415,13 +434,15 @@ class LibraryStorage:
                         """
                         UPDATE anime
                         SET title = ?, episodes_total = ?, episodes_watched = ?, status = ?,
-                            provider = ?, provider_id = ?, cover_image = ?, updated_at = CURRENT_TIMESTAMP
+                            provider = ?, provider_id = ?, cover_image = ?, my_score = ?,
+                            global_score = ?, updated_at = CURRENT_TIMESTAMP
                         WHERE id = ?
                         """,
                         (
                             entry.title.strip(), entry.episodes_total,
                             entry.episodes_watched, entry.status.value,
                             entry.provider, entry.provider_id, entry.cover_image,
+                            entry.my_score, entry.global_score,
                             entry.storage_id,
                         ),
                     )
@@ -625,14 +646,14 @@ class LibraryStorage:
                     """
                     UPDATE anime SET title = ?, episodes_total = ?, episodes_watched = ?,
                         status = ?, provider = ?, provider_id = ?, cover_image = ?,
-                        created_at = ?, updated_at = ?
+                        my_score = ?, global_score = ?, created_at = ?, updated_at = ?
                     WHERE id = ?
                     """,
                     (
                         row["title"], row["episodes_total"], row["episodes_watched"],
                         row["status"], row["provider"], row["provider_id"],
-                        row["cover_image"], row["created_at"], row["updated_at"],
-                        storage_id,
+                        row["cover_image"], row["my_score"], row["global_score"],
+                        row["created_at"], row["updated_at"], storage_id,
                     ),
                 )
             connection.executemany(
@@ -785,8 +806,9 @@ class LibraryStorage:
                 connection.execute(
                     """
                     INSERT INTO anime
-                        (id, title, episodes_total, episodes_watched, status, provider, provider_id, cover_image)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                        (id, title, episodes_total, episodes_watched, status, provider, provider_id, cover_image,
+                         my_score, global_score)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         storage_id,
@@ -797,6 +819,8 @@ class LibraryStorage:
                         entry.provider,
                         entry.provider_id,
                         entry.cover_image,
+                        entry.my_score,
+                        entry.global_score,
                     ),
                 )
         except sqlite3.IntegrityError as error:
@@ -942,8 +966,9 @@ class LibraryStorage:
             connection.executemany(
                 """
                 INSERT INTO anime
-                    (title, episodes_total, episodes_watched, status, provider, provider_id, cover_image)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
+                    (title, episodes_total, episodes_watched, status, provider, provider_id, cover_image,
+                     my_score, global_score)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 [
                     (
@@ -954,6 +979,8 @@ class LibraryStorage:
                         entry.provider,
                         entry.provider_id,
                         entry.cover_image,
+                        entry.my_score,
+                        entry.global_score,
                     )
                     for entry in entries
                 ],

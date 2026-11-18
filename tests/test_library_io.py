@@ -111,5 +111,13 @@ class LibraryIOTests(unittest.TestCase):
             import_csv(content)
 
 
+    def test_scores_survive_json_and_csv_round_trip(self):
+        from aniyori.models import AnimeEntry
+
+        entries = [AnimeEntry(title="Scored", status=WatchStatus.WATCHING, my_score=9.0, global_score=8.1)]
+        self.assertEqual(import_json(export_json(entries)), entries)
+        self.assertEqual(import_csv(export_csv(entries)), entries)
+
+
 if __name__ == "__main__":
     unittest.main()

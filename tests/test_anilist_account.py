@@ -492,5 +492,20 @@ class AniListSyncResolutionTests(unittest.TestCase):
             local_entry_from_remote(remote, existing)
 
 
+    def test_import_maps_personal_and_community_scores(self):
+        from aniyori.services.anilist_account import import_entry_from_anilist
+
+        remote = {
+            "media_id": 21, "status": "COMPLETED", "progress": 12, "score": 8,
+            "media": {
+                "id": 21, "title": "Scored", "episodes": 12,
+                "averageScore": 83, "cover_image": "https://s4.anilist.co/cover.jpg",
+            },
+        }
+        entry = import_entry_from_anilist(remote)
+        self.assertEqual(entry.my_score, 8.0)
+        self.assertEqual(entry.global_score, 8.3)
+
+
 if __name__ == "__main__":
     unittest.main()
