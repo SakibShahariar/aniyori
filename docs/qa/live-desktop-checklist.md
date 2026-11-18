@@ -53,7 +53,7 @@ Use a disposable test profile or a backup of any library data you care about. Do
 - [ ] Confirm the hamburger menu has a Settings entry that opens the Settings page, and that at narrow widths a header drawer button shows the navigation sidebar and closes it after a page is chosen.
 - [ ] On Home, confirm recently added/continue-watching cards show their full title, progress, status, and actions without vertical cropping.
 - [ ] In My List, confirm list rows and grid cards show a semantic status dot, omit numeric provider/entry IDs, and display personal and community scores when known; covers should load progressively even with a large library.
-- [ ] With a large library, confirm typing in search, changing filters/sort, and switching List/Grid stay responsive (renders coalesce and only the active view is built), and that airing-schedule refreshes do not repeatedly rebuild the library.
+- [ ] With a large library, confirm startup and first My List open are fast, only the first page of rows is built, and scrolling gradually loads more rows without freezing; search/filter/sort and airing refreshes should remain responsive.
 - [ ] Open a saved anime's details at wide and narrow sizes; confirm the dialog opens at a usable size and its content scrolls instead of collapsing.
 - [ ] At a narrow window width, confirm the Releases action buttons wrap and the main window does not log a width-overflow warning or clip content.
 - [ ] Confirm the empty library and empty Home sections use native status pages with icon, title, description, and action where applicable.

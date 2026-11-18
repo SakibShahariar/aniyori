@@ -465,6 +465,8 @@ class AniyoriWindow(Adw.ApplicationWindow):
         self._widget_entries = {}
         self._library_dirty = False
         self._library_render_timer = None
+        self._library_limit = 150
+        self._library_view_key = None
         self.scan_location_store = ScanLocationStore()
         self.recognition_exclusion_store = RecognitionExclusionStore()
         self.share_template_store = ShareTemplateStore()
@@ -906,6 +908,12 @@ class AniyoriWindow(Adw.ApplicationWindow):
         self.grid_scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
         self.grid_scroll.set_child(self.grid_flow)
         self.stack.add_named(self.grid_scroll, "grid")
+        self.list_scroll.get_vadjustment().connect(
+            "value-changed", self._on_library_scroll
+        )
+        self.grid_scroll.get_vadjustment().connect(
+            "value-changed", self._on_library_scroll
+        )
 
         self.release_page = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
         release_controls = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
@@ -1002,7 +1010,11 @@ class AniyoriWindow(Adw.ApplicationWindow):
         self.add_breakpoint(compact_breakpoint)
 
         self.view_switches["list"].set_active(True)
-        self._render_library()
+        # Home is the initial destination; My List builds its widgets lazily
+        # on first visit. Rendering here would build every library row and
+        # start hundreds of cover downloads during startup.
+        self.page_stack.set_visible_child_name("home")
+        self._library_dirty = True
         self._active_nav_row = self.home_row
         self.nav_list.select_row(self.home_row)
         self.filter_buttons["all"].set_active(True)
@@ -5543,6 +5555,16 @@ class AniyoriWindow(Adw.ApplicationWindow):
         self._compact_layout = compact
         self._render_library()
 
+    def _on_library_scroll(self, adjustment):
+        """Extend the rendered window as the user approaches the bottom."""
+        if adjustment.get_value() + adjustment.get_page_size() < adjustment.get_upper() - 150:
+            return
+        if self._library_limit >= len(self.entries):
+            return
+        self._library_limit += 150
+        self._schedule_library_render()
+        return GLib.SOURCE_REMOVE
+
     def _schedule_library_render(self, *_args):
         """Coalesce rapid search/filter/sort changes into one render."""
         timer = getattr(self, "_library_render_timer", None)
@@ -5587,11 +5609,12 @@ class AniyoriWindow(Adw.ApplicationWindow):
             for view, widgets in (("list", self._row_widgets), ("grid", self._card_widgets)):
                 widget = widgets.pop(key, None)
                 self._widget_entries.pop((view, key), None)
-                if widget is not None and widget.get_parent() is not None:
-                    widget.get_parent().remove(widget)
+                wrapper = widget.get_parent() if widget is not None else None
+                if wrapper is not None:
+                    container = self.list_box if view == "list" else self.grid_flow
+                    container.remove(wrapper)
 
         query = self.search.get_text().strip().casefold() if hasattr(self, "search") else ""
-        visible_count = 0
         updated_at_by_id = (
             self.storage.get_updated_at_map()
             if self.library_sort_mode == "recently_updated"
@@ -5603,6 +5626,23 @@ class AniyoriWindow(Adw.ApplicationWindow):
             airing_by_id=self._airing_by_id,
             updated_at_by_id=updated_at_by_id,
         )
+        visible_entries = [
+            entry for entry in ordered_entries
+            if (self.current_filter == "all" or entry.status.value == self.current_filter)
+            and query in entry.title.casefold()
+        ]
+        visible_count = len(visible_entries)
+
+        view_key = (self.current_filter, query, self.library_sort_mode, self._compact_layout)
+        if getattr(self, "_library_view_key", None) != view_key:
+            self._library_view_key = view_key
+            self._library_limit = 150
+        shown_entries = visible_entries[:self._library_limit]
+        shown_keys = {
+            entry.storage_id if entry.storage_id is not None else ("transient", id(entry))
+            for entry in shown_entries
+        }
+
         layout_signature = library_layout_signature(self.library_layouts)
         # Only the visible view is built; the other is created on demand when
         # the user switches views. This halves widget count on large libraries.
@@ -5610,7 +5650,15 @@ class AniyoriWindow(Adw.ApplicationWindow):
         view = "list" if show_list else "grid"
         widgets_by_key = self._row_widgets if show_list else self._card_widgets
         container = self.list_box if show_list else self.grid_flow
-        for position, entry in enumerate(ordered_entries):
+        for key in list(widgets_by_key):
+            if key in shown_keys:
+                continue
+            wrapper = widgets_by_key[key].get_parent()
+            if wrapper is not None:
+                container.remove(wrapper)
+            widgets_by_key.pop(key, None)
+            self._widget_entries.pop((view, key), None)
+        for position, entry in enumerate(shown_entries):
             key = entry.storage_id if entry.storage_id is not None else ("transient", id(entry))
             widget = widgets_by_key.get(key)
 
@@ -5620,8 +5668,9 @@ class AniyoriWindow(Adw.ApplicationWindow):
                 entry, airing, selected, layout_signature, self._compact_layout
             )
             if widget is None or self._widget_entries.get((view, key)) != widget_signature:
-                if widget is not None and widget.get_parent() is not None:
-                    widget.get_parent().remove(widget)
+                wrapper = widget.get_parent() if widget is not None else None
+                if wrapper is not None:
+                    container.remove(wrapper)
                 if show_list:
                     widget = AnimeRow(
                         entry,
@@ -5661,19 +5710,8 @@ class AniyoriWindow(Adw.ApplicationWindow):
                 if child is not None and child.get_index() != position:
                     container.reorder_child(child, position)
 
-            is_visible = (
-                (self.current_filter == "all" or entry.status.value == self.current_filter)
-                and query in entry.title.casefold()
-            )
-            active_parent = widget.get_parent()
-            if active_parent is not None:
-                active_parent.set_visible(is_visible)
-            other_widgets = self._card_widgets if show_list else self._row_widgets
-            other = other_widgets.get(key)
-            if other is not None and other.get_parent() is not None:
-                other.get_parent().set_visible(is_visible)
-            if is_visible:
-                visible_count += 1
+            # Pagination only builds rows that are visible under the current
+            # filter/query; no per-widget visibility toggling is needed.
 
         self._library_has_visible_entries = visible_count > 0
         if not visible_count:
