@@ -631,8 +631,11 @@ class AniyoriWindow(Adw.ApplicationWindow):
             self.nav_list.append(row)
         self.nav_list.connect("row-selected", self._on_nav_selected)
         self.nav_list.connect("row-activated", self._on_nav_selected)
-        sidebar.append(self.nav_list)
-        sidebar.append(Gtk.Box(vexpand=True))
+        nav_scroll = Gtk.ScrolledWindow()
+        nav_scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        nav_scroll.set_vexpand(True)
+        nav_scroll.set_child(self.nav_list)
+        sidebar.append(nav_scroll)
 
         self.navigation_split_view = Adw.NavigationSplitView()
         self.navigation_split_view.set_show_content(True)
