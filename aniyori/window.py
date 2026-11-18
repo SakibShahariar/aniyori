@@ -3634,41 +3634,68 @@ class AniyoriWindow(Adw.ApplicationWindow):
     def _build_statistics_page(self):
         stats = calculate_library_statistics(self.entries)
         statuses = stats["status_counts"]
-        status_lines = [
-            f"{status.value.title()}: {statuses[status.value]}"
-            for status in WatchStatus
-        ]
         estimated_hours = stats["estimated_minutes"] / 60
-        body = (
-            f"Anime in library: {stats['anime_count']}\n"
-            f"Episodes watched: {stats['episodes_watched']}\n"
-            f"Known episode total: {stats['known_episodes_total']}\n"
-            f"Completed anime: {stats['completion_rate']}%\n"
-            f"Estimated watch time: {estimated_hours:.1f} hours "
-            "(24 minutes per episode)\n\n"
-            + "\n".join(status_lines)
-        )
-        heading = Gtk.Label(label="Library Statistics", xalign=0, wrap=True)
-        heading.add_css_class("title-2")
-        body_label = Gtk.Label(label=body, xalign=0, wrap=True, selectable=True)
-        body_label.add_css_class("dim-label")
 
-        panel = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+        panel = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=16)
         panel.set_margin_start(16)
         panel.set_margin_end(16)
-        panel.set_margin_top(12)
-        panel.set_margin_bottom(16)
-        panel.append(heading)
-        panel.append(body_label)
-        panel.set_margin_top(12)
-        panel.set_margin_bottom(4)
-        year_label = Gtk.Label(label="Viewing year", xalign=0)
-        year_label.set_hexpand(True)
-        current_year = datetime.now().astimezone().year
-        year_spin = Gtk.SpinButton.new_with_range(1900, current_year, 1)
-        year_spin.set_value(current_year)
-        panel.append(_responsive_control_row(year_label, year_spin, max_per_line=2))
+        panel.set_margin_top(16)
+        panel.set_margin_bottom(24)
 
+        heading = Gtk.Label(label="Library Statistics", xalign=0, wrap=True)
+        heading.add_css_class("title-1")
+        panel.append(heading)
+        intro = Gtk.Label(
+            label=(
+                "Library totals and watch-history activity for a selected year."
+            ),
+            xalign=0,
+            wrap=True,
+        )
+        intro.add_css_class("dim-label")
+        panel.append(intro)
+
+        def value_row(group, title, value, subtitle=None):
+            row = Adw.ActionRow(title=title, subtitle=subtitle or "")
+            label = Gtk.Label(label=value, xalign=1)
+            label.add_css_class("dim-label")
+            label.set_selectable(True)
+            row.add_suffix(label)
+            group.add(row)
+            return row, label
+
+        overview = Adw.PreferencesGroup(title="Library")
+        value_row(overview, "Anime in library", str(stats["anime_count"]))
+        value_row(overview, "Episodes watched", str(stats["episodes_watched"]))
+        value_row(overview, "Known episode total", str(stats["known_episodes_total"]))
+        value_row(overview, "Completed anime", f"{stats['completion_rate']}%")
+        value_row(overview, "Estimated watch time", f"{estimated_hours:.1f} hours", "24 minutes per episode")
+        for status, label in (
+            (WatchStatus.WATCHING, "Watching"),
+            (WatchStatus.COMPLETED, "Completed"),
+            (WatchStatus.PLANNING, "Planning"),
+            (WatchStatus.PAUSED, "Paused"),
+            (WatchStatus.DROPPED, "Dropped"),
+        ):
+            value_row(overview, label, str(statuses[status.value]))
+        panel.append(overview)
+
+        current_year = datetime.now().astimezone().year
+        yearly = Adw.PreferencesGroup(
+            title="Yearly activity",
+            description="Watch-history events recorded by Aniyori for the selected year.",
+        )
+        year_spin = Adw.SpinRow.new_with_range(1900, current_year, 1)
+        year_spin.set_title("Viewing year")
+        year_spin.set_value(current_year)
+        yearly.add(year_spin)
+        panel.append(yearly)
+
+        chart = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
+        chart.add_css_class("card")
+        chart_heading = Gtk.Label(label="Monthly activity", xalign=0)
+        chart_heading.add_css_class("heading")
+        chart.append(chart_heading)
         month_names = (
             "Jan", "Feb", "Mar", "Apr", "May", "Jun",
             "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
@@ -3685,14 +3712,16 @@ class AniyoriWindow(Adw.ApplicationWindow):
             month_grid.attach(label, 0, index, 1, 1)
             month_grid.attach(bar, 1, index, 1, 1)
             month_bars.append(bar)
-        panel.append(month_grid)
+        chart.append(month_grid)
+        panel.append(chart)
 
-        summary = Gtk.Label(label="Loading watch history…", xalign=0, wrap=True)
-        completed_label = Gtk.Label(xalign=0, wrap=True)
-        estimate_label = Gtk.Label(xalign=0, wrap=True)
-        for label in (summary, completed_label, estimate_label):
-            label.set_selectable(True)
-            panel.append(label)
+        insights = Adw.PreferencesGroup(title="Recorded activity")
+        summary_row = Adw.ActionRow(title="Episode events", subtitle="Loading…")
+        completed_row = Adw.ActionRow(title="Completed this year", subtitle="—")
+        estimate_row = Adw.ActionRow(title="Estimated time", subtitle="—")
+        for row in (summary_row, completed_row, estimate_row):
+            insights.add(row)
+        panel.append(insights)
 
         local_timezone = get_local_timezone()
         history_request = {"generation": 0}
@@ -3701,9 +3730,9 @@ class AniyoriWindow(Adw.ApplicationWindow):
             if generation != history_request["generation"]:
                 return GLib.SOURCE_REMOVE
             if error:
-                summary.set_label(f"Could not load watch history for {year}: {error}")
-                completed_label.set_label("")
-                estimate_label.set_label("")
+                summary_row.set_subtitle(f"Could not load watch history for {year}: {error}")
+                completed_row.set_subtitle("—")
+                estimate_row.set_subtitle("—")
                 for bar in month_bars:
                     bar.set_fraction(0)
                     bar.set_text("Unavailable")
@@ -3725,40 +3754,38 @@ class AniyoriWindow(Adw.ApplicationWindow):
                 )
 
             if insights["event_count"]:
-                summary.set_label(
-                    f"Recorded episode events: {insights['episode_events']} "
-                    f"({insights['first_watch_events']} identified first watches, "
-                    f"{insights['rewatch_events']} rewatches); "
-                    f"progress changes: {insights['progress_changes']}; "
-                    f"status changes: {insights['status_changes']}; "
-                    f"active days: {insights['active_days']}."
+                summary_row.set_subtitle(
+                    f"{insights['episode_events']} episodes "
+                    f"({insights['first_watch_events']} first watches, "
+                    f"{insights['rewatch_events']} rewatches) · "
+                    f"{insights['progress_changes']} progress changes · "
+                    f"{insights['status_changes']} status changes · "
+                    f"{insights['active_days']} active days"
                 )
             else:
-                summary.set_label(
-                    f"No recorded watch-history events for {year}. "
-                    "This does not mean no episodes were watched; imported or older "
-                    "progress may predate history tracking."
+                summary_row.set_subtitle(
+                    f"No recorded events for {year}. Imported or older progress "
+                    "may predate history tracking."
                 )
             titles = [item["title"] for item in insights["completed_anime"]]
-            completed_label.set_label(
-                f"Anime marked completed: {insights['completed_anime_count']}"
+            completed_row.set_subtitle(
+                f"{insights['completed_anime_count']} anime"
                 + (f" — {', '.join(titles)}" if titles else "")
             )
             hours = insights["estimated_minutes"] / 60
-            estimate_label.set_label(
-                f"Estimated time: {hours:.1f} hours "
-                f"({insights['minutes_per_episode']} minutes per recorded episode event; "
-                "an estimate, not measured playback)."
+            estimate_row.set_subtitle(
+                f"{hours:.1f} hours ({insights['minutes_per_episode']} minutes "
+                "per recorded episode event; an estimate, not measured playback)"
             )
             return GLib.SOURCE_REMOVE
 
-        def update_history_year(_spin=None):
+        def update_history_year(_spin=None, _pspec=None):
             history_request["generation"] += 1
             generation = history_request["generation"]
-            year = year_spin.get_value_as_int()
-            summary.set_label(f"Loading watch history for {year}…")
-            completed_label.set_label("")
-            estimate_label.set_label("")
+            year = int(year_spin.get_value())
+            summary_row.set_subtitle(f"Loading watch history for {year}…")
+            completed_row.set_subtitle("—")
+            estimate_row.set_subtitle("—")
             for bar in month_bars:
                 bar.set_fraction(0)
                 bar.set_text("Loading…")
@@ -3781,7 +3808,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
 
             threading.Thread(target=worker, daemon=True).start()
 
-        year_spin.connect("value-changed", update_history_year)
+        year_spin.connect("notify::value", update_history_year)
         self.statistics_scroll.set_child(panel)
         self._update_statistics_year = update_history_year
 
