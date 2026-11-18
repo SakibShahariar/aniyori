@@ -6229,12 +6229,19 @@ class AniyoriWindow(Adw.ApplicationWindow):
         self._apply_navigation("browse")
 
     def _build_season_page(self):
-        """Build the seasonal discovery page content once."""
+        """Build the discovery page content once (season charts or catalogue search)."""
         content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
         content.set_margin_top(16)
         content.set_margin_bottom(16)
         content.set_margin_start(16)
         content.set_margin_end(16)
+
+        mode_dropdown = Gtk.DropDown.new_from_strings(["Season chart", "Search catalogue"])
+        mode_dropdown.set_selected(0)
+        content.append(_responsive_control_row(
+            Gtk.Label(label="Browse"), mode_dropdown, max_per_line=2,
+        ))
+
         season_dropdown = Gtk.DropDown.new_from_strings(list(SEASONS))
         current_season, current_year = season_for_date()
         season_dropdown.set_selected(SEASONS.index(current_season))
@@ -6285,6 +6292,24 @@ class AniyoriWindow(Adw.ApplicationWindow):
         self.browse_scroll.set_child(content)
         state = {"results": [], "loaded_for": None}
         generation = SearchGeneration()
+
+        def is_search_mode():
+            return mode_dropdown.get_selected() == 1
+
+        def on_mode_changed(*_args):
+            searching = is_search_mode()
+            season_row.set_visible(not searching)
+            search_entry.set_placeholder_text(
+                "Search AniList catalogue" if searching else "Search titles or genres"
+            )
+            load_button.set_label("Search" if searching else "Load season")
+            state["results"] = []
+            state["loaded_for"] = None
+            render_results()
+            status_label.set_label(
+                "Enter a title, then search the AniList catalogue."
+                if searching else "Choose a season and load its chart."
+            )
 
         def render_results(*_args):
             child = flow.get_first_child()
@@ -6398,7 +6423,9 @@ class AniyoriWindow(Adw.ApplicationWindow):
             update_genres(results)
             status_label.set_label(f"Loaded {len(results)} anime.")
             load_button.set_sensitive(True)
-            load_button.set_label("Refresh season")
+            load_button.set_label(
+                "Refresh" if is_search_mode() else "Refresh season"
+            )
             render_results()
             return GLib.SOURCE_REMOVE
 
@@ -6407,12 +6434,40 @@ class AniyoriWindow(Adw.ApplicationWindow):
                 return GLib.SOURCE_REMOVE
             state["results"] = []
             render_results()
-            status_label.set_label("Could not load this season. " + message)
+            status_label.set_label(
+                ("Search failed. " if is_search_mode() else "Could not load this season. ")
+                + message
+            )
             load_button.set_sensitive(True)
             load_button.set_label("Retry")
             return GLib.SOURCE_REMOVE
 
         def load_season(_button=None):
+            searching = is_search_mode()
+            if searching:
+                query = search_entry.get_text().strip()
+                if not query:
+                    status_label.set_label("Enter a title to search the AniList catalogue.")
+                    return
+                load_key = ("search", query)
+                force_refresh = state["loaded_for"] == load_key
+                request_id = generation.begin()
+                load_button.set_sensitive(False)
+                load_button.set_label("Searching…")
+                status_label.set_label(f"Searching AniList for “{query}”…")
+
+                def worker():
+                    try:
+                        results = AniListClient().search_anime(
+                            query, per_page=50, refresh=force_refresh
+                        )
+                        GLib.idle_add(apply_results, results, request_id, load_key)
+                    except (AniListError, ValueError) as error:
+                        GLib.idle_add(show_error, str(error), request_id)
+
+                threading.Thread(target=worker, daemon=True).start()
+                return
+
             si, yi = season_dropdown.get_selected(), year_dropdown.get_selected()
             if si >= len(SEASONS) or yi >= len(year_values):
                 return
@@ -6423,6 +6478,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
             load_button.set_sensitive(False)
             load_button.set_label("Loading…")
             status_label.set_label(f"Loading {season.title()} {year} from AniList…")
+
             def worker():
                 try:
                     results = AniListClient().search_season(
@@ -6431,12 +6487,15 @@ class AniyoriWindow(Adw.ApplicationWindow):
                     GLib.idle_add(apply_results, results, request_id, season_key)
                 except (AniListError, ValueError) as error:
                     GLib.idle_add(show_error, str(error), request_id)
+
             threading.Thread(target=worker, daemon=True).start()
 
+        mode_dropdown.connect("notify::selected", on_mode_changed)
         load_button.connect("clicked", load_season)
         for dropdown in (genre_dropdown, format_dropdown, status_dropdown, sort_dropdown):
             dropdown.connect("notify::selected", render_results)
         search_entry.connect("search-changed", render_results)
+        search_entry.connect("activate", load_season)
         self._load_season = load_season
 
     def _show_add_dialog(self, _button):

@@ -49,6 +49,7 @@ Use a disposable test profile or a backup of any library data you care about. Do
 - [ ] At that short height, open the AniList Account, anime details, watch-history, and other scrollable dialogs; confirm they become scrollable floating sheets without clipping or height-overflow warnings.
 - [ ] Confirm the hamburger menu contains only Search Library, About, and Quit, and that every previously listed command is still reachable from the sidebar pages, header + button, Home Quick Actions, or Settings.
 - [ ] In AniList Account, paste a token and connect with valid and invalid values; confirm a visible toast reports success or failure, the account status updates, and Review Sync becomes available after a successful connection.
+- [ ] On the Browse page, switch between Season chart and Search catalogue; confirm the season controls hide in search mode, a text query returns real AniList results, and Enter and the Search button both work.
 - [ ] Open a saved anime's details at wide and narrow sizes; confirm the dialog opens at a usable size and its content scrolls instead of collapsing.
 - [ ] At a narrow window width, confirm the Releases action buttons wrap and the main window does not log a width-overflow warning or clip content.
 - [ ] Confirm the empty library and empty Home sections use native status pages with icon, title, description, and action where applicable.
