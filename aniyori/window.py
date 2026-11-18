@@ -19,7 +19,7 @@ import gi
 
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
-from gi.repository import Adw, Gdk, Gio, GLib, Gtk
+from gi.repository import Adw, Gdk, Gio, GLib, GObject, Gtk
 
 from .models import MAX_EPISODE_COUNT, AnimeEntry, WatchStatus, parse_episode_count
 from .dashboard import (
@@ -171,6 +171,14 @@ def _apply_cover_texture(picture: Gtk.Picture, path: str):
         return GLib.SOURCE_REMOVE
     picture.set_paintable(texture)
     return GLib.SOURCE_REMOVE
+
+
+class LibraryItem(GObject.Object):
+    """Lightweight wrapper so GTK list views can bind library entries."""
+
+    def __init__(self, entry: AnimeEntry):
+        super().__init__()
+        self.entry = entry
 
 
 class AnimeRow(Gtk.Box):
@@ -460,13 +468,8 @@ class AniyoriWindow(Adw.ApplicationWindow):
         self._airing_refresh_running = False
         self._airing_notification_timers = {}
         self._selected_entry_ids = set()
-        self._row_widgets = {}
-        self._card_widgets = {}
-        self._widget_entries = {}
         self._library_dirty = False
         self._library_render_timer = None
-        self._library_limit = 150
-        self._library_view_key = None
         self.scan_location_store = ScanLocationStore()
         self.recognition_exclusion_store = RecognitionExclusionStore()
         self.share_template_store = ShareTemplateStore()
@@ -888,32 +891,30 @@ class AniyoriWindow(Adw.ApplicationWindow):
         self.stack.set_transition_type(Gtk.StackTransitionType.CROSSFADE)
         self.toast_overlay.set_child(self.stack)
 
-        self.list_box = Gtk.ListBox()
-        self.list_box.set_selection_mode(Gtk.SelectionMode.NONE)
-        self.list_box.add_css_class("boxed-list")
+        # Virtualized views: only widgets for visible rows are ever created.
+        self.library_store = Gio.ListStore(item_type=LibraryItem)
+        self.library_selection = Gtk.MultiSelection(model=self.library_store)
+        self.library_selection.connect(
+            "selection-changed", self._on_library_selection_changed
+        )
+        self.list_view = Gtk.ListView(
+            model=self.library_selection, factory=self._make_list_factory()
+        )
+        self.list_view.add_css_class("boxed-list")
         self.list_scroll = Gtk.ScrolledWindow()
-        self.list_scroll.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
-        self.list_scroll.set_child(self.list_box)
+        self.list_scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        self.list_scroll.set_child(self.list_view)
         self.stack.add_named(self.list_scroll, "list")
 
-        self.grid_flow = Gtk.FlowBox()
-        self.grid_flow.set_selection_mode(Gtk.SelectionMode.NONE)
-        self.grid_flow.set_homogeneous(True)
-        self.grid_flow.set_min_children_per_line(1)
-        self.grid_flow.set_max_children_per_line(6)
-        self.grid_flow.set_row_spacing(12)
-        self.grid_flow.set_column_spacing(12)
-        self.grid_flow.set_valign(Gtk.Align.START)
+        self.grid_view = Gtk.GridView(
+            model=self.library_selection, factory=self._make_grid_factory()
+        )
+        self.grid_view.set_min_columns(1)
+        self.grid_view.set_max_columns(6)
         self.grid_scroll = Gtk.ScrolledWindow()
         self.grid_scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
-        self.grid_scroll.set_child(self.grid_flow)
+        self.grid_scroll.set_child(self.grid_view)
         self.stack.add_named(self.grid_scroll, "grid")
-        self.list_scroll.get_vadjustment().connect(
-            "value-changed", self._on_library_scroll
-        )
-        self.grid_scroll.get_vadjustment().connect(
-            "value-changed", self._on_library_scroll
-        )
 
         self.release_page = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
         release_controls = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
@@ -1182,7 +1183,9 @@ class AniyoriWindow(Adw.ApplicationWindow):
             self.set_title("Aniyori")
         elif page_name == "library":
             if getattr(self, "_library_dirty", False):
-                self._render_library()
+                # Let the view realize before populating so GTK only binds
+                # widgets for rows that are actually on screen.
+                GLib.idle_add(self._render_library)
             self.set_title("Aniyori — My List")
         elif page_name == "calendar":
             self._refresh_calendar()
@@ -5365,40 +5368,20 @@ class AniyoriWindow(Adw.ApplicationWindow):
         return GLib.SOURCE_REMOVE
 
     def _update_airing_countdowns(self):
-        for key, row in getattr(self, "_row_widgets", {}).items():
-            if row.airing_label is not None and key in self._airing_by_id:
-                row.airing_label.set_label(
-                    format_airing_countdown(*self._airing_by_id[key]) or ""
-                )
-        for key, card in getattr(self, "_card_widgets", {}).items():
-            if card.airing_label is not None and key in self._airing_by_id:
-                card.airing_label.set_label(
-                    format_airing_countdown(*self._airing_by_id[key]) or ""
-                )
+        count = self.library_store.get_n_items()
+        if count:
+            self.library_store.items_changed(0, count, count)
         return GLib.SOURCE_CONTINUE
 
     def _toggle_entry_selection(self, entry: AnimeEntry, selected: bool):
-        storage_id = entry.storage_id
-        if storage_id is None:
-            return
-        if selected:
-            self._selected_entry_ids.add(storage_id)
-        else:
-            self._selected_entry_ids.discard(storage_id)
-        for widgets in (self._row_widgets, self._card_widgets):
-            widget = widgets.get(storage_id)
-            if widget is not None and widget.selection_check.get_active() != selected:
-                widget.selection_check.set_active(selected)
-        signature = library_widget_signature(
-            entry,
-            self._airing_by_id.get(storage_id),
-            selected,
-            library_layout_signature(self.library_layouts),
-            self._compact_layout,
-        )
-        for view in ("list", "grid"):
-            self._widget_entries[(view, storage_id)] = signature
-        self._update_bulk_bar()
+        for position in range(self.library_store.get_n_items()):
+            wrapper = self.library_store.get_item(position)
+            if wrapper.entry.storage_id == entry.storage_id:
+                if selected:
+                    self.library_selection.select_item(position, False)
+                else:
+                    self.library_selection.unselect_item(position)
+                return
 
     def _update_bulk_bar(self):
         count = len(self._selected_entry_ids)
@@ -5406,11 +5389,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
         self.bulk_bar.set_visible(count > 0)
 
     def _clear_bulk_selection(self):
-        self._selected_entry_ids.clear()
-        for widgets in (self._row_widgets, self._card_widgets):
-            for widget in widgets.values():
-                if widget.selection_check.get_active():
-                    widget.selection_check.set_active(False)
+        self.library_selection.unselect_all()
         self._update_bulk_bar()
 
     def _selected_entries(self):
@@ -5555,15 +5534,72 @@ class AniyoriWindow(Adw.ApplicationWindow):
         self._compact_layout = compact
         self._render_library()
 
-    def _on_library_scroll(self, adjustment):
-        """Extend the rendered window as the user approaches the bottom."""
-        if adjustment.get_value() + adjustment.get_page_size() < adjustment.get_upper() - 150:
+    def _make_list_factory(self):
+        factory = Gtk.SignalListItemFactory()
+        factory.connect("bind", self._bind_list_item)
+        factory.connect("unbind", lambda _factory, item: item.set_child(None))
+        return factory
+
+    def _make_grid_factory(self):
+        factory = Gtk.SignalListItemFactory()
+        factory.connect("bind", self._bind_grid_item)
+        factory.connect("unbind", lambda _factory, item: item.set_child(None))
+        return factory
+
+    def _bind_list_item(self, _factory, item):
+        wrapper = item.get_item()
+        if wrapper is None:
             return
-        if self._library_limit >= len(self.entries):
+        entry = wrapper.entry
+        position = item.get_position()
+        item.set_child(AnimeRow(
+            entry,
+            self._increment_progress,
+            self._confirm_remove_entry,
+            self._show_edit_dialog,
+            self._airing_by_id.get(entry.storage_id),
+            self.library_selection.is_selected(position),
+            self._toggle_entry_selection,
+            self._show_external_links,
+            self._show_episode_editor,
+            self.library_layouts["list"],
+            self._compact_layout,
+        ))
+
+    def _bind_grid_item(self, _factory, item):
+        wrapper = item.get_item()
+        if wrapper is None:
             return
-        self._library_limit += 150
-        self._schedule_library_render()
-        return GLib.SOURCE_REMOVE
+        entry = wrapper.entry
+        position = item.get_position()
+        card = AnimeCard(
+            entry,
+            self._increment_progress,
+            self._confirm_remove_entry,
+            self._show_edit_dialog,
+            self._airing_by_id.get(entry.storage_id),
+            self.library_selection.is_selected(position),
+            self._toggle_entry_selection,
+            self._show_external_links,
+            self._show_episode_editor,
+            self.library_layouts["grid"],
+            self._show_anime_details,
+        )
+        card.set_size_request(
+            self.library_layouts["grid"]["widths"]["card_width"], -1
+        )
+        item.set_child(card)
+
+    def _on_library_selection_changed(self, selection, _start, _end):
+        ids = set()
+        for position in range(self.library_store.get_n_items()):
+            if selection.is_selected(position):
+                wrapper = self.library_store.get_item(position)
+                storage_id = wrapper.entry.storage_id
+                if storage_id is not None:
+                    ids.add(storage_id)
+        self._selected_entry_ids = ids
+        self._update_bulk_bar()
 
     def _schedule_library_render(self, *_args):
         """Coalesce rapid search/filter/sort changes into one render."""
@@ -5582,38 +5618,9 @@ class AniyoriWindow(Adw.ApplicationWindow):
 
     def _render_library(self, *_args):
         if self.page_stack.get_visible_child_name() != "library":
-            # My List is hidden (Home is the initial page); defer the expensive
-            # widget build until the user actually opens it.
             self._library_dirty = True
             return
         self._library_dirty = False
-        list_scroll_value = self.list_scroll.get_vadjustment().get_value()
-        grid_scroll_value = self.grid_scroll.get_vadjustment().get_value()
-
-        if not hasattr(self, "_row_widgets"):
-            self._row_widgets = {}
-            self._card_widgets = {}
-            self._widget_entries = {}
-
-        current_keys = {
-            entry.storage_id if entry.storage_id is not None else ("transient", id(entry))
-            for entry in self.entries
-        }
-        self._selected_entry_ids.intersection_update(
-            key for key in current_keys if isinstance(key, int)
-        )
-        for key in set(self._airing_by_id) - current_keys:
-            self._airing_by_id.pop(key, None)
-        removed_keys = (set(self._row_widgets) | set(self._card_widgets)) - current_keys
-        for key in removed_keys:
-            for view, widgets in (("list", self._row_widgets), ("grid", self._card_widgets)):
-                widget = widgets.pop(key, None)
-                self._widget_entries.pop((view, key), None)
-                wrapper = widget.get_parent() if widget is not None else None
-                if wrapper is not None:
-                    container = self.list_box if view == "list" else self.grid_flow
-                    container.remove(wrapper)
-
         query = self.search.get_text().strip().casefold() if hasattr(self, "search") else ""
         updated_at_by_id = (
             self.storage.get_updated_at_map()
@@ -5631,90 +5638,33 @@ class AniyoriWindow(Adw.ApplicationWindow):
             if (self.current_filter == "all" or entry.status.value == self.current_filter)
             and query in entry.title.casefold()
         ]
-        visible_count = len(visible_entries)
 
-        view_key = (self.current_filter, query, self.library_sort_mode, self._compact_layout)
-        if getattr(self, "_library_view_key", None) != view_key:
-            self._library_view_key = view_key
-            self._library_limit = 150
-        shown_entries = visible_entries[:self._library_limit]
-        shown_keys = {
+        order_key = tuple(
             entry.storage_id if entry.storage_id is not None else ("transient", id(entry))
-            for entry in shown_entries
-        }
-
-        layout_signature = library_layout_signature(self.library_layouts)
-        # Only the visible view is built; the other is created on demand when
-        # the user switches views. This halves widget count on large libraries.
-        show_list = not self.view_switches["grid"].get_active()
-        view = "list" if show_list else "grid"
-        widgets_by_key = self._row_widgets if show_list else self._card_widgets
-        container = self.list_box if show_list else self.grid_flow
-        for key in list(widgets_by_key):
-            if key in shown_keys:
-                continue
-            wrapper = widgets_by_key[key].get_parent()
-            if wrapper is not None:
-                container.remove(wrapper)
-            widgets_by_key.pop(key, None)
-            self._widget_entries.pop((view, key), None)
-        for position, entry in enumerate(shown_entries):
-            key = entry.storage_id if entry.storage_id is not None else ("transient", id(entry))
-            widget = widgets_by_key.get(key)
-
-            airing = self._airing_by_id.get(key)
-            selected = entry.storage_id in self._selected_entry_ids
-            widget_signature = library_widget_signature(
-                entry, airing, selected, layout_signature, self._compact_layout
+            for entry in visible_entries
+        )
+        if order_key == getattr(self, "_library_order_key", None):
+            # Same rows in the same order: update only changed entries instead
+            # of replacing the whole store (which rebinds every visible row).
+            for position, entry in enumerate(visible_entries):
+                wrapper = self.library_store.get_item(position)
+                if wrapper.entry is not entry:
+                    wrapper.entry = entry
+                    self.library_store.items_changed(position, 1, 1)
+        else:
+            self._library_order_key = order_key
+            keep_selection = set(self._selected_entry_ids)
+            self.library_selection.unselect_all()
+            self.library_store.splice(
+                0, self.library_store.get_n_items(),
+                [LibraryItem(entry) for entry in visible_entries],
             )
-            if widget is None or self._widget_entries.get((view, key)) != widget_signature:
-                wrapper = widget.get_parent() if widget is not None else None
-                if wrapper is not None:
-                    container.remove(wrapper)
-                if show_list:
-                    widget = AnimeRow(
-                        entry,
-                        self._increment_progress,
-                        self._confirm_remove_entry,
-                        self._show_edit_dialog,
-                        airing,
-                        selected,
-                        self._toggle_entry_selection,
-                        self._show_external_links,
-                        self._show_episode_editor,
-                        self.library_layouts["list"],
-                        self._compact_layout,
-                    )
-                else:
-                    widget = AnimeCard(
-                        entry,
-                        self._increment_progress,
-                        self._confirm_remove_entry,
-                        self._show_edit_dialog,
-                        airing,
-                        selected,
-                        self._toggle_entry_selection,
-                        self._show_external_links,
-                        self._show_episode_editor,
-                        self.library_layouts["grid"],
-                        self._show_anime_details,
-                    )
-                    widget.set_size_request(
-                        self.library_layouts["grid"]["widths"]["card_width"], -1
-                    )
-                container.insert(widget, position)
-                widgets_by_key[key] = widget
-                self._widget_entries[(view, key)] = widget_signature
-            else:
-                child = widget.get_parent()
-                if child is not None and child.get_index() != position:
-                    container.reorder_child(child, position)
+            for position, entry in enumerate(visible_entries):
+                if entry.storage_id is not None and entry.storage_id in keep_selection:
+                    self.library_selection.select_item(position, False)
 
-            # Pagination only builds rows that are visible under the current
-            # filter/query; no per-widget visibility toggling is needed.
-
-        self._library_has_visible_entries = visible_count > 0
-        if not visible_count:
+        self._library_has_visible_entries = bool(visible_entries)
+        if not visible_entries:
             if not self.entries:
                 self.empty_state.set_title("Your library is empty")
                 self.empty_state.set_description(
@@ -5734,14 +5684,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
             self.stack.set_visible_child_name(
                 "grid" if self.view_switches["grid"].get_active() else "list"
             )
-        GLib.idle_add(
-            self._restore_scroll_positions, list_scroll_value, grid_scroll_value
-        )
-        if (
-            hasattr(self, "page_stack")
-            and self.page_stack.get_visible_child_name() == "home"
-        ):
-            self._refresh_home()
+        return GLib.SOURCE_REMOVE
 
     def _restore_scroll_positions(self, list_value: float, grid_value: float):
         self.list_scroll.get_vadjustment().set_value(list_value)

@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import os
 import tempfile
+import time
 from pathlib import Path
 from urllib.error import URLError
 from urllib.parse import urlparse
@@ -16,6 +17,8 @@ MAX_COVER_BYTES = 8 * 1024 * 1024
 MAX_COVER_CACHE_BYTES = 256 * 1024 * 1024
 MAX_COVER_CACHE_ENTRIES = 250
 DEFAULT_TIMEOUT = 12
+_PRUNE_INTERVAL_SECONDS = 3600
+_last_prune = 0.0
 
 
 def _is_allowed_cover_url(url: str) -> bool:
@@ -82,6 +85,15 @@ def _prune_cache(directory: Path) -> None:
             continue
 
 
+def _maybe_prune(directory: Path) -> None:
+    global _last_prune
+    now = time.monotonic()
+    if now - _last_prune < _PRUNE_INTERVAL_SECONDS:
+        return
+    _last_prune = now
+    _prune_cache(directory)
+
+
 def get_cached_cover(
     url: str,
     *,
@@ -97,7 +109,9 @@ def get_cached_cover(
     destination = _cache_path(url, cache_dir)
     if destination.is_file() and destination.stat().st_size > 0:
         os.utime(destination, None)
-        _prune_cache(destination.parent)
+        # Pruning walks the whole cache; doing it on every hit is far too
+        # expensive with thousands of covers. It is throttled below.
+        _maybe_prune(destination.parent)
         return destination
 
     destination.parent.mkdir(parents=True, exist_ok=True)
@@ -131,5 +145,5 @@ def get_cached_cover(
     finally:
         if temporary_path is not None and temporary_path.exists():
             temporary_path.unlink()
-    _prune_cache(destination.parent)
+    _maybe_prune(destination.parent)
     return destination
