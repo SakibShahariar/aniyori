@@ -351,7 +351,8 @@ class LibraryStorageTests(unittest.TestCase):
             self.storage.restore_undo_state(before, after)
 
         self.assertEqual(self.storage.list_entries()[0].episodes_watched, 2)
-        self.assertEqual(len(self.storage.list_watch_history()), 2)
+        # Planning → watching is recorded alongside the two progress changes.
+        self.assertEqual(len(self.storage.list_watch_history()), 3)
 
     def test_undo_snapshots_support_reverse_order_for_rapid_edits(self):
         self.storage.add(AnimeEntry(title="Rapid edits", episodes_total=12))
@@ -449,7 +450,8 @@ class LibraryStorageTests(unittest.TestCase):
 
         restored = self.storage.list_entries()[0]
         self.assertEqual(restored.status, WatchStatus.PAUSED)
-        self.assertEqual(restored.episodes_watched, 4)
+        # The explicit map holds episodes 1, 2, 3, 4, and 6 as watched.
+        self.assertEqual(restored.episodes_watched, 5)
         self.assertEqual(
             self.storage.list_episode_progress(entry.storage_id),
             {1: True, 2: True, 3: True, 4: True, 6: True},

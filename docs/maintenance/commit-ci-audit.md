@@ -1286,3 +1286,66 @@ The combined-status endpoint returned no status records for these commits. Exact
 - Reviewed through: `3093c365d70a4513f50462235c0004a8768211e5`
 - New checkpoint: `3093c365d70a4513f50462235c0004a8768211e5`
 - Outstanding: verify episode-editor behavior and reduced-total reconciliation in a real GTK session.
+
+
+### Undo-snapshot test expectations and CI recovery — 2026-11-18
+
+The combined-status endpoint returned no status records for this range. Exact push-triggered Tests runs were retrieved by `head_sha` through the Actions API and inspected. Each commit has an observed completed result.
+
+| Commit SHA | Subject | CI result | Date | Run / evidence |
+|---|---|---|---|---|
+| `d3dbd58a4d275f0a1ddb1d5ea510e59204df1f2d` | docs(maintenance): record episode-total CI results (#24) | success | 2026-11-15 | [43712151746](https://github.com/SakibShahariar/aniyori/actions/runs/43712151746) |
+| `cf77330a31f9d8def68e8d8aed471363d99ca523` | ui(menu): organize crowded hamburger menu | success | 2026-11-15 | [43712781220](https://github.com/SakibShahariar/aniyori/actions/runs/43712781220) |
+| `0887f000ac13258274ad88804c884298ee73616d` | fix(ui): stack controls at compact window widths (#90) | success | 2026-11-15 | [43713364118](https://github.com/SakibShahariar/aniyori/actions/runs/43713364118) |
+| `e83f174b933974a495971d8588c5a77c9c4d9c6a` | docs(qa): cover compact action layouts (#90) | success | 2026-11-15 | [43713383226](https://github.com/SakibShahariar/aniyori/actions/runs/43713383226) |
+| `0e31979cab24df5ff6da787bb41ecdc760a089b5` | feat(storage): add guarded library undo snapshots (#86) | success | 2026-11-15 | [43713492587](https://github.com/SakibShahariar/aniyori/actions/runs/43713492587) |
+| `635d8a81f0ebb2c54c8b81282571bdc166588885` | feat(ui): add guarded undo for library edits (#86) | success | 2026-11-15 | [43713530816](https://github.com/SakibShahariar/aniyori/actions/runs/43713530816) |
+| `88d2df5904f8db37ab7e5e1bea41826124bc32d2` | test(storage): cover guarded library undo snapshots (#86) | failure | 2026-11-15 | [43713576797](https://github.com/SakibShahariar/aniyori/actions/runs/43713576797) |
+| `48b38c15e6d0c7e0632179db4146a77c66d92903` | docs(qa): cover library edit undo behavior (#86) | failure | 2026-11-15 | [43713643711](https://github.com/SakibShahariar/aniyori/actions/runs/43713643711) |
+| `358f604130059b7bec9a2ebd6713cbb5d2946edb` | fix(ui): preserve rapid library undo actions (#86) | failure | 2026-11-15 | [43713687168](https://github.com/SakibShahariar/aniyori/actions/runs/43713687168) |
+| `ea8befe68e013aeec39b731ba7138ee224812857` | fix(ui): keep undo toast stack actionable (#86) | failure | 2026-11-15 | [43713703086](https://github.com/SakibShahariar/aniyori/actions/runs/43713703086) |
+| `a25022f00464fe00be84ca2d02d8662c4f303d20` | test(storage): cover bulk and history undo restoration (#86) | failure | 2026-11-15 | [43713716835](https://github.com/SakibShahariar/aniyori/actions/runs/43713716835) |
+| `60e4046da6ef737cbb931b175b897a9a09779a66` | test(storage): correct explicit episode undo expectation (#86) | failure | 2026-11-15 | [43713726961](https://github.com/SakibShahariar/aniyori/actions/runs/43713726961) |
+| `a74c823ede5a1a2bd40d9f758d59c7148e204d8f` | fix(ui): handle storage errors while preparing undo (#86) | failure | 2026-11-15 | [43713800175](https://github.com/SakibShahariar/aniyori/actions/runs/43713800175) |
+| `b1e830934036e485fe9b33204dd62320a4c5c9fc` | fix(ui): keep undo actions visible after library edits (#86) | failure | 2026-11-15 | [43713822476](https://github.com/SakibShahariar/aniyori/actions/runs/43713822476) |
+| `e7025c7c5e0f62b0e8b2eacfad0797c4a3e2741b` | fix(storage): make undo snapshots transaction consistent (#86) | failure | 2026-11-15 | [43713857997](https://github.com/SakibShahariar/aniyori/actions/runs/43713857997) |
+| `3b19f4e9b4c66a800c4b1efc164ba15316bc1202` | fix(ui): retain stale undo feedback (#86) | failure | 2026-11-15 | [43713890997](https://github.com/SakibShahariar/aniyori/actions/runs/43713890997) |
+| `6a00cfabf618b9bd9d067b0c2a839ffe1135b3f6` | fix(ui): show undo expiry in toast feedback (#86) | failure | 2026-11-15 | [43713942760](https://github.com/SakibShahariar/aniyori/actions/runs/43713942760) |
+| `e5c5db6fd1593eab18ea255a0db3ba5cb5be95d4` | test(storage): cover status undo restoration (#86) | failure | 2026-11-15 | [43713974704](https://github.com/SakibShahariar/aniyori/actions/runs/43713974704) |
+| `bed55372540ede199848b5a6ddb1fc3e8b52c571` | fix(ui): expand compact bulk controls (#90) | failure | 2026-11-15 | [43714003233](https://github.com/SakibShahariar/aniyori/actions/runs/43714003233) |
+| `69ffdaf1f02f11760d3bbbf133c7a8d36ed49a7c` | fix(ui): wrap dialog controls at narrow widths (#90) | failure | 2026-11-15 | [43715154419](https://github.com/SakibShahariar/aniyori/actions/runs/43715154419) |
+| `2448e24a913241e603f3c39c1da56eadbe5468fa` | fix(ui): wrap release and dialog action rows (#90) | failure | 2026-11-15 | [43715209452](https://github.com/SakibShahariar/aniyori/actions/runs/43715209452) |
+| `5cf9075fa438a923262e67d341dd1d6cf5e804eb` | fix(ui): remove stale row containers from wrapped controls (#90) | failure | 2026-11-15 | [43715267127](https://github.com/SakibShahariar/aniyori/actions/runs/43715267127) |
+| `58de1ea4993f3f4ad7838798801850c589f8b194` | fix(ui): preserve labels in responsive feed controls (#90) | failure | 2026-11-15 | [43715305130](https://github.com/SakibShahariar/aniyori/actions/runs/43715305130) |
+| `b42ce4b4855990e9423fbecddca98ef43d967a3e` | docs(qa): cover responsive dialog and release controls (#90) | failure | 2026-11-15 | [43715342497](https://github.com/SakibShahariar/aniyori/actions/runs/43715342497) |
+| `5ccfe9cc588fa4dac50480549ef068663c33756e` | fix(ui): wrap custom link actions on narrow dialogs (#90) | failure | 2026-11-15 | [43715382283](https://github.com/SakibShahariar/aniyori/actions/runs/43715382283) |
+| `c5107d212f1077005044e6bdb8ec6946c0cdf424` | docs(qa): cover narrow custom-link controls (#90) | failure | 2026-11-15 | [43715392824](https://github.com/SakibShahariar/aniyori/actions/runs/43715392824) |
+| `400fef11e30b33a07abd0108c17bf066821cc28f` | test(stats): cover yearly watch-history insights (#88) | failure | 2026-11-15 | [43715502310](https://github.com/SakibShahariar/aniyori/actions/runs/43715502310) |
+| `1ae82b7ddccde4e71cd1f067ad2e34456a58e825` | test(stats): align completion ordering expectation (#88) | failure | 2026-11-15 | [43715518076](https://github.com/SakibShahariar/aniyori/actions/runs/43715518076) |
+| `d3560b6a4f98213906208748d0d5f455333725b2` | test(storage): cover local-year history boundaries (#88) | failure | 2026-11-15 | [43715543098](https://github.com/SakibShahariar/aniyori/actions/runs/43715543098) |
+| `a828bb93b583797d11595bbef9cf794cda68bfc8` | feat(stats): resolve local timezone with DST rules (#88) | failure | 2026-11-15 | [43715608456](https://github.com/SakibShahariar/aniyori/actions/runs/43715608456) |
+| `2ceb3ac049286e15e48eadf17ffd85c7c7f70e65` | fix(stats): use DST-aware local timezone by default (#88) | failure | 2026-11-15 | [43715618921](https://github.com/SakibShahariar/aniyori/actions/runs/43715618921) |
+| `4dcb8026fa8039fa6ba267c96bab20cf4983bf37` | fix(storage): use DST-aware local timezone boundaries (#88) | failure | 2026-11-15 | [43715630679](https://github.com/SakibShahariar/aniyori/actions/runs/43715630679) |
+| `0032dceac407f2be053ddca4d76859b3054a1557` | fix(ui): use DST-aware timezone for yearly statistics (#88) | failure | 2026-11-15 | [43715649508](https://github.com/SakibShahariar/aniyori/actions/runs/43715649508) |
+| `498edeaff7498d47e45700876096af324cf93595` | test(stats): verify system timezone DST resolution (#88) | failure | 2026-11-15 | [43715668145](https://github.com/SakibShahariar/aniyori/actions/runs/43715668145) |
+| `1fe6ccd6cde3b4e025b2d53c06cf94a5ef96e946` | fix(ui): explain when library undo cannot be prepared (#86) | failure | 2026-11-15 | [43715763834](https://github.com/SakibShahariar/aniyori/actions/runs/43715763834) |
+| `a4bce36f21cf438419ed39b4979a73699fca61ab` | test(storage): cover stale undo after delete and total changes (#86) | failure | 2026-11-15 | [43715774913](https://github.com/SakibShahariar/aniyori/actions/runs/43715774913) |
+| `d3450d0e341fa5bd523eff65fa0c489066ac09a9` | fix(ui): wrap remaining compact content rows (#90) | failure | 2026-11-15 | [43716044978](https://github.com/SakibShahariar/aniyori/actions/runs/43716044978) |
+| `24b45c1f9529ad6a2f9cafea8f3fbff9f6d48ff0` | docs(qa): cover remaining narrow content rows (#90) | failure | 2026-11-15 | [43716054824](https://github.com/SakibShahariar/aniyori/actions/runs/43716054824) |
+| `606e1ac3b2fdfdb0eedcf7e8e93863cd1fcae593` | fix(ui): adapt release preference and notification controls (#90) | failure | 2026-11-15 | [43716114937](https://github.com/SakibShahariar/aniyori/actions/runs/43716114937) |
+| `2c0dc4b5e3a38c81f497b10e0df629a5271b04a4` | docs(qa): cover adaptive preference controls (#90) | failure | 2026-11-15 | [43716126464](https://github.com/SakibShahariar/aniyori/actions/runs/43716126464) |
+
+### Failure investigation: undo snapshot test expectations
+
+- First observed: `88d2df5904f8db37ab7e5e1bea41826124bc32d2`, run [43713576797](https://github.com/SakibShahariar/aniyori/actions/runs/43713576797), 481 tests, one failure.
+- Failed test: `test_undo_rejects_a_stale_snapshot_without_overwriting_newer_edits` expected two watch-history rows but observed three. `update_progress()` records the `planning → watching` status transition in addition to the two progress events; this matches the behavior asserted by `test_manual_progress_and_status_transitions_are_recorded`.
+- Second failure introduced by `e5c5db6fd1593eab18ea255a0db3ba5cb5be95d4`, run [43713974704](https://github.com/SakibShahariar/aniyori/actions/runs/43713974704): `test_undo_bulk_status_restores_status_progress_and_explicit_episode_map` expected `episodes_watched == 4`, but `set_episode_watched()` seeds legacy episodes 1–4 and adds episode 6, deriving an aggregate of 5 that matches the test's own expected explicit map `{1: True, 2: True, 3: True, 4: True, 6: True}`.
+- Classification: incorrect test expectations introduced by the issue #86 undo test changes. Production code was not changed; the stored data and derived aggregates are consistent with the rest of the suite.
+- Diagnosis: both assertions were corrected in `tests/test_storage.py` with explanatory comments, in the same change as this audit entry.
+- Rerun / final outcome: push-triggered CI not yet observed at the time of writing; carry this entry forward and record the completed result in the next incremental audit. The complete local suite passed with an isolated cache directory (496 tests).
+- Remaining follow-up: live GTK validation of undo feedback remains tracked under #86.
+
+- Previous checkpoint: `3093c365d70a4513f50462235c0004a8768211e5`
+- Reviewed through: `2c0dc4b5e3a38c81f497b10e0df629a5271b04a4`
+- New checkpoint: `2c0dc4b5e3a38c81f497b10e0df629a5271b04a4` (undo-expectation fix and audit entry carry the unresolved CI rerun)
+- Outstanding: confirm the next push-triggered Tests run is green before treating this range as fully resolved; live GTK undo validation remains open under #86.
