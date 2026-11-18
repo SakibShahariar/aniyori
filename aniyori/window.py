@@ -804,9 +804,8 @@ class AniyoriWindow(Adw.ApplicationWindow):
         self.release_page = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
         release_controls = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
         release_filter_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-        release_actions_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        release_actions_row = _responsive_control_row(max_per_line=5)
         self._release_filter_row = release_filter_row
-        self._release_actions_row = release_actions_row
         release_controls.append(release_filter_row)
         release_controls.append(release_actions_row)
         self.release_search_entry = Gtk.SearchEntry()
@@ -872,34 +871,18 @@ class AniyoriWindow(Adw.ApplicationWindow):
         self.release_page.append(self.release_scroll)
         self.stack.add_named(self.release_page, "releases")
 
-        self.empty_state = Gtk.Box(
-            orientation=Gtk.Orientation.VERTICAL,
-            spacing=12,
-            halign=Gtk.Align.CENTER,
-            valign=Gtk.Align.CENTER,
+        self.empty_state = Adw.StatusPage(
+            icon_name="view-list-symbolic",
+            title="Your library is empty",
+            description=(
+                "Add an anime manually, or search the AniList catalogue to get started."
+            ),
         )
-        self.empty_state.set_margin_top(40)
-        self.empty_state.set_margin_bottom(40)
-        empty_icon = Gtk.Image.new_from_icon_name("view-list-symbolic")
-        empty_icon.set_pixel_size(48)
-        empty_icon.add_css_class("dim-label")
-        self.empty_state.append(empty_icon)
-        self.empty_title = Gtk.Label(label="Your library is empty")
-        self.empty_title.add_css_class("title-2")
-        self.empty_state.append(self.empty_title)
-        self.empty_description = Gtk.Label(
-            label="Add an anime manually for now, or search the AniList catalogue.",
-            wrap=True,
-            justify=Gtk.Justification.CENTER,
-        )
-        self.empty_description.set_max_width_chars(52)
-        self.empty_description.add_css_class("dim-label")
-        self.empty_state.append(self.empty_description)
         self.empty_add = Gtk.Button(label="Add anime")
         self.empty_add.add_css_class("suggested-action")
         self.empty_add.set_halign(Gtk.Align.CENTER)
         self.empty_add.connect("clicked", self._show_add_dialog)
-        self.empty_state.append(self.empty_add)
+        self.empty_state.set_child(self.empty_add)
 
         compact_breakpoint = Adw.Breakpoint.new(
             Adw.BreakpointCondition.parse("max-width: 720sp")
@@ -993,7 +976,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
         hero.set_margin_bottom(8)
         hero.set_margin_start(2)
         hero.set_margin_end(2)
-        heading = Gtk.Label(label="Track. Discover. Enjoy.", xalign=0)
+        heading = Gtk.Label(label="Track. Discover. Enjoy.", xalign=0, wrap=True)
         heading.add_css_class("title-1")
         hero.append(heading)
 
@@ -1087,15 +1070,17 @@ class AniyoriWindow(Adw.ApplicationWindow):
         self._append_home_entry_section(
             "Continue Watching", watching,
             "No anime in progress yet. Add a series and start tracking episodes.",
+            "Nothing in progress",
         )
         self._append_home_entry_section(
             "Recently Added", recent,
             "Your library is empty. Add anime to start building your collection.",
+            "No recent additions",
         )
 
-    def _append_home_entry_section(self, title, entries, empty_message):
+    def _append_home_entry_section(self, title, entries, empty_message, empty_title):
         section = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
-        heading = Gtk.Label(label=title, xalign=0)
+        heading = Gtk.Label(label=title, xalign=0, wrap=True)
         heading.add_css_class("title-2")
         heading.set_hexpand(True)
         view_all = Gtk.Button(label="View My List")
@@ -1104,17 +1089,11 @@ class AniyoriWindow(Adw.ApplicationWindow):
         section.append(_responsive_control_row(heading, view_all, max_per_line=2))
 
         if not entries:
-            empty = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
-            empty.add_css_class("card")
-            empty.set_margin_top(2)
-            empty.set_margin_bottom(2)
-            message = Gtk.Label(label=empty_message, xalign=0, wrap=True)
-            message.add_css_class("dim-label")
-            message.set_margin_top(12)
-            message.set_margin_bottom(12)
-            message.set_margin_start(14)
-            message.set_margin_end(14)
-            empty.append(message)
+            empty = Adw.StatusPage(
+                icon_name="view-list-symbolic",
+                title=empty_title,
+                description=empty_message,
+            )
             section.append(empty)
         else:
             strip = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
@@ -5118,7 +5097,6 @@ class AniyoriWindow(Adw.ApplicationWindow):
             getattr(self, "_bulk_status_row", None),
             getattr(self, "_bulk_progress_row", None),
             getattr(self, "_release_filter_row", None),
-            getattr(self, "_release_actions_row", None),
         ):
             if row is not None:
                 row.set_orientation(row_orientation)
@@ -5242,14 +5220,14 @@ class AniyoriWindow(Adw.ApplicationWindow):
         self._library_has_visible_entries = visible_count > 0
         if not visible_count:
             if not self.entries:
-                self.empty_title.set_label("Your library is empty")
-                self.empty_description.set_label(
+                self.empty_state.set_title("Your library is empty")
+                self.empty_state.set_description(
                     "Add an anime manually, or search the AniList catalogue to get started."
                 )
                 self.empty_add.set_visible(True)
             else:
-                self.empty_title.set_label("No matching anime")
-                self.empty_description.set_label(
+                self.empty_state.set_title("No matching anime")
+                self.empty_state.set_description(
                     "Try a different search or choose another status filter."
                 )
                 self.empty_add.set_visible(False)
