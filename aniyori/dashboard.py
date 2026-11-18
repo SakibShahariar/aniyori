@@ -1,5 +1,6 @@
 """Data selection helpers for the Home dashboard."""
 
+import time
 from collections import Counter
 
 from .models import AnimeEntry, WatchStatus
@@ -57,3 +58,38 @@ def recently_added_entries(
         key=lambda entry: created_at_by_id[entry.storage_id],
         reverse=True,
     )[:limit]
+
+
+def upcoming_airing_entries(
+    entries: list[AnimeEntry],
+    airing_by_id: dict[int, tuple[int, int]],
+    *,
+    limit: int = 12,
+    now: int | None = None,
+) -> list[AnimeEntry]:
+    """Return saved entries with a future airing time, soonest first.
+
+    Airing data is supplied by the existing AniList schedule refresh; entries
+    without a valid future timestamp are omitted rather than fabricated.
+    """
+    if limit <= 0:
+        return []
+    current_time = int(time.time()) if now is None else now
+    candidates = []
+    for entry in entries:
+        storage_id = entry.storage_id
+        if storage_id is None:
+            continue
+        airing = airing_by_id.get(storage_id)
+        if not isinstance(airing, tuple) or len(airing) != 2:
+            continue
+        episode, airing_at = airing
+        if (
+            isinstance(airing_at, bool)
+            or not isinstance(airing_at, int)
+            or airing_at <= current_time
+        ):
+            continue
+        candidates.append((airing_at, episode, entry))
+    candidates.sort(key=lambda item: (item[0], item[1]))
+    return [entry for _airing_at, _episode, entry in candidates[:limit]]

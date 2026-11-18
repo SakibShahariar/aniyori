@@ -23,6 +23,7 @@ from gi.repository import Adw, Gdk, Gio, GLib, Gtk
 from .models import MAX_EPISODE_COUNT, AnimeEntry, WatchStatus, parse_episode_count
 from .dashboard import (
     continue_watching_entries, count_library_statuses, recently_added_entries,
+    upcoming_airing_entries,
 )
 from .backup import BackupError, create_backup, default_config_dir, restore_backup
 from .services.recognition_exclusions import RecognitionExclusionError, RecognitionExclusionStore
@@ -610,11 +611,21 @@ class AniyoriWindow(Adw.ApplicationWindow):
         self.statistics_row.add_prefix(
             Gtk.Image.new_from_icon_name("org.gnome.SystemMonitor-symbolic")
         )
+        self.calendar_row = Adw.ActionRow(title="Calendar")
+        self.calendar_row.add_prefix(
+            Gtk.Image.new_from_icon_name("x-office-calendar-symbolic")
+        )
+        self.settings_row = Adw.ActionRow(title="Settings")
+        self.settings_row.add_prefix(
+            Gtk.Image.new_from_icon_name("preferences-system-symbolic")
+        )
         self._nav_pages = {
             self.home_row: "home",
             self.library_row: "library",
             self.browse_row: "browse",
+            self.calendar_row: "calendar",
             self.statistics_row: "statistics",
+            self.settings_row: "settings",
         }
         for row in self._nav_pages:
             self.nav_list.append(row)
@@ -651,6 +662,44 @@ class AniyoriWindow(Adw.ApplicationWindow):
         self.home_scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
         self.home_scroll.set_child(self.home_page)
         self.page_stack.add_named(self.home_scroll, "home")
+
+        self.calendar_page = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
+        self.calendar_page.set_margin_start(8)
+        self.calendar_page.set_margin_end(8)
+        self.calendar_page.set_margin_top(8)
+        self.calendar_page.set_margin_bottom(8)
+        calendar_heading = Gtk.Label(label="Upcoming episodes", xalign=0, wrap=True)
+        calendar_heading.add_css_class("title-2")
+        self.calendar_page.append(calendar_heading)
+        self.calendar_list = Gtk.ListBox()
+        self.calendar_list.add_css_class("boxed-list")
+        self.calendar_empty = Adw.StatusPage(
+            icon_name="x-office-calendar-symbolic",
+            title="Nothing scheduled",
+            description=(
+                "Add an AniList anime with a known airing schedule to see upcoming "
+                "episodes here."
+            ),
+        )
+        self.calendar_stack = Gtk.Stack()
+        self.calendar_stack.add_named(self.calendar_list, "list")
+        self.calendar_stack.add_named(self.calendar_empty, "empty")
+        calendar_scroll = Gtk.ScrolledWindow()
+        calendar_scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        calendar_scroll.set_hexpand(True)
+        calendar_scroll.set_vexpand(True)
+        calendar_scroll.set_child(self.calendar_stack)
+        self.calendar_page.append(calendar_scroll)
+        self.page_stack.add_named(self.calendar_page, "calendar")
+
+        self.settings_page = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+        settings_scroll = Gtk.ScrolledWindow()
+        settings_scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        settings_scroll.set_hexpand(True)
+        settings_scroll.set_vexpand(True)
+        self.settings_page.append(settings_scroll)
+        self.page_stack.add_named(self.settings_page, "settings")
+        self._build_settings_page(settings_scroll)
 
         toolbar = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
         toolbar.set_margin_bottom(12)
@@ -918,9 +967,123 @@ class AniyoriWindow(Adw.ApplicationWindow):
         GLib.timeout_add_seconds(1800, self._periodic_release_refresh)
 
 
+    def _build_settings_page(self, scroll):
+        content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=20)
+        content.set_margin_start(12)
+        content.set_margin_end(12)
+        content.set_margin_top(12)
+        content.set_margin_bottom(24)
+        scroll.set_child(content)
+
+        heading = Gtk.Label(label="Settings", xalign=0, wrap=True)
+        heading.add_css_class("title-1")
+        content.append(heading)
+        description = Gtk.Label(
+            label=(
+                "Preferences and management tools for your library, releases, "
+                "integrations, and data."
+            ),
+            xalign=0,
+            wrap=True,
+        )
+        description.add_css_class("dim-label")
+        content.append(description)
+
+        def add_group(title, rows):
+            group = Adw.PreferencesGroup(title=title)
+            for row_title, subtitle, icon_name, handler in rows:
+                row = Adw.ActionRow(title=row_title, subtitle=subtitle)
+                if icon_name:
+                    row.add_prefix(Gtk.Image.new_from_icon_name(icon_name))
+                button = Gtk.Button(label="Open")
+                button.set_valign(Gtk.Align.CENTER)
+                button.connect("clicked", handler)
+                row.add_suffix(button)
+                row.set_activatable_widget(button)
+                group.add(row)
+            content.append(group)
+
+        add_group("Library", [
+            ("Customize Layout", "List and grid columns, widths, and card size",
+             "view-list-symbolic", lambda *_a: self._show_library_layout_dialog()),
+            ("View Presets", "Save and restore filter, sort, and layout choices",
+             "document-open-recent-symbolic", lambda *_a: self._show_library_view_presets_dialog()),
+            ("Scan Local Folders", "Recognize episodes in local media folders",
+             "folder-symbolic", lambda *_a: self._show_scan_folders_dialog()),
+            ("Share Format", "Choose the text format for sharing anime details",
+             "edit-copy-symbolic", lambda *_a: self._show_share_format_dialog()),
+        ])
+        add_group("Releases and downloads", [
+            ("Release Preferences", "Preferred, rejected, and required release attributes",
+             "preferences-system-symbolic", lambda *_a: self._show_release_preferences_dialog()),
+            ("Release Scoring", "Weights used to rank matched releases",
+             "document-properties-symbolic", lambda *_a: self._show_release_scoring_dialog()),
+            ("Manage Feeds", "Nyaa and RSS/Atom sources",
+             "network-server-symbolic", lambda *_a: self._show_release_feed_manager()),
+            ("Manage Rules", "Ordered rules for accepting releases",
+             "preferences-system-symbolic", lambda *_a: self._show_release_rule_manager()),
+            ("qBittorrent", "WebUI connection settings",
+             "network-workgroup-symbolic", lambda *_a: self._show_qbittorrent_settings_dialog()),
+            ("Download Queue", "Monitor active torrents",
+             "go-down-symbolic", lambda *_a: self._show_download_queue()),
+        ])
+        add_group("Integrations", [
+            ("AniList Account", "Connect, import, and review synchronization",
+             "avatar-default-symbolic", lambda *_a: show_anilist_account_dialog(self)),
+            ("Notifications", "Event types, severity, and delivery",
+             "dialog-information-symbolic", lambda *_a: self._show_notification_preferences()),
+            ("Local Player Detection", "mpv and VLC progress tracking",
+             "multimedia-player-symbolic", lambda *_a: self._show_player_detection_preferences()),
+            ("Network", "Proxy, timeout, retries, and CA bundle",
+             "network-server-symbolic", lambda *_a: self._show_network_settings_dialog()),
+            ("Webhooks", "Outgoing watch-event endpoints",
+             "network-transmit-symbolic", lambda *_a: self._show_webhook_manager()),
+            ("External Links", "Custom anime link templates",
+             "web-browser-symbolic", lambda *_a: self._show_external_links_manager()),
+        ])
+        add_group("Data and privacy", [
+            ("Profiles", "Portable mode and isolated libraries",
+             "system-users-symbolic", lambda *_a: self._show_profiles_dialog()),
+            ("Export as JSON", "Save your library as JSON",
+             "document-save-symbolic", lambda *_a: self._show_export_dialog("json")),
+            ("Backup", "Create a full local backup",
+             "drive-harddisk-symbolic", lambda *_a: self._show_backup_dialog()),
+            ("Watch History", "Review recorded progress and status events",
+             "document-open-recent-symbolic", lambda *_a: self._show_watch_history_dialog()),
+        ])
+
+    def _refresh_calendar(self):
+        entries = upcoming_airing_entries(self.entries, self._airing_by_id)
+        child = self.calendar_list.get_first_child()
+        while child is not None:
+            following = child.get_next_sibling()
+            self.calendar_list.remove(child)
+            child = following
+        for entry in entries:
+            airing = self._airing_by_id.get(entry.storage_id)
+            if not isinstance(airing, tuple) or len(airing) != 2:
+                continue
+            episode, airing_at = airing
+            row = Adw.ActionRow(
+                title=entry.title,
+                subtitle=f"Episode {episode} · {format_airing_countdown(episode, airing_at)}",
+            )
+            details_button = Gtk.Button(label="Details")
+            details_button.set_valign(Gtk.Align.CENTER)
+            details_button.connect(
+                "clicked", lambda _button, item=entry: self._show_anime_details(item)
+            )
+            row.add_suffix(details_button)
+            row.set_activatable_widget(details_button)
+            self.calendar_list.append(row)
+        self.calendar_stack.set_visible_child_name(
+            "list" if entries else "empty"
+        )
+        return GLib.SOURCE_REMOVE
+
     def _on_nav_activated(self, row):
         page_name = self._nav_pages.get(row)
-        if page_name in ("home", "library"):
+        if page_name in ("home", "library", "calendar", "settings"):
             self.nav_list.select_row(row)
             self._apply_navigation(page_name)
         elif page_name == "browse":
@@ -931,9 +1094,12 @@ class AniyoriWindow(Adw.ApplicationWindow):
             self.nav_list.select_row(self._active_nav_row)
 
     def _apply_navigation(self, page_name):
-        self._active_nav_row = (
-            self.home_row if page_name == "home" else self.library_row
-        )
+        self._active_nav_row = {
+            "home": self.home_row,
+            "library": self.library_row,
+            "calendar": self.calendar_row,
+            "settings": self.settings_row,
+        }.get(page_name, self.home_row)
         self.page_stack.set_visible_child_name(page_name)
         if self.navigation_split_view.get_collapsed():
             self.navigation_split_view.set_show_content(True)
@@ -941,8 +1107,13 @@ class AniyoriWindow(Adw.ApplicationWindow):
         if page_name == "home":
             self._refresh_home()
             self.set_title("Aniyori")
-        else:
+        elif page_name == "library":
             self.set_title("Aniyori — My List")
+        elif page_name == "calendar":
+            self._refresh_calendar()
+            self.set_title("Aniyori — Calendar")
+        else:
+            self.set_title("Aniyori — Settings")
 
     def _show_library_page(self):
         self.nav_list.select_row(self.library_row)
@@ -4870,6 +5041,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
             self._schedule_airing_notification(storage_id, airing)
         if changed:
             self._render_library()
+            self._refresh_calendar()
         return GLib.SOURCE_REMOVE
 
     def _schedule_airing_notification(self, storage_id, airing):

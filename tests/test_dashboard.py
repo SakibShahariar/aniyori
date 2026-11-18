@@ -6,6 +6,7 @@ from aniyori.dashboard import (
     continue_watching_entries,
     count_library_statuses,
     recently_added_entries,
+    upcoming_airing_entries,
 )
 from aniyori.models import AnimeEntry, WatchStatus
 
@@ -74,6 +75,37 @@ class DashboardSelectionTests(unittest.TestCase):
             {1: "2026-01-01 10:00:00"},
         )
         self.assertEqual([entry.title for entry in selected], ["Saved"])
+
+    def test_upcoming_airing_sorts_future_entries_soonest_first(self):
+        soon = AnimeEntry(title="Soon", storage_id=1)
+        later = AnimeEntry(title="Later", storage_id=2)
+        selected = upcoming_airing_entries(
+            [later, soon],
+            {1: (13, 200), 2: (14, 100)},
+            now=0,
+        )
+        self.assertEqual([entry.title for entry in selected], ["Later", "Soon"])
+
+    def test_upcoming_airing_skips_past_and_malformed_data(self):
+        valid = AnimeEntry(title="Valid", storage_id=1)
+        past = AnimeEntry(title="Past", storage_id=2)
+        malformed = AnimeEntry(title="Malformed", storage_id=3)
+        unsaved = AnimeEntry(title="Unsaved")
+        selected = upcoming_airing_entries(
+            [past, valid, malformed, unsaved],
+            {1: (13, 200), 2: (12, -5), 3: (13, "later")},
+            now=100,
+        )
+        self.assertEqual([entry.title for entry in selected], ["Valid"])
+
+    def test_upcoming_airing_respects_limit(self):
+        entries = [
+            AnimeEntry(title=f"Anime {index}", storage_id=index)
+            for index in range(1, 4)
+        ]
+        airing = {index: (index, index * 10) for index in range(1, 4)}
+        self.assertEqual(len(upcoming_airing_entries(entries, airing, now=0, limit=2)), 2)
+        self.assertEqual(upcoming_airing_entries(entries, airing, now=0, limit=0), [])
 
 
 

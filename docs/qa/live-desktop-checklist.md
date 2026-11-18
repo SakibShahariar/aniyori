@@ -46,6 +46,8 @@ Use a disposable test profile or a backup of any library data you care about. Do
 - [ ] Open a saved anime's details at wide and narrow sizes; confirm the dialog opens at a usable size and its content scrolls instead of collapsing.
 - [ ] At a narrow window width, confirm the Releases action buttons wrap and the main window does not log a width-overflow warning or clip content.
 - [ ] Confirm the empty library and empty Home sections use native status pages with icon, title, description, and action where applicable.
+- [ ] Open Calendar and Settings from the sidebar; confirm both are distinct pages at wide and narrow widths, that Calendar lists only real future airing times (or its empty state), and that Settings entries open the corresponding existing dialog without closing the page.
+- [ ] With AniList entries in the library, confirm Calendar rows show the episode and countdown for upcoming airings and refresh when airing data changes.
 - [ ] Open Download Queue at wide and narrow sizes; confirm the adaptive dialog remains usable and closing it stops its automatic refresh timer.
 - [ ] Open Season Discovery at wide and narrow sizes; confirm season/year, search/genre, format/status, and sort controls wrap without clipping.
 - [ ] Open Add Anime, Watch History, and Release Feeds at narrow sizes; confirm catalogue search, saved-search controls, history filters/actions, and feed actions wrap and remain reachable.
