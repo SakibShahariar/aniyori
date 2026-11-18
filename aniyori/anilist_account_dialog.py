@@ -102,11 +102,9 @@ def show_anilist_account_dialog(parent) -> None:
     setup_group = Adw.PreferencesGroup(
         title="Authorization",
         description=(
-            "In AniList Developer Settings, set this application's Redirect URL to "
-            "https://anilist.co/api/v2/oauth/pin. The app uses the implicit flow; "
-            "no client secret is needed. AniList has no granular OAuth scopes, so "
-            "authorization grants broad account access. Aniyori uses it only to read "
-            "your anime list and update anime status and episode progress."
+            "Set the Redirect URL in AniList Developer Settings to "
+            "https://anilist.co/api/v2/oauth/pin. No client secret is needed. "
+            "AniList grants broad access; Aniyori only reads and updates your anime list."
         ),
     )
     client_row = Adw.EntryRow(title="Project AniList Client ID")
