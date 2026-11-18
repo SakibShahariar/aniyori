@@ -517,44 +517,10 @@ class AniyoriWindow(Adw.ApplicationWindow):
         add_button.connect("clicked", self._show_add_dialog)
         header.pack_end(add_button)
 
+        # Sidebar pages and the Settings page own navigation and preferences.
+        # Keep the primary menu to app-level commands and the search shortcut.
         primary_menu = Gio.Menu()
-        primary_menu.append("Add Anime", "win.add-anime")
-        primary_menu.append("Season Discovery", "win.season-discovery")
-        primary_menu.append("AniList Account", "win.anilist-account")
         primary_menu.append("Search Library", "win.focus-search")
-        primary_menu.append("Library Statistics", "win.statistics")
-        primary_menu.append("Watch History", "win.watch-history")
-
-        library_menu = Gio.Menu()
-        library_menu.append("Customize Layout", "win.library-layout")
-        library_menu.append("Scan Local Folders", "win.scan-folders")
-        library_menu.append("Profiles & Portable Mode", "win.profiles")
-        library_menu.append("Import Library", "win.import-library")
-        library_menu.append("Export as JSON", "win.export-json")
-        library_menu.append("Export as CSV", "win.export-csv")
-        library_menu.append("Create Full Backup", "win.create-backup")
-        library_menu.append("Restore Full Backup", "win.restore-backup")
-        library_menu.append("Share Format", "win.share-format")
-        primary_menu.append_submenu("Library & Data", library_menu)
-
-        releases_menu = Gio.Menu()
-        releases_menu.append("Manage Feeds", "win.manage-release-feeds")
-        releases_menu.append("Smart Release Rules", "win.manage-release-rules")
-        releases_menu.append("Release Preferences", "win.release-preferences")
-        releases_menu.append("Release Scoring Weights", "win.release-scoring")
-        releases_menu.append("Download Queue", "win.download-queue")
-        releases_menu.append("Configure qBittorrent", "win.configure-qbittorrent")
-        primary_menu.append_submenu("Releases & Downloads", releases_menu)
-
-        integrations_menu = Gio.Menu()
-        integrations_menu.append("Notifications", "win.notifications")
-        integrations_menu.append("Notification Preferences", "win.notification-preferences")
-        integrations_menu.append("Local Player Detection", "win.player-detection")
-        integrations_menu.append("Network Settings", "win.network-settings")
-        integrations_menu.append("Manage Webhooks", "win.manage-webhooks")
-        integrations_menu.append("Manage External Links", "win.manage-external-links")
-        primary_menu.append_submenu("Integrations", integrations_menu)
-
         primary_menu.append("About Aniyori", "win.about")
         primary_menu.append("Quit", "win.quit")
         menu_button = Gtk.MenuButton()
@@ -1050,8 +1016,10 @@ class AniyoriWindow(Adw.ApplicationWindow):
         add_group("Integrations", [
             ("AniList Account", "Connect, import, and review synchronization",
              "avatar-default-symbolic", lambda *_a: show_anilist_account_dialog(self)),
-            ("Notifications", "Event types, severity, and delivery",
-             "dialog-information-symbolic", lambda *_a: self._show_notification_preferences()),
+            ("Notification Center", "Recent notifications and delivery status",
+             "dialog-information-symbolic", lambda *_a: self._show_notification_center()),
+            ("Notification Preferences", "Event types, severity, and delivery",
+             "preferences-system-symbolic", lambda *_a: self._show_notification_preferences()),
             ("Local Player Detection", "mpv and VLC progress tracking",
              "multimedia-player-symbolic", lambda *_a: self._show_player_detection_preferences()),
             ("Network", "Proxy, timeout, retries, and CA bundle",
@@ -1064,10 +1032,16 @@ class AniyoriWindow(Adw.ApplicationWindow):
         add_group("Data and privacy", [
             ("Profiles", "Portable mode and isolated libraries",
              "system-users-symbolic", lambda *_a: self._show_profiles_dialog()),
+            ("Import Library", "Load entries from a JSON or CSV export",
+             "document-open-symbolic", lambda *_a: self._show_import_dialog()),
             ("Export as JSON", "Save your library as JSON",
              "document-save-symbolic", lambda *_a: self._show_export_dialog("json")),
+            ("Export as CSV", "Save your library as CSV",
+             "document-save-symbolic", lambda *_a: self._show_export_dialog("csv")),
             ("Backup", "Create a full local backup",
              "drive-harddisk-symbolic", lambda *_a: self._show_backup_dialog()),
+            ("Restore Full Backup", "Restore a backup into a disposable profile",
+             "drive-harddisk-symbolic", lambda *_a: self._show_restore_backup_dialog()),
             ("Watch History", "Review recorded progress and status events",
              "document-open-recent-symbolic", lambda *_a: self._show_watch_history_dialog()),
         ])
