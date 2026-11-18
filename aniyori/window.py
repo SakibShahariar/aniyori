@@ -597,34 +597,29 @@ class AniyoriWindow(Adw.ApplicationWindow):
         brand.set_margin_bottom(12)
         sidebar.append(brand)
 
-        self.home_nav_button = Gtk.ToggleButton(label="Home")
-        self.library_nav_button = Gtk.ToggleButton(label="My List")
-        self.library_nav_button.set_group(self.home_nav_button)
-        for button, page_name in (
-            (self.home_nav_button, "home"),
-            (self.library_nav_button, "library"),
-        ):
-            button.set_halign(Gtk.Align.FILL)
-            button.connect("clicked", self._on_primary_navigation, page_name)
-            sidebar.append(button)
-
-        sidebar_separator = Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL)
-        sidebar_separator.set_margin_top(8)
-        sidebar_separator.set_margin_bottom(8)
-        sidebar.append(sidebar_separator)
-
-        browse_button = Gtk.Button(label="Browse")
-        browse_button.set_halign(Gtk.Align.FILL)
-        browse_button.connect(
-            "clicked", lambda _button: self._show_season_discovery()
+        self.nav_list = Gtk.ListBox()
+        self.nav_list.add_css_class("navigation-sidebar")
+        self.nav_list.set_selection_mode(Gtk.SelectionMode.SINGLE)
+        self.home_row = Adw.ActionRow(title="Home")
+        self.home_row.add_prefix(Gtk.Image.new_from_icon_name("go-home-symbolic"))
+        self.library_row = Adw.ActionRow(title="My List")
+        self.library_row.add_prefix(Gtk.Image.new_from_icon_name("view-list-symbolic"))
+        self.browse_row = Adw.ActionRow(title="Browse")
+        self.browse_row.add_prefix(Gtk.Image.new_from_icon_name("system-search-symbolic"))
+        self.statistics_row = Adw.ActionRow(title="Statistics")
+        self.statistics_row.add_prefix(
+            Gtk.Image.new_from_icon_name("org.gnome.SystemMonitor-symbolic")
         )
-        sidebar.append(browse_button)
-        statistics_button = Gtk.Button(label="Statistics")
-        statistics_button.set_halign(Gtk.Align.FILL)
-        statistics_button.connect(
-            "clicked", lambda _button: self._show_statistics_dialog()
-        )
-        sidebar.append(statistics_button)
+        self._nav_pages = {
+            self.home_row: "home",
+            self.library_row: "library",
+            self.browse_row: "browse",
+            self.statistics_row: "statistics",
+        }
+        for row in self._nav_pages:
+            self.nav_list.append(row)
+            row.connect("activated", self._on_nav_activated)
+        sidebar.append(self.nav_list)
         sidebar.append(Gtk.Box(vexpand=True))
 
         self.navigation_split_view = Adw.NavigationSplitView()
@@ -919,8 +914,9 @@ class AniyoriWindow(Adw.ApplicationWindow):
 
         self.view_switches["list"].set_active(True)
         self._render_library()
-        self.home_nav_button.set_active(True)
-        self._on_primary_navigation(self.home_nav_button, "home")
+        self._active_nav_row = self.home_row
+        self.nav_list.select_row(self.home_row)
+        self._apply_navigation("home")
         self._refresh_home()
         self.filter_buttons["all"].set_active(True)
         if self.library_view_presets["default"]:
@@ -939,9 +935,22 @@ class AniyoriWindow(Adw.ApplicationWindow):
         GLib.timeout_add_seconds(1800, self._periodic_release_refresh)
 
 
-    def _on_primary_navigation(self, button, page_name):
-        if not button.get_active():
-            return
+    def _on_nav_activated(self, row):
+        page_name = self._nav_pages.get(row)
+        if page_name in ("home", "library"):
+            self.nav_list.select_row(row)
+            self._apply_navigation(page_name)
+        elif page_name == "browse":
+            self._show_season_discovery()
+            self.nav_list.select_row(self._active_nav_row)
+        elif page_name == "statistics":
+            self._show_statistics_dialog()
+            self.nav_list.select_row(self._active_nav_row)
+
+    def _apply_navigation(self, page_name):
+        self._active_nav_row = (
+            self.home_row if page_name == "home" else self.library_row
+        )
         self.page_stack.set_visible_child_name(page_name)
         if self.navigation_split_view.get_collapsed():
             self.navigation_split_view.set_show_content(True)
@@ -953,8 +962,8 @@ class AniyoriWindow(Adw.ApplicationWindow):
             self.set_title("Aniyori — My List")
 
     def _show_library_page(self):
-        self.library_nav_button.set_active(True)
-        self._on_primary_navigation(self.library_nav_button, "library")
+        self.nav_list.select_row(self.library_row)
+        self._apply_navigation("library")
 
     def _set_navigation_compact(self, compact):
         self.navigation_split_view.set_collapsed(compact)
@@ -5570,6 +5579,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
         dialog = Adw.Dialog()
         dialog.set_title(entry.title)
         dialog.set_content_width(680)
+        dialog.set_content_height(620)
         toolbar_view = Adw.ToolbarView()
         header = Adw.HeaderBar()
         close_button = Gtk.Button.new_from_icon_name("window-close-symbolic")
@@ -5680,6 +5690,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
 
         scroller = Gtk.ScrolledWindow()
         scroller.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        scroller.set_min_content_height(380)
         scroller.set_child(content)
         toolbar_view.set_content(scroller)
         dialog.set_child(toolbar_view)
