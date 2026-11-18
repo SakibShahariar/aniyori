@@ -56,7 +56,8 @@ def show_anilist_account_dialog(parent) -> None:
 
     dialog = Adw.Dialog()
     dialog.set_title("AniList Account")
-    dialog.set_content_width(520)
+    dialog.set_content_width(680)
+    dialog.set_content_height(620)
 
     toolbar_view = Adw.ToolbarView()
     header = Adw.HeaderBar()
@@ -132,6 +133,7 @@ def show_anilist_account_dialog(parent) -> None:
 
     scroll = Gtk.ScrolledWindow()
     scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+    scroll.set_min_content_height(380)
     scroll.set_child(content)
     toolbar_view.set_content(scroll)
     dialog.set_child(toolbar_view)
@@ -336,7 +338,8 @@ def show_anilist_account_dialog(parent) -> None:
         def show_plan(plan):
             review = Adw.Dialog()
             review.set_title("Review AniList Sync")
-            review.set_content_width(620)
+            review.set_content_width(700)
+            review.set_content_height(620)
             review_toolbar = Adw.ToolbarView()
             review_header = Adw.HeaderBar()
             review_toolbar.add_top_bar(review_header)
@@ -444,6 +447,7 @@ def show_anilist_account_dialog(parent) -> None:
             review_content.append(buttons)
             review_scroll = Gtk.ScrolledWindow()
             review_scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+            review_scroll.set_min_content_height(380)
             review_scroll.set_child(review_content)
             review_toolbar.set_content(review_scroll)
             review.set_child(review_toolbar)
