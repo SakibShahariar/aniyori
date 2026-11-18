@@ -1408,7 +1408,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
             horizontal_scroll.set_policy(
                 Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.NEVER
             )
-            horizontal_scroll.set_min_content_height(310)
+            horizontal_scroll.set_min_content_height(200)
             horizontal_scroll.set_child(strip)
             horizontal_scroll.set_kinetic_scrolling(True)
             section.append(horizontal_scroll)
@@ -1674,7 +1674,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
             editors[attribute] = (preferred, rejected, priority)
 
         grid_scroll = Gtk.ScrolledWindow()
-        grid_scroll.set_min_content_height(230)
+        grid_scroll.set_min_content_height(180)
         grid_scroll.set_max_content_height(340)
         grid_scroll.set_child(grid)
         content.append(grid_scroll)
@@ -1901,7 +1901,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
         description.add_css_class("dim-label")
         content.append(description)
         scroll = Gtk.ScrolledWindow()
-        scroll.set_min_content_height(300)
+        scroll.set_min_content_height(200)
         scroll.set_max_content_height(480)
         sections = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
         scroll.set_child(sections)
@@ -3053,7 +3053,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
         listing.set_selection_mode(Gtk.SelectionMode.SINGLE)
         listing.add_css_class("boxed-list")
         scroll = Gtk.ScrolledWindow()
-        scroll.set_min_content_height(280)
+        scroll.set_min_content_height(200)
         scroll.set_max_content_height(480)
         scroll.set_child(listing)
         content.append(scroll)
@@ -3555,7 +3555,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
         listing.set_selection_mode(Gtk.SelectionMode.SINGLE)
         listing.add_css_class('boxed-list')
         scroll = Gtk.ScrolledWindow()
-        scroll.set_min_content_height(260)
+        scroll.set_min_content_height(200)
         scroll.set_max_content_height(420)
         scroll.set_child(listing)
         content.append(scroll)
@@ -6039,7 +6039,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
 
         scroller = Gtk.ScrolledWindow()
         scroller.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
-        scroller.set_min_content_height(380)
+        scroller.set_min_content_height(200)
         scroller.set_child(content)
         toolbar_view.set_content(scroller)
         dialog.set_child(toolbar_view)

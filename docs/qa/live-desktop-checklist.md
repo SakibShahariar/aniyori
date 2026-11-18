@@ -46,6 +46,7 @@ Use a disposable test profile or a backup of any library data you care about. Do
 - [ ] On Statistics, confirm library totals and status counts appear as grouped rows, the year uses an adaptive spin row, monthly activity is a bordered chart card, and yearly summaries are labelled rows that update when the year changes.
 - [ ] Open Add Anime from the header and from the menu; confirm the search and review steps use grouped native rows and all actions (search, history, review, back, add) still work at narrow widths.
 - [ ] Resize the main window down to its 600x440 minimum; confirm the sidebar scrolls instead of forcing the toolbar view above the available height, and no width/height overflow warning is logged.
+- [ ] At that short height, open the AniList Account, anime details, watch-history, and other scrollable dialogs; confirm they become scrollable floating sheets without clipping or height-overflow warnings.
 - [ ] Open a saved anime's details at wide and narrow sizes; confirm the dialog opens at a usable size and its content scrolls instead of collapsing.
 - [ ] At a narrow window width, confirm the Releases action buttons wrap and the main window does not log a width-overflow warning or clip content.
 - [ ] Confirm the empty library and empty Home sections use native status pages with icon, title, description, and action where applicable.

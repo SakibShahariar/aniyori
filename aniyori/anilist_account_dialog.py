@@ -453,7 +453,7 @@ def show_anilist_account_dialog(parent) -> None:
             review_content.append(buttons)
             review_scroll = Gtk.ScrolledWindow()
             review_scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
-            review_scroll.set_min_content_height(380)
+            review_scroll.set_min_content_height(200)
             review_scroll.set_child(review_content)
             review_toolbar.set_content(review_scroll)
             review.set_child(review_toolbar)
