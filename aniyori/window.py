@@ -460,6 +460,11 @@ class AniyoriWindow(Adw.ApplicationWindow):
         self._airing_refresh_running = False
         self._airing_notification_timers = {}
         self._selected_entry_ids = set()
+        self._row_widgets = {}
+        self._card_widgets = {}
+        self._widget_entries = {}
+        self._library_dirty = False
+        self._library_render_timer = None
         self.scan_location_store = ScanLocationStore()
         self.recognition_exclusion_store = RecognitionExclusionStore()
         self.share_template_store = ShareTemplateStore()
@@ -763,7 +768,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
         self.search.set_placeholder_text("Search your library")
         self.search.set_hexpand(True)
         self.search.set_max_width_chars(60)
-        self.search.connect("search-changed", self._render_library)
+        self.search.connect("search-changed", self._schedule_library_render)
         search_toolbar.append(self.search)
 
         filter_toolbar = Gtk.FlowBox()
@@ -1164,6 +1169,8 @@ class AniyoriWindow(Adw.ApplicationWindow):
             self._refresh_home()
             self.set_title("Aniyori")
         elif page_name == "library":
+            if getattr(self, "_library_dirty", False):
+                self._render_library()
             self.set_title("Aniyori — My List")
         elif page_name == "calendar":
             self._refresh_calendar()
@@ -3882,7 +3889,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
         for other_key, other_button in self.filter_buttons.items():
             if other_key != key and other_button.get_active():
                 other_button.set_active(False)
-        self._render_library()
+        self._schedule_library_render()
 
     def _on_library_sort_changed(self, dropdown, _property):
         if not self._applying_view_preset:
@@ -3890,7 +3897,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
         selected = dropdown.get_selected()
         if selected < len(SORT_MODES):
             self.library_sort_mode = SORT_MODES[selected]
-            self._render_library()
+            self._schedule_library_render()
 
     def _on_view_toggled(self, button, key):
         if not button.get_active():
@@ -3902,6 +3909,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
                 key, getattr(self, "_library_has_visible_entries", True)
             )
         )
+        self._schedule_library_render()
 
     def _capture_library_view_settings(self):
         view = library_view_for_preset(
@@ -5250,12 +5258,11 @@ class AniyoriWindow(Adw.ApplicationWindow):
                 schedules = client.get_airing_schedules(
                     [int(provider_id) for _storage_id, provider_id in candidates]
                 )
-                for storage_id, provider_id in candidates:
-                    GLib.idle_add(
-                        self._set_airing_info,
-                        storage_id,
-                        schedules.get(int(provider_id)),
-                    )
+                updates = [
+                    (storage_id, schedules.get(int(provider_id)))
+                    for storage_id, provider_id in candidates
+                ]
+                GLib.idle_add(self._apply_airing_snapshot, updates)
             except (AniListError, ValueError):
                 LOGGER.debug("Could not refresh AniList airing schedules", exc_info=True)
             finally:
@@ -5272,16 +5279,25 @@ class AniyoriWindow(Adw.ApplicationWindow):
         self._airing_refresh_running = False
         return GLib.SOURCE_REMOVE
 
-    def _set_airing_info(self, storage_id, airing):
-        if airing is None:
-            changed = self._airing_by_id.pop(storage_id, None) is not None
-            timer = self._airing_notification_timers.pop(storage_id, None)
-            if timer is not None:
-                GLib.source_remove(timer[2])
-        else:
-            changed = self._airing_by_id.get(storage_id) != airing
-            self._airing_by_id[storage_id] = airing
-            self._schedule_airing_notification(storage_id, airing)
+    def _apply_airing_snapshot(self, updates):
+        """Apply a whole airing refresh with a single render.
+
+        Rendering the 1,500-entry library once per item made schedule refreshes
+        block the UI for minutes. Applying the snapshot in one idle callback
+        keeps the same behaviour with one render at the end.
+        """
+        changed = False
+        for storage_id, airing in updates:
+            if airing is None:
+                if self._airing_by_id.pop(storage_id, None) is not None:
+                    changed = True
+                timer = self._airing_notification_timers.pop(storage_id, None)
+                if timer is not None:
+                    GLib.source_remove(timer[2])
+            elif self._airing_by_id.get(storage_id) != airing:
+                self._airing_by_id[storage_id] = airing
+                self._schedule_airing_notification(storage_id, airing)
+                changed = True
         if changed:
             self._render_library()
             self._refresh_calendar()
@@ -5361,13 +5377,15 @@ class AniyoriWindow(Adw.ApplicationWindow):
             widget = widgets.get(storage_id)
             if widget is not None and widget.selection_check.get_active() != selected:
                 widget.selection_check.set_active(selected)
-        self._widget_entries[storage_id] = library_widget_signature(
+        signature = library_widget_signature(
             entry,
             self._airing_by_id.get(storage_id),
             selected,
             library_layout_signature(self.library_layouts),
             self._compact_layout,
         )
+        for view in ("list", "grid"):
+            self._widget_entries[(view, storage_id)] = signature
         self._update_bulk_bar()
 
     def _update_bulk_bar(self):
@@ -5525,7 +5543,28 @@ class AniyoriWindow(Adw.ApplicationWindow):
         self._compact_layout = compact
         self._render_library()
 
+    def _schedule_library_render(self, *_args):
+        """Coalesce rapid search/filter/sort changes into one render."""
+        timer = getattr(self, "_library_render_timer", None)
+        if timer is not None:
+            GLib.source_remove(timer)
+        self._library_render_timer = GLib.timeout_add(
+            120, self._deferred_library_render
+        )
+        return GLib.SOURCE_REMOVE
+
+    def _deferred_library_render(self):
+        self._library_render_timer = None
+        self._render_library()
+        return GLib.SOURCE_REMOVE
+
     def _render_library(self, *_args):
+        if self.page_stack.get_visible_child_name() != "library":
+            # My List is hidden (Home is the initial page); defer the expensive
+            # widget build until the user actually opens it.
+            self._library_dirty = True
+            return
+        self._library_dirty = False
         list_scroll_value = self.list_scroll.get_vadjustment().get_value()
         grid_scroll_value = self.grid_scroll.get_vadjustment().get_value()
 
@@ -5543,14 +5582,13 @@ class AniyoriWindow(Adw.ApplicationWindow):
         )
         for key in set(self._airing_by_id) - current_keys:
             self._airing_by_id.pop(key, None)
-        for key in set(self._row_widgets) - current_keys:
-            row = self._row_widgets.pop(key)
-            card = self._card_widgets.pop(key)
-            self._widget_entries.pop(key, None)
-            if row.get_parent() is not None:
-                self.list_box.remove(row.get_parent())
-            if card.get_parent() is not None:
-                self.grid_flow.remove(card.get_parent())
+        removed_keys = (set(self._row_widgets) | set(self._card_widgets)) - current_keys
+        for key in removed_keys:
+            for view, widgets in (("list", self._row_widgets), ("grid", self._card_widgets)):
+                widget = widgets.pop(key, None)
+                self._widget_entries.pop((view, key), None)
+                if widget is not None and widget.get_parent() is not None:
+                    widget.get_parent().remove(widget)
 
         query = self.search.get_text().strip().casefold() if hasattr(self, "search") else ""
         visible_count = 0
@@ -5566,69 +5604,74 @@ class AniyoriWindow(Adw.ApplicationWindow):
             updated_at_by_id=updated_at_by_id,
         )
         layout_signature = library_layout_signature(self.library_layouts)
+        # Only the visible view is built; the other is created on demand when
+        # the user switches views. This halves widget count on large libraries.
+        show_list = not self.view_switches["grid"].get_active()
+        view = "list" if show_list else "grid"
+        widgets_by_key = self._row_widgets if show_list else self._card_widgets
+        container = self.list_box if show_list else self.grid_flow
         for position, entry in enumerate(ordered_entries):
             key = entry.storage_id if entry.storage_id is not None else ("transient", id(entry))
-            row = self._row_widgets.get(key)
-            card = self._card_widgets.get(key)
+            widget = widgets_by_key.get(key)
 
             airing = self._airing_by_id.get(key)
             selected = entry.storage_id in self._selected_entry_ids
             widget_signature = library_widget_signature(
                 entry, airing, selected, layout_signature, self._compact_layout
             )
-            if row is None or self._widget_entries.get(key) != widget_signature:
-                if row is not None:
-                    if row.get_parent() is not None:
-                        self.list_box.remove(row.get_parent())
-                    if card.get_parent() is not None:
-                        self.grid_flow.remove(card.get_parent())
-
-                row = AnimeRow(
-                    entry,
-                    self._increment_progress,
-                    self._confirm_remove_entry,
-                    self._show_edit_dialog,
-                    airing,
-                    selected,
-                    self._toggle_entry_selection,
-                    self._show_external_links,
-                    self._show_episode_editor,
-                    self.library_layouts["list"],
-                    self._compact_layout,
-                )
-                card = AnimeCard(
-                    entry,
-                    self._increment_progress,
-                    self._confirm_remove_entry,
-                    self._show_edit_dialog,
-                    airing,
-                    selected,
-                    self._toggle_entry_selection,
-                    self._show_external_links,
-                    self._show_episode_editor,
-                    self.library_layouts["grid"],
-                    self._show_anime_details,
-                )
-                card.set_size_request(self.library_layouts["grid"]["widths"]["card_width"], -1)
-                self.list_box.insert(row, position)
-                self.grid_flow.insert(card, position)
-                self._row_widgets[key] = row
-                self._card_widgets[key] = card
-                self._widget_entries[key] = widget_signature
+            if widget is None or self._widget_entries.get((view, key)) != widget_signature:
+                if widget is not None and widget.get_parent() is not None:
+                    widget.get_parent().remove(widget)
+                if show_list:
+                    widget = AnimeRow(
+                        entry,
+                        self._increment_progress,
+                        self._confirm_remove_entry,
+                        self._show_edit_dialog,
+                        airing,
+                        selected,
+                        self._toggle_entry_selection,
+                        self._show_external_links,
+                        self._show_episode_editor,
+                        self.library_layouts["list"],
+                        self._compact_layout,
+                    )
+                else:
+                    widget = AnimeCard(
+                        entry,
+                        self._increment_progress,
+                        self._confirm_remove_entry,
+                        self._show_edit_dialog,
+                        airing,
+                        selected,
+                        self._toggle_entry_selection,
+                        self._show_external_links,
+                        self._show_episode_editor,
+                        self.library_layouts["grid"],
+                        self._show_anime_details,
+                    )
+                    widget.set_size_request(
+                        self.library_layouts["grid"]["widths"]["card_width"], -1
+                    )
+                container.insert(widget, position)
+                widgets_by_key[key] = widget
+                self._widget_entries[(view, key)] = widget_signature
             else:
-                list_child = row.get_parent()
-                grid_child = card.get_parent()
-                if list_child is not None and list_child.get_index() != position:
-                    self.list_box.reorder_child(list_child, position)
-                if grid_child is not None and grid_child.get_index() != position:
-                    self.grid_flow.reorder_child(grid_child, position)
+                child = widget.get_parent()
+                if child is not None and child.get_index() != position:
+                    container.reorder_child(child, position)
 
             is_visible = (
                 (self.current_filter == "all" or entry.status.value == self.current_filter)
                 and query in entry.title.casefold()
             )
-            row.get_parent().set_visible(is_visible)
-            card.get_parent().set_visible(is_visible)
+            active_parent = widget.get_parent()
+            if active_parent is not None:
+                active_parent.set_visible(is_visible)
+            other_widgets = self._card_widgets if show_list else self._row_widgets
+            other = other_widgets.get(key)
+            if other is not None and other.get_parent() is not None:
+                other.get_parent().set_visible(is_visible)
             if is_visible:
                 visible_count += 1
 
