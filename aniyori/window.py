@@ -1484,6 +1484,92 @@ class AniyoriWindow(Adw.ApplicationWindow):
         self.back_button.set_visible(False)
         self.sidebar_toggle.set_active(True)
 
+    def _local_episode_paths(self):
+        """Map (AniList ID, episode) to a scanned local video file."""
+        paths = {}
+        result = getattr(self, "_last_scan_result", None)
+        if result is None:
+            return paths
+        for match in result.matches:
+            if match.excluded_reason or match.result.decision.status != "matched" or match.result.parsed is None:
+                continue
+            for candidate in match.result.decision.matches:
+                media_id = getattr(candidate, "media_id", None)
+                if media_id is not None and match.path.is_file():
+                    paths[(str(media_id), match.result.parsed.episode)] = match.path
+        return paths
+
+    def _next_to_watch_panel(self):
+        """Taiga-style core panel: what episode comes next and can it be played."""
+        panel = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+        panel.add_css_class("card")
+        heading = Gtk.Label(label="Next to Watch", xalign=0, wrap=True)
+        heading.add_css_class("title-2")
+        panel.append(heading)
+
+        local_paths = self._local_episode_paths()
+        candidates = continue_watching_entries(self.entries, self.storage.get_updated_at_map())
+        rows = 0
+        for entry in candidates[:6]:
+            next_episode = entry.episodes_watched + 1
+            local_path = None
+            if entry.provider_id:
+                local_path = local_paths.get((str(entry.provider_id), next_episode))
+            airing = self._airing_by_id.get(entry.storage_id)
+            countdown = format_airing_countdown(*airing) if airing is not None else None
+            if countdown and " · " in countdown:
+                countdown = countdown.split(" · ", 1)[1]
+
+            subtitle = f"EP {next_episode}"
+            if entry.episodes_total:
+                subtitle += f" / {entry.episodes_total}"
+            if local_path is not None:
+                subtitle += " · local file ready"
+            elif countdown:
+                subtitle += f" · {countdown}"
+
+            row = Adw.ActionRow(title=entry.title, subtitle=subtitle)
+            thumb = Gtk.Picture()
+            thumb.set_size_request(36, 50)
+            thumb.set_can_shrink(True)
+            thumb.set_content_fit(Gtk.ContentFit.COVER)
+            thumb.set_halign(Gtk.Align.CENTER)
+            thumb.set_valign(Gtk.Align.CENTER)
+            placeholder = Gtk.Image.new_from_icon_name("video-x-generic-symbolic")
+            placeholder.set_pixel_size(20)
+            thumb.set_paintable(placeholder.get_paintable())
+            thumb.update_property(
+                [Gtk.AccessibleProperty.LABEL], [f"Cover art for {entry.title}"]
+            )
+            _load_fixed_thumb_async(thumb, entry.cover_image, 36, 50)
+            row.add_prefix(thumb)
+
+            advance = Gtk.Button(label="+1")
+            advance.set_tooltip_text("Mark one more episode watched")
+            advance.set_valign(Gtk.Align.CENTER)
+            advance.connect("clicked", lambda _b, item=entry: self._increment_progress(item))
+            row.add_suffix(advance)
+            if local_path is not None:
+                play = Gtk.Button(label="Play")
+                play.add_css_class("suggested-action")
+                play.set_valign(Gtk.Align.CENTER)
+                play.connect(
+                    "clicked", lambda _b, path=local_path: self._play_local_video(path)
+                )
+                row.add_suffix(play)
+            panel.append(row)
+            rows += 1
+
+        if not rows:
+            empty = Gtk.Label(
+                label="No anime in progress. Add a series to start tracking episodes.",
+                xalign=0,
+                wrap=True,
+            )
+            empty.add_css_class("dim-label")
+            panel.append(empty)
+        return panel
+
     def _apply_hero_item(self, item):
         """Show one trending title in the hero artwork area."""
         picture = getattr(self, "hero_artwork", None)
@@ -1627,6 +1713,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
         right_column.set_hexpand(True)
         columns.append(left_column)
         columns.append(right_column)
+        right_column.append(self._next_to_watch_panel())
         self.home_page.append(columns)
 
         stats = Gtk.FlowBox()
