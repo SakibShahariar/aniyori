@@ -1,6 +1,7 @@
 """Tests for Home dashboard data selection."""
 
 import unittest
+from datetime import date
 
 from aniyori.dashboard import (
     continue_watching_entries,
@@ -9,6 +10,7 @@ from aniyori.dashboard import (
     upcoming_airing_entries,
     airing_by_local_date,
     group_airing_schedules,
+    group_airing_schedules_by_date,
 )
 from aniyori.models import AnimeEntry, WatchStatus
 
@@ -147,6 +149,19 @@ class DashboardSelectionTests(unittest.TestCase):
         self.assertEqual(
             [entry.title for entry, _ep, _dt in grouped[15]], ["Other", "Linked"]
         )
+
+
+    def test_group_airing_schedules_by_date_uses_local_dates(self):
+        from datetime import timezone
+
+        entry = AnimeEntry(title="Dated", provider="anilist", provider_id="42", storage_id=1)
+        grouped = group_airing_schedules_by_date(
+            [{"media_id": 42, "episode": 3, "airing_at": 1_800_000_000}],
+            [entry],
+            timezone.utc,
+        )
+        self.assertEqual(list(grouped), [date(2027, 1, 15)])
+        self.assertEqual(grouped[date(2027, 1, 15)][0][1], 3)
 
 
 if __name__ == "__main__":

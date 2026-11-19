@@ -61,6 +61,38 @@ def recently_added_entries(
     )[:limit]
 
 
+def group_airing_schedules_by_date(
+    schedules: list[dict],
+    entries: list[AnimeEntry],
+    timezone,
+) -> dict:
+    """Group airing episodes by local date, across any date range."""
+    by_provider_id = {
+        str(entry.provider_id): entry
+        for entry in entries
+        if entry.provider == "anilist" and entry.provider_id
+    }
+    grouped = defaultdict(list)
+    for item in schedules:
+        if not isinstance(item, dict):
+            continue
+        entry = by_provider_id.get(str(item.get("media_id")))
+        episode, airing_at = item.get("episode"), item.get("airing_at")
+        if entry is None or (
+            isinstance(episode, bool) or not isinstance(episode, int) or episode <= 0
+            or isinstance(airing_at, bool) or not isinstance(airing_at, int)
+        ):
+            continue
+        try:
+            local = datetime.fromtimestamp(airing_at, tz=timezone)
+        except (ValueError, OverflowError, OSError):
+            continue
+        grouped[local.date()].append((entry, episode, local))
+    for day in grouped:
+        grouped[day].sort(key=lambda item: item[2])
+    return dict(grouped)
+
+
 def group_airing_schedules(
     schedules: list[dict],
     entries: list[AnimeEntry],
