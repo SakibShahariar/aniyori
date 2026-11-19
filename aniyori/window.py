@@ -211,7 +211,7 @@ class LibraryItem(GObject.Object):
 
 
 class AnimeRow(Gtk.Box):
-    def __init__(self, entry: AnimeEntry, on_progress, on_remove, on_edit, airing=None, selected=False, on_select=None, on_links=None, on_episodes=None, layout=None, compact=False):
+    def __init__(self, entry: AnimeEntry, on_progress, on_remove, on_edit, airing=None, selected=False, on_select=None, on_links=None, on_episodes=None, layout=None, compact=False, on_details=None):
         super().__init__(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
         self.set_margin_top(10)
         self.set_margin_bottom(10)
@@ -248,6 +248,12 @@ class AnimeRow(Gtk.Box):
         details = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
         details.set_hexpand(True)
         details.set_valign(Gtk.Align.CENTER)
+        open_details = Gtk.GestureClick()
+        open_details.connect(
+            "released",
+            lambda _gesture, *_args: on_details(entry) if on_details else None,
+        )
+        details.add_controller(open_details)
         self.append(details)
 
         title = Gtk.Label(label=entry.title, xalign=0)
@@ -325,6 +331,8 @@ class AnimeRow(Gtk.Box):
         actions = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
         actions.set_valign(Gtk.Align.CENTER)
         for icon_name, tooltip, callback in (
+            ("dialog-information-symbolic", "View full anime details",
+             lambda _button: on_details(entry) if on_details else None),
             ("view-list-symbolic", "Edit watched state for individual episodes",
              lambda _button: on_episodes(entry) if on_episodes else None),
             ("external-link-symbolic", "Open external anime information links",
@@ -5809,6 +5817,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
             self._show_episode_editor,
             self.library_layouts["list"],
             self._compact_layout,
+            self._show_anime_details,
         ))
 
     def _bind_grid_item(self, _factory, item):
