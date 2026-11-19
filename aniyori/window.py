@@ -1491,7 +1491,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
         if picture is None or caption is None or not isinstance(item, dict):
             return
         title = str(item.get("title") or "Untitled anime")
-        caption.set_label(f"Trending now: {title}")
+        caption.set_label(title)
         picture.update_property([Gtk.AccessibleProperty.LABEL], [f"Cover art for {title}"])
         _load_fixed_thumb_async(picture, item.get("cover_image"), 180, 240)
 
@@ -1599,8 +1599,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
         if featured is not None:
             _load_fixed_thumb_async(artwork, featured.cover_image, 180, 240)
         caption = Gtk.Label(label="", xalign=0, wrap=True)
-        caption.add_css_class("dim-label")
-        caption.add_css_class("caption")
+        caption.add_css_class("heading")
         artwork_box.append(artwork)
         artwork_box.append(caption)
         hero.append(artwork_box)
