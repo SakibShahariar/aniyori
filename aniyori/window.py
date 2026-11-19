@@ -6505,18 +6505,61 @@ class AniyoriWindow(Adw.ApplicationWindow):
                 title = Gtk.Label(label=item.get("title") or "Untitled anime", wrap=True)
                 title.add_css_class("heading")
                 title.set_justify(Gtk.Justification.CENTER)
+                title.set_lines(2)
+                title.set_ellipsize(3)
+                title.set_tooltip_text(item.get("title") or "Untitled anime")
                 card.append(title)
-                details = [str(item.get("format") or "Unknown format"), str(item.get("status") or "Unknown status").replace("_", " ").title()]
+
+                meta = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+                meta.set_halign(Gtk.Align.CENTER)
+                year = item.get("season_year") or (
+                    item.get("start_date") or {}
+                ).get("year")
+                meta_parts = [
+                    str(item.get("format") or "Unknown").replace("_", " ").title()
+                ]
+                if isinstance(year, int) and year > 0:
+                    meta_parts.append(str(year))
+                meta_parts.append(
+                    str(item.get("status") or "Unknown").replace("_", " ").title()
+                )
+                for part in meta_parts:
+                    chip = Gtk.Label(label=part, wrap=True)
+                    chip.add_css_class("caption")
+                    chip.add_css_class("dim-label")
+                    meta.append(chip)
+                card.append(meta)
+
+                rating = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
+                rating.set_halign(Gtk.Align.CENTER)
+                score = item.get("average_score")
+                if isinstance(score, (int, float)) and not isinstance(score, bool):
+                    star = Gtk.Label(label="★")
+                    star.add_css_class("accent")
+                    value = Gtk.Label(label=f"{score}/100")
+                    value.add_css_class("caption")
+                    rating.append(star)
+                    rating.append(value)
+                else:
+                    unrated = Gtk.Label(label="Not rated yet")
+                    unrated.add_css_class("dim-label")
+                    unrated.add_css_class("caption")
+                    rating.append(unrated)
+                card.append(rating)
+
+                details = []
                 if item.get("episodes"):
                     details.append(f"{item['episodes']} episodes")
-                if item.get("average_score") is not None:
-                    details.append(f"Score {item['average_score']}/100")
                 if item.get("genres"):
                     details.append(", ".join(str(value) for value in item["genres"][:3]))
-                detail_label = Gtk.Label(label=" · ".join(details), wrap=True, justify=Gtk.Justification.CENTER)
-                detail_label.add_css_class("dim-label")
-                detail_label.add_css_class("caption")
-                card.append(detail_label)
+                if details:
+                    detail_label = Gtk.Label(
+                        label=" · ".join(details), wrap=True,
+                        justify=Gtk.Justification.CENTER,
+                    )
+                    detail_label.add_css_class("dim-label")
+                    detail_label.add_css_class("caption")
+                    card.append(detail_label)
                 actions = _responsive_control_row(spacing=6)
                 if item.get("site_url"):
                     actions.append(Gtk.LinkButton.new_with_label(item["site_url"], "AniList"))

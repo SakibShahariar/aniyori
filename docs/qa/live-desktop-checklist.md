@@ -52,6 +52,7 @@ Use a disposable test profile or a backup of any library data you care about. Do
 - [ ] In AniList Account, paste a token and connect with valid and invalid values; confirm a visible toast reports success or failure, the account status updates, and Review Sync becomes available after a successful connection.
 - [ ] Resize the window to about half the screen width: confirm Home, My List, Browse, Calendar, Statistics, and Settings remain usable; any content that cannot fit should scroll horizontally rather than being clipped.
 - [ ] On the Browse page, switch between Season chart and Search catalogue; confirm the season controls hide in search mode, trending catalogue titles load by default, a text query replaces them with real AniList results, and Enter and the Search button both work.
+- [ ] Confirm Browse result cards show a two-line title, format, release year, status, a star rating (or "Not rated yet"), episode count, and genres as separate readable rows.
 - [ ] Confirm the hamburger menu has a Settings entry that opens the Settings page, and that at narrow widths a header drawer button shows the navigation sidebar and closes it after a page is chosen.
 - [ ] On Home, confirm recently added/continue-watching cards show their full title, progress, status, and actions without vertical cropping.
 - [ ] In My List, confirm list rows and grid cards show a semantic status dot, omit numeric provider/entry IDs, and display personal and community scores when known; covers should load progressively even with a large library.
