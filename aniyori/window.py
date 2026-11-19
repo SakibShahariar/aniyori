@@ -3002,20 +3002,86 @@ class AniyoriWindow(Adw.ApplicationWindow):
                 )
                 folder_actions.append(button)
 
-        dialog = Adw.AlertDialog(
-            heading="Local Scan Results",
-            body="\n".join(lines),
-        )
+        self._last_scan_result = result
+        dialog = Adw.Dialog()
+        dialog.set_title("Local Scan Results")
+        dialog.set_content_width(760)
+        dialog.set_content_height(620)
+        toolbar = Adw.ToolbarView()
+        header = Adw.HeaderBar()
+        close = Gtk.Button(label="Close")
+        close.connect("clicked", lambda _b: dialog.close())
+        header.pack_end(close)
+        toolbar.add_top_bar(header)
+
+        content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
+        content.set_margin_top(12)
+        content.set_margin_bottom(16)
+        content.set_margin_start(16)
+        content.set_margin_end(16)
+        summary = Gtk.Label(label="\n".join(lines), xalign=0, wrap=True, selectable=True)
+        summary.add_css_class("dim-label")
+        summary_scroll = Gtk.ScrolledWindow()
+        summary_scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        summary_scroll.set_max_content_height(160)
+        summary_scroll.set_child(summary)
+        content.append(summary_scroll)
+
+        playable = [
+            match for match in result.matches
+            if match.excluded_reason is None
+            and match.result.status == "matched"
+            and match.result.parsed is not None
+            and match.path.is_file()
+        ]
+        if playable:
+            listing = Gtk.ListBox()
+            listing.add_css_class("boxed-list")
+            for match in playable:
+                parsed = match.result.parsed
+                matched = match.result.decision.matches[0] if match.result.decision.matches else None
+                title = getattr(matched, "title", None) or parsed.title
+                row = Adw.ActionRow(
+                    title=f"{title} · EP {parsed.episode}",
+                    subtitle=match.path.name,
+                )
+                play = Gtk.Button(label="Play")
+                play.add_css_class("suggested-action")
+                play.set_valign(Gtk.Align.CENTER)
+                play.connect(
+                    "clicked",
+                    lambda _button, path=match.path: self._play_local_video(path),
+                )
+                row.add_suffix(play)
+                row.set_activatable_widget(play)
+                listing.append(row)
+            scroll = Gtk.ScrolledWindow()
+            scroll.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
+            scroll.set_min_content_height(180)
+            scroll.set_child(listing)
+            content.append(scroll)
+
         if folder_actions.get_first_child() is not None:
             folder_scroll = Gtk.ScrolledWindow()
             folder_scroll.set_min_content_height(80)
             folder_scroll.set_max_content_height(180)
             folder_scroll.set_child(folder_actions)
-            dialog.set_extra_child(folder_scroll)
-        dialog.add_response("close", "Close")
-        dialog.set_default_response("close")
+            content.append(folder_scroll)
+
+        toolbar.set_content(content)
+        dialog.set_child(toolbar)
         dialog.present(self)
         return GLib.SOURCE_REMOVE
+
+    def _play_local_video(self, path):
+        try:
+            resolved = Path(path).resolve(strict=True)
+            if not resolved.is_file():
+                raise ValueError("The video file is no longer available.")
+            if not Gio.AppInfo.launch_default_for_uri(resolved.as_uri(), None):
+                raise RuntimeError("No default application is configured for this video.")
+        except (OSError, RuntimeError, ValueError) as error:
+            self.toast_overlay.add_toast(Adw.Toast.new(f"Could not play episode: {error}"))
 
     def _open_local_folder(self, folder):
         try:

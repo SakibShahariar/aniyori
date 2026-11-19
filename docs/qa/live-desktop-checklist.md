@@ -47,6 +47,7 @@ Use a disposable test profile or a backup of any library data you care about. Do
 - [ ] Open Add Anime from the header and from the menu; confirm the search and review steps use grouped native rows and all actions (search, history, review, back, add) still work at narrow widths.
 - [ ] Resize the main window down to its 600x440 minimum; confirm the sidebar scrolls instead of forcing the toolbar view above the available height, and no width/height overflow warning is logged.
 - [ ] At that short height, open the AniList Account, anime details, watch-history, and other scrollable dialogs; confirm they become scrollable floating sheets without clipping or height-overflow warnings.
+- [ ] Run a local library scan; confirm recognized video files are listed with a Play button that opens them in the default video player, alongside the summary and Open Folder actions.
 - [ ] Confirm the hamburger menu contains Settings, Search Library, About, and Quit, and that every previously listed command is still reachable from the sidebar pages, header + button, Home Quick Actions, or Settings.
 - [ ] At medium widths, confirm the navigation collapses into a drawer before sidebar labels wrap; a drawer toggle opens it and a selection closes it.
 - [ ] In AniList Account, paste a token and connect with valid and invalid values; confirm a visible toast reports success or failure, the account status updates, and Review Sync becomes available after a successful connection.
