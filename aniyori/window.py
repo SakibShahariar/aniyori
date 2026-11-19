@@ -577,7 +577,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
             ("add-anime", lambda: self._show_add_dialog(None)),
             ("season-discovery", self._show_season_discovery),
             ("anilist-account", lambda: show_anilist_account_dialog(self)),
-            ("focus-search", lambda: self.search.grab_focus()),
+            ("focus-search", self._focus_library_search),
             ("quit", lambda: self.get_application().quit()),
             ("statistics", self._show_statistics_dialog),
             ("settings", lambda: self._apply_navigation("settings")),
@@ -1462,6 +1462,17 @@ class AniyoriWindow(Adw.ApplicationWindow):
 
     def _show_library_page(self):
         self.nav_list.select_row(self.library_row)
+
+    def _focus_library_search(self):
+        if self.page_stack.get_visible_child_name() != "library":
+            self._show_library_page()
+
+        def grab():
+            self.search.grab_focus()
+            return GLib.SOURCE_REMOVE
+
+        GLib.idle_add(grab)
+        return GLib.SOURCE_REMOVE
 
     def _set_navigation_compact(self, compact):
         self.navigation_split_view.set_collapsed(compact)
