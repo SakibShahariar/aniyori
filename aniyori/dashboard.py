@@ -1,7 +1,8 @@
 """Data selection helpers for the Home dashboard."""
 
 import time
-from collections import Counter
+from collections import Counter, defaultdict
+from datetime import datetime
 
 from .models import AnimeEntry, WatchStatus
 
@@ -58,6 +59,40 @@ def recently_added_entries(
         key=lambda entry: created_at_by_id[entry.storage_id],
         reverse=True,
     )[:limit]
+
+
+def airing_by_local_date(
+    entries: list[AnimeEntry],
+    airing_by_id: dict[int, tuple[int, int]],
+    year: int,
+    month: int,
+    timezone,
+) -> dict[int, list[tuple[AnimeEntry, int, datetime]]]:
+    """Group saved airing times into local calendar days for one month."""
+    grouped = defaultdict(list)
+    for entry in entries:
+        storage_id = entry.storage_id
+        if storage_id is None:
+            continue
+        airing = airing_by_id.get(storage_id)
+        if not isinstance(airing, tuple) or len(airing) != 2:
+            continue
+        episode, airing_at = airing
+        if (
+            isinstance(episode, bool) or not isinstance(episode, int) or episode <= 0
+            or isinstance(airing_at, bool) or not isinstance(airing_at, int)
+        ):
+            continue
+        try:
+            local = datetime.fromtimestamp(airing_at, tz=timezone)
+        except (ValueError, OverflowError, OSError):
+            continue
+        if local.year != year or local.month != month:
+            continue
+        grouped[local.day].append((entry, episode, local))
+    for day in grouped:
+        grouped[day].sort(key=lambda item: item[2])
+    return dict(grouped)
 
 
 def upcoming_airing_entries(

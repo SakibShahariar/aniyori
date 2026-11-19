@@ -7,6 +7,7 @@ from aniyori.dashboard import (
     count_library_statuses,
     recently_added_entries,
     upcoming_airing_entries,
+    airing_by_local_date,
 )
 from aniyori.models import AnimeEntry, WatchStatus
 
@@ -107,6 +108,23 @@ class DashboardSelectionTests(unittest.TestCase):
         self.assertEqual(len(upcoming_airing_entries(entries, airing, now=0, limit=2)), 2)
         self.assertEqual(upcoming_airing_entries(entries, airing, now=0, limit=0), [])
 
+
+
+    def test_airing_by_local_date_groups_and_sorts_within_month(self):
+        from datetime import timezone
+
+        first = AnimeEntry(title="First", storage_id=1)
+        second = AnimeEntry(title="Second", storage_id=2)
+        outside = AnimeEntry(title="Other month", storage_id=3)
+        grouped = airing_by_local_date(
+            [outside, second, first],
+            {1: (4, 1_800_000_000), 2: (5, 1_800_010_000), 3: (1, 1_700_000_000)},
+            2027,
+            1,
+            timezone.utc,
+        )
+        self.assertEqual([entry.title for entry, _ep, _dt in grouped[15]], ["First", "Second"])
+        self.assertNotIn(16, grouped)
 
 
 if __name__ == "__main__":
