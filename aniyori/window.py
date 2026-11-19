@@ -1506,6 +1506,8 @@ class AniyoriWindow(Adw.ApplicationWindow):
         heading = Gtk.Label(label="Next to Watch", xalign=0, wrap=True)
         heading.add_css_class("title-2")
         panel.append(heading)
+        listing = Gtk.ListBox()
+        listing.add_css_class("boxed-list")
 
         local_paths = self._local_episode_paths()
         candidates = continue_watching_entries(self.entries, self.storage.get_updated_at_map())
@@ -1557,10 +1559,12 @@ class AniyoriWindow(Adw.ApplicationWindow):
                     "clicked", lambda _b, path=local_path: self._play_local_video(path)
                 )
                 row.add_suffix(play)
-            panel.append(row)
+            listing.append(row)
             rows += 1
 
-        if not rows:
+        if rows:
+            panel.append(listing)
+        else:
             empty = Gtk.Label(
                 label="No anime in progress. Add a series to start tracking episodes.",
                 xalign=0,
