@@ -62,6 +62,7 @@ Use a disposable test profile or a backup of any library data you care about. Do
 - [ ] Confirm the empty library and empty Home sections use native status pages with icon, title, description, and action where applicable.
 - [ ] Open Calendar from the sidebar and Settings from the hamburger menu; confirm both are distinct pages at wide and narrow widths and that Settings entries open the corresponding existing dialog without closing the page.
 - [ ] Confirm Calendar shows a real month grid with weekday headers, day numbers, previous/next/Today controls, and all scheduled episodes for that month from AniList (not just the next episode per anime), placed on their local date; today is highlighted and the empty state appears only when the month has no airings.
+- [ ] Confirm selecting a day number updates the agenda below the grid with that day's episodes, each showing episode number, local air time, and countdown; a note states times are in the user's local timezone.
 - [ ] Confirm Calendar shows a loading state while fetching schedules and falls back gracefully when AniList is unavailable.
 - [ ] On Home at wide and narrow widths, confirm the hero, two dashboard columns, Quick Actions, statistics, Continue Watching, Recently Added, and Popular This Season sections are readable and do not clip; columns should stack at narrow widths.
 - [ ] Confirm Popular This Season shows real AniList titles with a loading state and an offline/error state with Retry; do not treat placeholder or sample titles as a passing result.

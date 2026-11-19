@@ -475,6 +475,8 @@ class AniyoriWindow(Adw.ApplicationWindow):
         self._library_render_timer = None
         self._calendar_schedules = {}
         self._calendar_loading_month = None
+        self._calendar_selected_day = date.today().day
+        self._calendar_grouped = {}
         self.scan_location_store = ScanLocationStore()
         self.recognition_exclusion_store = RecognitionExclusionStore()
         self.share_template_store = ShareTemplateStore()
@@ -747,8 +749,22 @@ class AniyoriWindow(Adw.ApplicationWindow):
                 "the schedule for anime in your library."
             ),
         )
+        timezone_note = Gtk.Label(
+            label="All times shown in your local timezone", xalign=0, wrap=True
+        )
+        timezone_note.add_css_class("dim-label")
+        timezone_note.add_css_class("caption")
+
+        self.calendar_agenda_heading = Gtk.Label(label="Episodes", xalign=0, wrap=True)
+        self.calendar_agenda_heading.add_css_class("heading")
+        self.calendar_agenda = Gtk.ListBox()
+        self.calendar_agenda.add_css_class("boxed-list")
+
         calendar_content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
+        calendar_content.append(timezone_note)
         calendar_content.append(self.calendar_grid)
+        calendar_content.append(self.calendar_agenda_heading)
+        calendar_content.append(self.calendar_agenda)
         calendar_content.append(self.calendar_empty)
         calendar_scroll = Gtk.ScrolledWindow()
         calendar_scroll.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
@@ -1238,6 +1254,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
         first = date(year, month, 1)
         offset = first.weekday()
         days_in_month = calendar.monthrange(year, month)[1]
+        self._calendar_selected_day = min(self._calendar_selected_day, days_in_month)
         cells = ((offset + days_in_month + 6) // 7) * 7
         today = date.today()
         for index in range(cells):
@@ -1248,18 +1265,22 @@ class AniyoriWindow(Adw.ApplicationWindow):
             if in_month and grouped.get(day_number):
                 cell.add_css_class("card")
             if in_month:
-                number = Gtk.Label(label=str(day_number), xalign=0)
-                if today.year == year and today.month == month and today.day == day_number:
+                number = Gtk.Button(
+                    label=str(day_number), tooltip_text=f"Show episodes for {day_number}"
+                )
+                number.add_css_class("flat")
+                if day_number == self._calendar_selected_day:
                     number.add_css_class("accent")
+                if today.year == year and today.month == month and today.day == day_number:
                     number.add_css_class("heading")
+                number.connect(
+                    "clicked", lambda _button, day=day_number: self._select_calendar_day(day)
+                )
                 cell.append(number)
                 for entry, episode, local in grouped.get(day_number, [])[:3]:
                     button = Gtk.Button(
-                        label=f"EP {episode} · {entry.title}",
-                        tooltip_text=(
-                            f"{entry.title} — episode {episode} at "
-                            f"{local.strftime('%H:%M')}"
-                        ),
+                        label=f"{self._calendar_time(local)} · EP {episode}",
+                        tooltip_text=f"{entry.title} — episode {episode}",
                     )
                     button.add_css_class("flat")
                     button.connect(
@@ -1275,8 +1296,60 @@ class AniyoriWindow(Adw.ApplicationWindow):
                     cell.append(more)
             self.calendar_grid.attach(cell, index % 7, index // 7 + 1, 1, 1)
 
+        self._calendar_grouped = grouped
         self.calendar_empty.set_visible(not grouped)
+        self._refresh_calendar_agenda()
         return GLib.SOURCE_REMOVE
+
+    def _calendar_time(self, local):
+        return local.strftime("%H:%M")
+
+    def _refresh_calendar_agenda(self):
+        child = self.calendar_agenda.get_first_child()
+        while child is not None:
+            following = child.get_next_sibling()
+            self.calendar_agenda.remove(child)
+            child = following
+
+        day = self._calendar_selected_day
+        self.calendar_agenda_heading.set_label(
+            f"{calendar.month_name[self._calendar_month]} {day}, "
+            f"{self._calendar_year}"
+        )
+        episodes = self._calendar_grouped.get(day, [])
+        if not episodes:
+            empty = Gtk.Label(
+                label="No episodes scheduled on this day.", xalign=0, wrap=True
+            )
+            empty.add_css_class("dim-label")
+            empty.set_margin_top(8)
+            empty.set_margin_bottom(8)
+            row = Gtk.ListBoxRow()
+            row.set_child(empty)
+            self.calendar_agenda.append(row)
+            return
+
+        for entry, episode, local in episodes:
+            countdown = format_airing_countdown(episode, int(local.timestamp()))
+            if countdown and " · " in countdown:
+                countdown = countdown.split(" · ", 1)[1]
+            row = Adw.ActionRow(
+                title=entry.title,
+                subtitle=f"EP {episode} · {self._calendar_time(local)} · "
+                f"{countdown or 'airing time unknown'}",
+            )
+            details = Gtk.Button(label="Details")
+            details.set_valign(Gtk.Align.CENTER)
+            details.connect(
+                "clicked", lambda _button, item=entry: self._show_anime_details(item)
+            )
+            row.add_suffix(details)
+            row.set_activatable_widget(details)
+            self.calendar_agenda.append(row)
+
+    def _select_calendar_day(self, day):
+        self._calendar_selected_day = day
+        self._refresh_calendar_agenda()
 
     def _on_nav_selected(self, _listbox, row):
         if row is None:
