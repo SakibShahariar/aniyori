@@ -4231,7 +4231,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
     def _show_about_dialog(self):
         about = Adw.AboutDialog(
             application_name="Aniyori",
-            application_icon="io.github.sakibshahariar.Aniyori",
+            application_icon="aniyori",
             version="0.1.0",
             developer_name="Sakib Shahariar",
             comments="A native Linux anime library and progress tracker.",

@@ -49,6 +49,13 @@ python3 main.py
 
 For AniList account tokens and qBittorrent WebUI passwords, install `secret-tool` and configure a desktop Secret Service provider. These credential integrations require it; the local library and desktop magnet-link handoff remain available without it.
 
+## App icon
+
+The Aniyori icon (a mint leaf forming an "A" on a deep green tile) lives in
+[`docs/assets`](docs/assets) as `aniyori.svg` with 128px and 512px PNG exports.
+It is installed into the local hicolor icon theme and referenced by the
+`.desktop` entry so it appears in the application grid and About dialog.
+
 ## Documentation
 
 - [AniList account setup and sync](docs/anilist-account.md)

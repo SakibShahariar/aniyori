@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Aniyori
+GenericName=Anime Library and Tracker
+Comment=Track anime, discover new series, and manage your local collection
+Exec=aniyori
+Icon=aniyori
+Terminal=false
+Categories=GTK;Utility;
+StartupWMClass=io.github.sakibshahariar.Aniyori
