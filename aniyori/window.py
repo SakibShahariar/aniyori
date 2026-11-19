@@ -7,7 +7,9 @@ import hashlib
 import json
 import logging
 import os
+import re
 import shutil
+from html import unescape
 import sqlite3
 import subprocess
 import threading
@@ -826,6 +828,15 @@ class AniyoriWindow(Adw.ApplicationWindow):
         self.statistics_page.append(self.statistics_scroll)
         self.page_stack.add_named(self.statistics_page, "statistics")
         self._build_statistics_page()
+
+        self.anime_page = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+        self.anime_scroll = Gtk.ScrolledWindow()
+        self.anime_scroll.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
+        self.anime_scroll.set_hexpand(True)
+        self.anime_scroll.set_vexpand(True)
+        self.anime_page.append(self.anime_scroll)
+        self.page_stack.add_named(self.anime_page, "anime")
+        self._details_generation = 0
 
         toolbar = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
         toolbar.set_margin_bottom(12)
@@ -6226,30 +6237,28 @@ class AniyoriWindow(Adw.ApplicationWindow):
         dialog.present(self)
 
     def _show_anime_details(self, entry: AnimeEntry):
-        """Present a focused, native detail view for a saved anime."""
-        dialog = Adw.Dialog()
-        dialog.set_title(entry.title)
-        dialog.set_content_width(680)
-        dialog.set_content_height(620)
-        toolbar_view = Adw.ToolbarView()
-        header = Adw.HeaderBar()
-        close_button = Gtk.Button.new_from_icon_name("window-close-symbolic")
-        close_button.set_tooltip_text("Close details")
-        close_button.connect("clicked", lambda _button: dialog.close())
-        header.pack_end(close_button)
-        toolbar_view.add_top_bar(header)
+        """Open a full information page for one saved anime."""
+        current = self.page_stack.get_visible_child_name()
+        self._details_return_page = current if current != "anime" else "home"
+        self._details_generation += 1
+        generation = self._details_generation
 
         content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=18)
-        content.set_margin_top(18)
-        content.set_margin_bottom(18)
         content.set_margin_start(20)
         content.set_margin_end(20)
+        content.set_margin_top(16)
+        content.set_margin_bottom(24)
+
+        back = Gtk.Button(label="Back")
+        back.add_css_class("flat")
+        back.set_halign(Gtk.Align.START)
+        back.connect("clicked", lambda _b: self._close_anime_details())
+        content.append(back)
 
         hero = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=18)
         hero.add_css_class("card")
-        hero.set_margin_bottom(4)
         poster = Gtk.Picture()
-        poster.set_size_request(132, 184)
+        poster.set_size_request(160, 224)
         poster.set_can_shrink(True)
         poster.set_content_fit(Gtk.ContentFit.COVER)
         placeholder = Gtk.Image.new_from_icon_name("video-x-generic-symbolic")
@@ -6261,34 +6270,68 @@ class AniyoriWindow(Adw.ApplicationWindow):
         hero.append(poster)
         _load_cover_async(poster, entry.cover_image)
 
-        summary = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
-        summary.set_valign(Gtk.Align.CENTER)
-        summary.set_hexpand(True)
+        heading = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        heading.set_hexpand(True)
+        heading.set_valign(Gtk.Align.CENTER)
         title = Gtk.Label(label=entry.title, xalign=0, wrap=True)
         title.add_css_class("title-1")
-        summary.append(title)
-        status = Gtk.Label(
-            label=entry.status.value.replace("_", " ").title(), xalign=0
-        )
-        status.add_css_class("dim-label")
-        summary.append(status)
+        heading.append(title)
+        status = _status_label(entry.status, entry.status.value.replace("_", " ").title())
+        heading.append(status)
         progress = Gtk.Label(label=entry.progress_label, xalign=0)
         progress.add_css_class("heading")
-        summary.append(progress)
+        heading.append(progress)
         if entry.progress_fraction is not None:
-            progress_bar = Gtk.ProgressBar()
-            progress_bar.set_fraction(entry.progress_fraction)
-            summary.append(progress_bar)
-        provider_text = (
-            f"{entry.provider.title()} · ID {entry.provider_id}"
-            if entry.provider and entry.provider_id else "Local library entry"
+            bar = Gtk.ProgressBar()
+            bar.set_fraction(entry.progress_fraction)
+            heading.append(bar)
+        source = Gtk.Label(
+            label=(entry.provider.title() if entry.provider else "Local library entry"),
+            xalign=0,
         )
-        provider = Gtk.Label(label=provider_text, xalign=0, wrap=True)
-        provider.add_css_class("dim-label")
-        provider.add_css_class("caption")
-        summary.append(provider)
-        hero.append(summary)
+        source.add_css_class("dim-label")
+        source.add_css_class("caption")
+        heading.append(source)
+        hero.append(heading)
         content.append(hero)
+
+        score_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
+        score_row.set_hexpand(True)
+        self.details_score = Gtk.Label(label="Rating: loading…", xalign=0, wrap=True)
+        self.details_score.add_css_class("heading")
+        self.details_score.set_hexpand(True)
+        score_row.append(self.details_score)
+        content.append(score_row)
+
+        self.details_synopsis = Gtk.Label(
+            label="Loading synopsis…", xalign=0, wrap=True, selectable=True
+        )
+        self.details_synopsis.set_margin_top(4)
+        self.details_synopsis.set_margin_bottom(4)
+        content.append(self.details_synopsis)
+
+        info = Adw.PreferencesGroup(title="Details")
+        detail_rows = {}
+        for key, label in (
+            ("format", "Format"), ("episodes", "Episodes"), ("status", "Status"),
+            ("season", "Season"), ("aired", "Aired"), ("duration", "Duration"),
+            ("studios", "Studios"), ("source", "Source"), ("genres", "Genres"),
+        ):
+            row = Adw.ActionRow(title=label, subtitle="—")
+            info.add(row)
+            detail_rows[key] = row
+        content.append(info)
+
+        self.details_trailer = Gtk.Button(label="Watch Trailer")
+        self.details_trailer.set_visible(False)
+        self.details_trailer.set_halign(Gtk.Align.START)
+        self.details_trailer.connect(
+            "clicked",
+            lambda _b: self._launch_trailer_async(
+                getattr(self, "_details_trailer_url", "")
+            ),
+        )
+        content.append(self.details_trailer)
 
         actions = Gtk.FlowBox()
         actions.set_selection_mode(Gtk.SelectionMode.NONE)
@@ -6296,56 +6339,130 @@ class AniyoriWindow(Adw.ApplicationWindow):
         actions.set_max_children_per_line(3)
         actions.set_row_spacing(8)
         actions.set_column_spacing(8)
-
-        edit = Gtk.Button(label="Edit details")
-        edit.add_css_class("suggested-action")
-        edit.connect(
-            "clicked",
-            lambda _button: (dialog.close(), self._show_edit_dialog(entry)),
-        )
-        actions.append(edit)
-
-        episodes = Gtk.Button(label="Episode history")
-        episodes.connect(
-            "clicked",
-            lambda _button: (dialog.close(), self._show_episode_editor(entry)),
-        )
-        actions.append(episodes)
-
-        links = Gtk.Button(label="External links")
-        links.connect(
-            "clicked",
-            lambda button: self._show_external_links(entry, button),
-        )
-        actions.append(links)
-
-        downloads = Gtk.Button(label="Download preferences")
-        downloads.connect(
-            "clicked",
-            lambda _button: self._show_anime_download_preferences_dialog(entry),
-        )
-        actions.append(downloads)
-        content.append(actions)
-
+        for label, handler, suggested in (
+            ("Edit details", lambda _b: self._show_edit_dialog(entry), True),
+            ("Episode history", lambda _b: self._show_episode_editor(entry), False),
+            ("External links", lambda b: self._show_external_links(entry, b), False),
+            ("Download preferences",
+             lambda _b: self._show_anime_download_preferences_dialog(entry), False),
+        ):
+            button = Gtk.Button(label=label)
+            if suggested:
+                button.add_css_class("suggested-action")
+            button.connect("clicked", handler)
+            actions.append(button)
         if entry.status == WatchStatus.WATCHING and (
             entry.episodes_total is None
             or entry.episodes_watched < entry.episodes_total
         ):
             advance = Gtk.Button(label="Mark next episode watched")
             advance.add_css_class("suggested-action")
-            advance.connect(
-                "clicked",
-                lambda _button: (dialog.close(), self._increment_progress(entry)),
-            )
-            content.append(advance)
+            advance.connect("clicked", lambda _b: self._increment_progress(entry))
+            actions.append(advance)
+        content.append(actions)
 
-        scroller = Gtk.ScrolledWindow()
-        scroller.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
-        scroller.set_min_content_height(200)
-        scroller.set_child(content)
-        toolbar_view.set_content(scroller)
-        dialog.set_child(toolbar_view)
-        dialog.present(self)
+        self.anime_scroll.set_child(content)
+        self.page_stack.set_visible_child_name("anime")
+        self.set_title(f"Aniyori — {entry.title}")
+
+        for key in detail_rows:
+            detail_rows[key].set_subtitle("—")
+        self.details_score.set_label("Rating: loading…")
+        self.details_synopsis.set_label("Loading synopsis…")
+        self.details_trailer.set_visible(False)
+        self._details_trailer_url = ""
+
+        media_id = None
+        if entry.provider == "anilist" and entry.provider_id and entry.provider_id.isdigit():
+            media_id = int(entry.provider_id)
+        if media_id is None:
+            self.details_score.set_label("Rating: not available for local entries")
+            self.details_synopsis.set_label("No synopsis is available for local library entries.")
+            detail_rows["format"].set_subtitle(
+                str(entry.episodes_total or "Unknown") + " episodes known locally"
+            )
+            return
+
+        def worker():
+            try:
+                details = AniListClient().get_anime(media_id)
+                error = None
+            except (AniListError, ValueError, OSError) as caught:
+                details = None
+                error = str(caught)
+
+            def finish():
+                if generation != self._details_generation:
+                    return GLib.SOURCE_REMOVE
+                if error is not None:
+                    self.details_score.set_label("Rating: unavailable offline")
+                    self.details_synopsis.set_label(
+                        "Synopsis is unavailable while AniList cannot be reached."
+                    )
+                    return GLib.SOURCE_REMOVE
+                score = details.get("average_score")
+                self.details_score.set_label(
+                    f"★ {score}/100" if isinstance(score, (int, float)) else "Not rated yet"
+                )
+                popularity = details.get("popularity")
+                if isinstance(popularity, (int, float)):
+                    self.details_score.set_label(
+                        self.details_score.get_label() + f"  ·  {popularity:,} popularity"
+                    )
+                description = str(details.get("description") or "")
+                description = unescape(re.sub(r"<[^>]+>", " ", description))
+                description = " ".join(description.split())
+                self.details_synopsis.set_label(
+                    description or "No synopsis was provided by AniList."
+                )
+                start = details.get("start_date") or {}
+                end = details.get("end_date") or {}
+                aired = str(start.get("year") or "?")
+                if start.get("month"):
+                    aired = f"{start['month']:02d}/{aired}"
+                if end.get("year"):
+                    aired += f" – {end['year']}"
+                values = {
+                    "format": str(details.get("format") or "Unknown").replace("_", " ").title(),
+                    "episodes": str(details.get("episodes") or "Unknown"),
+                    "status": str(details.get("status") or "Unknown").replace("_", " ").title(),
+                    "season": (
+                        f"{str(details.get('season') or '').title()} "
+                        f"{details.get('season_year') or ''}"
+                    ).strip() or "—",
+                    "aired": aired,
+                    "duration": (
+                        f"{details['duration']} min/ep" if details.get("duration") else "—"
+                    ),
+                    "studios": ", ".join(details.get("studios") or []) or "—",
+                    "source": str(details.get("source") or "—").replace("_", " ").title(),
+                    "genres": ", ".join(str(value) for value in details.get("genres") or []) or "—",
+                }
+                for key, value in values.items():
+                    detail_rows[key].set_subtitle(value)
+                trailer = details.get("trailer_url")
+                if isinstance(trailer, str) and trailer:
+                    self._details_trailer_url = trailer
+                    self.details_trailer.set_visible(True)
+                return GLib.SOURCE_REMOVE
+
+            GLib.idle_add(finish)
+
+        threading.Thread(target=worker, daemon=True).start()
+
+    def _close_anime_details(self):
+        target = getattr(self, "_details_return_page", "home")
+        self._details_generation += 1
+        self.page_stack.set_visible_child_name(target)
+        titles = {
+            "home": "Aniyori",
+            "library": "Aniyori — My List",
+            "browse": "Aniyori — Browse",
+            "calendar": "Aniyori — Calendar",
+            "statistics": "Aniyori — Statistics",
+            "settings": "Aniyori — Settings",
+        }
+        self.set_title(titles.get(target, "Aniyori"))
 
     def _show_edit_dialog(self, entry: AnimeEntry):
         dialog = Adw.AlertDialog(

@@ -126,6 +126,14 @@ query AnimeDetails($id: Int!) {
     status
     seasonYear
     description(asHtml: false)
+    averageScore
+    popularity
+    favourites
+    startDate { year month day }
+    endDate { year month day }
+    duration
+    source
+    studios(isMain: true) { nodes { name } }
     coverImage { medium large }
     siteUrl
     genres
@@ -230,6 +238,15 @@ def _normalise_media(media: dict[str, Any]) -> dict[str, Any]:
         "season_year": media.get("seasonYear"),
         "popularity": media.get("popularity"),
         "average_score": media.get("averageScore"),
+        "favourites": media.get("favourites"),
+        "end_date": dict(media["endDate"]) if isinstance(media.get("endDate"), dict) else {},
+        "duration": media.get("duration"),
+        "source": media.get("source"),
+        "studios": (
+            [str(node["name"]) for node in media["studios"]["nodes"] if isinstance(node, dict) and node.get("name")]
+            if isinstance(media.get("studios"), dict) and isinstance(media["studios"].get("nodes"), list)
+            else []
+        ),
         "start_date": dict(media["startDate"]) if isinstance(media.get("startDate"), dict) else {},
         "description": media.get("description") or "",
         "cover_image": cover.get("large") or cover.get("medium"),
