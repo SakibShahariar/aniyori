@@ -1489,29 +1489,66 @@ class AniyoriWindow(Adw.ApplicationWindow):
             self.home_page.remove(child)
             child = following
 
-        hero = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
+        created = self.storage.get_created_at_map()
+        updated = self.storage.get_updated_at_map()
+        recent = recently_added_entries(self.entries, created)
+        watching = continue_watching_entries(self.entries, updated)
+        featured = watching[0] if watching else (recent[0] if recent else None)
+
+        hero = Gtk.Box(
+            orientation=(
+                Gtk.Orientation.VERTICAL if self._compact_layout
+                else Gtk.Orientation.HORIZONTAL
+            ),
+            spacing=18,
+        )
         hero.add_css_class("card")
         hero.set_margin_top(8)
         hero.set_margin_bottom(8)
         hero.set_margin_start(2)
         hero.set_margin_end(2)
-        heading = Gtk.Label(label="Track. Discover. Enjoy.", xalign=0, wrap=True)
-        heading.add_css_class("title-1")
-        hero.append(heading)
 
+        hero_text = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+        hero_text.set_hexpand(True)
+        hero_text.set_valign(Gtk.Align.CENTER)
+        brand = Gtk.Label(label="Aniyori", xalign=0)
+        brand.add_css_class("title-1")
+        hero_text.append(brand)
+        tagline = Gtk.Label(label="Track · Discover · Enjoy.", xalign=0, wrap=True)
+        tagline.add_css_class("heading")
+        hero_text.append(tagline)
         intro = Gtk.Label(
-            label="Your anime, your progress, all in one place.",
+            label=(
+                "Your native Linux anime tracker — local library, discovery, "
+                "and release workflow in one place."
+            ),
             xalign=0,
             wrap=True,
         )
         intro.add_css_class("dim-label")
-        hero.append(intro)
-
+        hero_text.append(intro)
         explore = Gtk.Button(label="Explore Anime")
         explore.add_css_class("suggested-action")
         explore.set_halign(Gtk.Align.START)
         explore.connect("clicked", lambda _button: self._show_season_discovery())
-        hero.append(explore)
+        hero_text.append(explore)
+        hero.append(hero_text)
+
+        artwork = Gtk.Picture()
+        artwork.set_size_request(180, 240)
+        artwork.set_can_shrink(True)
+        artwork.set_content_fit(Gtk.ContentFit.COVER)
+        artwork.set_halign(Gtk.Align.CENTER)
+        placeholder = Gtk.Image.new_from_icon_name("video-x-generic-symbolic")
+        placeholder.set_pixel_size(48)
+        artwork.set_paintable(placeholder.get_paintable())
+        artwork.update_property(
+            [Gtk.AccessibleProperty.LABEL],
+            [f"Cover art for {featured.title}" if featured else "Anime artwork"],
+        )
+        if featured is not None:
+            _load_fixed_thumb_async(artwork, featured.cover_image, 180, 240)
+        hero.append(artwork)
         self.home_page.append(hero)
 
         columns = Gtk.FlowBox()
@@ -1596,11 +1633,6 @@ class AniyoriWindow(Adw.ApplicationWindow):
             quick_buttons.append(button)
         quick.append(quick_buttons)
         right_column.append(quick)
-
-        created = self.storage.get_created_at_map()
-        updated = self.storage.get_updated_at_map()
-        recent = recently_added_entries(self.entries, created)
-        watching = continue_watching_entries(self.entries, updated)
 
         self._append_home_entry_section(
             "Continue Watching", watching,
