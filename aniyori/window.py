@@ -655,17 +655,12 @@ class AniyoriWindow(Adw.ApplicationWindow):
         self.calendar_row.add_prefix(
             Gtk.Image.new_from_icon_name("x-office-calendar-symbolic")
         )
-        self.settings_row = Adw.ActionRow(title="Settings")
-        self.settings_row.add_prefix(
-            Gtk.Image.new_from_icon_name("preferences-system-symbolic")
-        )
         self._nav_pages = {
             self.home_row: "home",
             self.library_row: "library",
             self.browse_row: "browse",
             self.calendar_row: "calendar",
             self.statistics_row: "statistics",
-            self.settings_row: "settings",
         }
         for row in self._nav_pages:
             self.nav_list.append(row)
@@ -679,7 +674,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
 
         self.navigation_split_view = Adw.NavigationSplitView()
         self.navigation_split_view.set_show_content(True)
-        self.navigation_split_view.set_min_sidebar_width(156)
+        self.navigation_split_view.set_min_sidebar_width(184)
         self.navigation_split_view.set_max_sidebar_width(224)
         self.navigation_split_view.set_sidebar_width_fraction(0.21)
         self.navigation_split_view.set_sidebar(
@@ -1000,7 +995,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
         self.empty_state.set_child(self.empty_add)
 
         compact_breakpoint = Adw.Breakpoint.new(
-            Adw.BreakpointCondition.parse("max-width: 720sp")
+            Adw.BreakpointCondition.parse("max-width: 900sp")
         )
         compact_breakpoint.connect(
             "apply", lambda *_args: self._set_compact_layout(True)
@@ -1171,7 +1166,6 @@ class AniyoriWindow(Adw.ApplicationWindow):
             "browse": self.browse_row,
             "calendar": self.calendar_row,
             "statistics": self.statistics_row,
-            "settings": self.settings_row,
         }.get(page_name, self.home_row)
         self.page_stack.set_visible_child_name(page_name)
         if self.navigation_split_view.get_collapsed():
