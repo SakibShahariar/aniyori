@@ -165,6 +165,29 @@ def _load_cover_async(picture: Gtk.Picture, url: str | None) -> None:
     _COVER_POOL.submit(worker)
 
 
+def _load_fixed_thumb_async(picture: Gtk.Picture, url: str | None, width: int, height: int) -> None:
+    """Load a cover pre-scaled to an exact size so row heights stay uniform."""
+    if not url:
+        return
+
+    def worker():
+        try:
+            path = get_cached_cover(url)
+            gi.require_version("GdkPixbuf", "2.0")
+            from gi.repository import GdkPixbuf
+
+            pixbuf = GdkPixbuf.Pixbuf.new_from_file_at_scale(
+                str(path), width, height, True
+            )
+            texture = Gdk.Texture.new_for_pixbuf(pixbuf)
+        except (OSError, RuntimeError, ValueError, GLib.Error):
+            LOGGER.debug("Could not load thumbnail %s", url, exc_info=True)
+            return
+        GLib.idle_add(picture.set_paintable, texture)
+
+    _COVER_POOL.submit(worker)
+
+
 def _apply_cover_texture(picture: Gtk.Picture, path: str):
     if picture.get_parent() is None:
         return GLib.SOURCE_REMOVE
@@ -1248,15 +1271,12 @@ class AniyoriWindow(Adw.ApplicationWindow):
         thumb.update_property(
             [Gtk.AccessibleProperty.LABEL], [f"Cover art for {entry.title}"]
         )
-        _load_cover_async(thumb, entry.cover_image)
-        # A fixed box forces the exact thumbnail size; Gtk.Picture otherwise
-        # expands to the image's natural size when the row has spare width.
-        thumb_box = Gtk.Fixed()
-        thumb_box.set_size_request(36, 50)
-        thumb_box.put(thumb, 0, 0)
+        thumb.set_valign(Gtk.Align.CENTER)
+        thumb.set_halign(Gtk.Align.START)
+        _load_fixed_thumb_async(thumb, entry.cover_image, 36, 50)
 
         prefix = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-        prefix.append(thumb_box)
+        prefix.append(thumb)
         prefix.append(dot)
         row.add_prefix(prefix)
         details = Gtk.Button(label="Details")
