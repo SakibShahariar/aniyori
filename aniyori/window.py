@@ -1248,11 +1248,15 @@ class AniyoriWindow(Adw.ApplicationWindow):
         thumb.update_property(
             [Gtk.AccessibleProperty.LABEL], [f"Cover art for {entry.title}"]
         )
-        thumb.set_valign(Gtk.Align.CENTER)
         _load_cover_async(thumb, entry.cover_image)
+        # A fixed box forces the exact thumbnail size; Gtk.Picture otherwise
+        # expands to the image's natural size when the row has spare width.
+        thumb_box = Gtk.Fixed()
+        thumb_box.set_size_request(36, 50)
+        thumb_box.put(thumb, 0, 0)
 
         prefix = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-        prefix.append(thumb)
+        prefix.append(thumb_box)
         prefix.append(dot)
         row.add_prefix(prefix)
         details = Gtk.Button(label="Details")
