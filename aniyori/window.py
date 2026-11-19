@@ -851,7 +851,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
         self._details_generation = 0
 
         toolbar = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
-        toolbar.set_margin_bottom(12)
+        toolbar.set_margin_bottom(2)
         self.library_page.append(toolbar)
 
         search_toolbar = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
@@ -865,7 +865,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
 
         filter_toolbar = Gtk.FlowBox()
         filter_toolbar.set_selection_mode(Gtk.SelectionMode.NONE)
-        filter_toolbar.set_row_spacing(6)
+        filter_toolbar.set_row_spacing(3)
         filter_toolbar.set_column_spacing(6)
         filter_toolbar.set_min_children_per_line(1)
         filter_toolbar.set_max_children_per_line(6)
@@ -873,7 +873,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
 
         options_toolbar = Gtk.FlowBox()
         options_toolbar.set_selection_mode(Gtk.SelectionMode.NONE)
-        options_toolbar.set_row_spacing(8)
+        options_toolbar.set_row_spacing(3)
         options_toolbar.set_column_spacing(12)
         options_toolbar.set_min_children_per_line(1)
         options_toolbar.set_max_children_per_line(3)
@@ -1615,7 +1615,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
 
         columns = Gtk.FlowBox()
         columns.set_selection_mode(Gtk.SelectionMode.NONE)
-        columns.set_homogeneous(False)
+        columns.set_homogeneous(True)
         columns.set_min_children_per_line(1)
         columns.set_max_children_per_line(2)
         columns.set_row_spacing(16)
@@ -1634,7 +1634,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
         stats.set_row_spacing(8)
         stats.set_column_spacing(8)
         stats.set_min_children_per_line(1)
-        stats.set_max_children_per_line(4)
+        stats.set_max_children_per_line(3)
         counts = count_library_statuses(self.entries)
         total_tile = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
         total_tile.add_css_class("card")
