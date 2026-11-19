@@ -910,7 +910,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
             model=self.library_selection, factory=self._make_grid_factory()
         )
         self.grid_view.set_min_columns(1)
-        self.grid_view.set_max_columns(6)
+        self.grid_view.set_max_columns(4)
         self.grid_scroll = Gtk.ScrolledWindow()
         self.grid_scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
         self.grid_scroll.set_child(self.grid_view)
