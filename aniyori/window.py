@@ -12,7 +12,7 @@ import sqlite3
 import subprocess
 import threading
 import time
-from datetime import date, datetime
+from datetime import date, datetime, timezone as dt_timezone
 from pathlib import Path
 from urllib.parse import urlsplit
 
@@ -27,6 +27,7 @@ from .dashboard import (
     continue_watching_entries, count_library_statuses, recently_added_entries,
     upcoming_airing_entries,
     airing_by_local_date,
+    group_airing_schedules,
 )
 from .backup import BackupError, create_backup, default_config_dir, restore_backup
 from .services.recognition_exclusions import RecognitionExclusionError, RecognitionExclusionStore
@@ -472,6 +473,8 @@ class AniyoriWindow(Adw.ApplicationWindow):
         self._selected_entry_ids = set()
         self._library_dirty = False
         self._library_render_timer = None
+        self._calendar_schedules = {}
+        self._calendar_loading_month = None
         self.scan_location_store = ScanLocationStore()
         self.recognition_exclusion_store = RecognitionExclusionStore()
         self.share_template_store = ShareTemplateStore()
@@ -722,11 +725,15 @@ class AniyoriWindow(Adw.ApplicationWindow):
         self.calendar_month_label = Gtk.Label(label="", xalign=0, wrap=True)
         self.calendar_month_label.add_css_class("title-2")
         self.calendar_month_label.set_hexpand(True)
+        self.calendar_loading = Gtk.Label(label="", xalign=1)
+        self.calendar_loading.add_css_class("dim-label")
+        self.calendar_loading.add_css_class("caption")
         today_button = Gtk.Button(label="Today")
         today_button.connect("clicked", lambda _b: self._go_to_today())
         controls.append(previous_month)
         controls.append(next_month)
         controls.append(self.calendar_month_label)
+        controls.append(self.calendar_loading)
         controls.append(today_button)
         self.calendar_page.append(controls)
 
@@ -1158,6 +1165,49 @@ class AniyoriWindow(Adw.ApplicationWindow):
         self._calendar_year, self._calendar_month = today.year, today.month
         self._refresh_calendar()
 
+    def _load_calendar_month(self, year, month):
+        key = (year, month)
+        if key in self._calendar_schedules or self._calendar_loading_month == key:
+            return
+        media_ids = [
+            int(entry.provider_id)
+            for entry in self.entries
+            if entry.provider == "anilist" and entry.provider_id
+            and entry.provider_id.isdigit() and int(entry.provider_id) > 0
+        ]
+        if not media_ids:
+            return
+        start = datetime(year, month, 1, tzinfo=dt_timezone.utc)
+        end = (
+            datetime(year + 1, 1, 1, tzinfo=dt_timezone.utc)
+            if month == 12
+            else datetime(year, month + 1, 1, tzinfo=dt_timezone.utc)
+        )
+        self._calendar_loading_month = key
+        self.calendar_loading.set_label("Loading schedules…")
+
+        def worker():
+            error = None
+            schedules = None
+            try:
+                schedules = AniListClient().get_month_airing_schedules(
+                    media_ids, int(start.timestamp()), int(end.timestamp())
+                )
+            except (AniListError, ValueError, OSError) as caught:
+                error = str(caught)
+
+            def finish():
+                self._calendar_loading_month = None
+                self.calendar_loading.set_label("" if error is None else "Schedules unavailable")
+                if error is None:
+                    self._calendar_schedules[key] = schedules or []
+                self._refresh_calendar()
+                return GLib.SOURCE_REMOVE
+
+            GLib.idle_add(finish)
+
+        threading.Thread(target=worker, daemon=True).start()
+
     def _refresh_calendar(self):
         year, month = self._calendar_year, self._calendar_month
         self.calendar_month_label.set_label(f"{calendar.month_name[month]} {year}")
@@ -1175,9 +1225,16 @@ class AniyoriWindow(Adw.ApplicationWindow):
             label.add_css_class("caption")
             self.calendar_grid.attach(label, column, 0, 1, 1)
 
-        grouped = airing_by_local_date(
-            self.entries, self._airing_by_id, year, month, get_local_timezone()
-        )
+        schedules = self._calendar_schedules.get((year, month))
+        if schedules is None:
+            grouped = airing_by_local_date(
+                self.entries, self._airing_by_id, year, month, get_local_timezone()
+            )
+            self._load_calendar_month(year, month)
+        else:
+            grouped = group_airing_schedules(
+                schedules, self.entries, year, month, get_local_timezone()
+            )
         first = date(year, month, 1)
         offset = first.weekday()
         days_in_month = calendar.monthrange(year, month)[1]

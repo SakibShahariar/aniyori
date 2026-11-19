@@ -8,6 +8,7 @@ from aniyori.dashboard import (
     recently_added_entries,
     upcoming_airing_entries,
     airing_by_local_date,
+    group_airing_schedules,
 )
 from aniyori.models import AnimeEntry, WatchStatus
 
@@ -125,6 +126,27 @@ class DashboardSelectionTests(unittest.TestCase):
         )
         self.assertEqual([entry.title for entry, _ep, _dt in grouped[15]], ["First", "Second"])
         self.assertNotIn(16, grouped)
+
+
+    def test_group_airing_schedules_matches_library_ids_only(self):
+        from datetime import timezone
+
+        linked = AnimeEntry(title="Linked", provider="anilist", provider_id="42", storage_id=1)
+        other = AnimeEntry(title="Other", provider="anilist", provider_id="99", storage_id=2)
+        grouped = group_airing_schedules(
+            [
+                {"media_id": 99, "episode": 2, "airing_at": 1_800_000_000},
+                {"media_id": 42, "episode": 6, "airing_at": 1_800_000_000},
+                {"media_id": 777, "episode": 1, "airing_at": 1_800_000_000},
+            ],
+            [other, linked],
+            2027,
+            1,
+            timezone.utc,
+        )
+        self.assertEqual(
+            [entry.title for entry, _ep, _dt in grouped[15]], ["Other", "Linked"]
+        )
 
 
 if __name__ == "__main__":

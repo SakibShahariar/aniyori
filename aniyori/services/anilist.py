@@ -91,6 +91,19 @@ query TrendingAnime($perPage: Int!) {
 """
 
 
+MONTH_AIRING_QUERY = """
+query MonthAiring($ids: [Int!], $from: Int, $to: Int, $page: Int, $perPage: Int) {
+  Page(page: $page, perPage: $perPage) {
+    airingSchedules(mediaId_in: $ids, airingAt_greater: $from, airingAt_lesser: $to, sort: TIME) {
+      airingAt
+      episode
+      mediaId
+    }
+  }
+}
+"""
+
+
 AIRING_QUERY = """
 query AiringSchedules($ids: [Int!]!) {
   Page(perPage: 50) {
@@ -466,6 +479,84 @@ class AniListClient:
             for media_id in batch:
                 schedules.setdefault(media_id, None)
         return schedules
+
+    def get_month_airing_schedules(
+        self,
+        media_ids,
+        start_at: int,
+        end_at: int,
+        *,
+        chunk_size: int = 100,
+        per_page: int = 50,
+        max_pages: int = 3,
+    ) -> list[dict[str, int]]:
+        """Return every scheduled episode for the given anime in a time range.
+
+        AniList rejects very large mediaId_in lists, so IDs are chunked and
+        each chunk is paginated. Results are cached by range and library size.
+        """
+        if isinstance(start_at, bool) or not isinstance(start_at, int):
+            raise ValueError("start_at must be an integer timestamp")
+        if isinstance(end_at, bool) or not isinstance(end_at, int) or end_at <= start_at:
+            raise ValueError("end_at must be a timestamp after start_at")
+        if (
+            isinstance(chunk_size, bool) or not isinstance(chunk_size, int)
+            or not 1 <= chunk_size <= 100
+            or isinstance(per_page, bool) or not isinstance(per_page, int)
+            or not 1 <= per_page <= 50
+            or isinstance(max_pages, bool) or not isinstance(max_pages, int)
+            or not 1 <= max_pages <= 10
+        ):
+            raise ValueError("invalid chunk size, page size, or page limit")
+        try:
+            ids = list(media_ids)
+        except TypeError:
+            raise ValueError("media_ids must be an iterable of positive integers") from None
+        if any(
+            isinstance(media_id, bool) or not isinstance(media_id, int) or media_id <= 0
+            for media_id in ids
+        ):
+            raise ValueError("media_ids must contain only positive integers")
+        ids = tuple(dict.fromkeys(ids))
+        if not ids:
+            return []
+
+        cache_key = f"{start_at}:{end_at}:{len(ids)}"
+        cached = self.cache.get("airing-month", cache_key)
+        if cached is not None and cached[1]:
+            return cached[0]
+
+        results = []
+        for offset in range(0, len(ids), chunk_size):
+            batch = list(ids[offset:offset + chunk_size])
+            for page_number in range(1, max_pages + 1):
+                data = self._request(MONTH_AIRING_QUERY, {
+                    "ids": batch,
+                    "from": start_at,
+                    "to": end_at,
+                    "page": page_number,
+                    "perPage": per_page,
+                })
+                page = data.get("Page")
+                entries = page.get("airingSchedules") if isinstance(page, dict) else None
+                if not isinstance(entries, list) or not all(isinstance(item, dict) for item in entries):
+                    raise AniListError("AniList airing schedule response contained invalid results")
+                for item in entries:
+                    media_id = item.get("mediaId")
+                    episode = item.get("episode")
+                    airing_at = item.get("airingAt")
+                    if (
+                        isinstance(media_id, bool) or not isinstance(media_id, int)
+                        or media_id not in batch
+                        or isinstance(episode, bool) or not isinstance(episode, int) or episode <= 0
+                        or isinstance(airing_at, bool) or not isinstance(airing_at, int)
+                    ):
+                        raise AniListError("AniList airing schedule response contained invalid values")
+                    results.append({"media_id": media_id, "episode": episode, "airing_at": airing_at})
+                if len(entries) < per_page:
+                    break
+        self.cache.set("airing-month", cache_key, results)
+        return results
 
     def get_anime(self, media_id: int, *, refresh: bool = False) -> dict[str, Any]:
         """Fetch one catalogue entry, falling back to cached metadata offline."""
