@@ -1237,7 +1237,24 @@ class AniyoriWindow(Adw.ApplicationWindow):
             WatchStatus.DROPPED: "error",
         }.get(entry.status, "dim-label"))
         dot.set_tooltip_text(entry.status.value.title())
-        row.add_prefix(dot)
+
+        placeholder = Gtk.Image.new_from_icon_name("video-x-generic-symbolic")
+        placeholder.set_pixel_size(20)
+        thumb = Gtk.Picture()
+        thumb.set_size_request(36, 50)
+        thumb.set_can_shrink(True)
+        thumb.set_content_fit(Gtk.ContentFit.COVER)
+        thumb.set_paintable(placeholder.get_paintable())
+        thumb.update_property(
+            [Gtk.AccessibleProperty.LABEL], [f"Cover art for {entry.title}"]
+        )
+        thumb.set_valign(Gtk.Align.CENTER)
+        _load_cover_async(thumb, entry.cover_image)
+
+        prefix = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        prefix.append(thumb)
+        prefix.append(dot)
+        row.add_prefix(prefix)
         details = Gtk.Button(label="Details")
         details.set_valign(Gtk.Align.CENTER)
         details.connect(
