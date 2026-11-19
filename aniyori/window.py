@@ -703,7 +703,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
         self.home_page.set_margin_top(8)
         self.home_page.set_margin_bottom(8)
         self.home_scroll = Gtk.ScrolledWindow()
-        self.home_scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        self.home_scroll.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
         self.home_scroll.set_child(self.home_page)
         self.page_stack.add_named(self.home_scroll, "home")
 
@@ -729,7 +729,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
         self.calendar_stack.add_named(self.calendar_list, "list")
         self.calendar_stack.add_named(self.calendar_empty, "empty")
         calendar_scroll = Gtk.ScrolledWindow()
-        calendar_scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        calendar_scroll.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
         calendar_scroll.set_hexpand(True)
         calendar_scroll.set_vexpand(True)
         calendar_scroll.set_child(self.calendar_stack)
@@ -738,7 +738,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
 
         self.settings_page = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
         settings_scroll = Gtk.ScrolledWindow()
-        settings_scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        settings_scroll.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
         settings_scroll.set_hexpand(True)
         settings_scroll.set_vexpand(True)
         self.settings_page.append(settings_scroll)
@@ -747,7 +747,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
 
         self.browse_page = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
         self.browse_scroll = Gtk.ScrolledWindow()
-        self.browse_scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        self.browse_scroll.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
         self.browse_scroll.set_hexpand(True)
         self.browse_scroll.set_vexpand(True)
         self.browse_page.append(self.browse_scroll)
@@ -756,7 +756,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
 
         self.statistics_page = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
         self.statistics_scroll = Gtk.ScrolledWindow()
-        self.statistics_scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        self.statistics_scroll.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
         self.statistics_scroll.set_hexpand(True)
         self.statistics_scroll.set_vexpand(True)
         self.statistics_page.append(self.statistics_scroll)
@@ -902,7 +902,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
         )
         self.list_view.add_css_class("boxed-list")
         self.list_scroll = Gtk.ScrolledWindow()
-        self.list_scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        self.list_scroll.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
         self.list_scroll.set_child(self.list_view)
         self.stack.add_named(self.list_scroll, "list")
 
@@ -912,7 +912,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
         self.grid_view.set_min_columns(1)
         self.grid_view.set_max_columns(4)
         self.grid_scroll = Gtk.ScrolledWindow()
-        self.grid_scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        self.grid_scroll.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
         self.grid_scroll.set_child(self.grid_view)
         self.stack.add_named(self.grid_scroll, "grid")
 
@@ -981,7 +981,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
         self.release_list_box.set_selection_mode(Gtk.SelectionMode.NONE)
         self.release_list_box.add_css_class("boxed-list")
         self.release_scroll = Gtk.ScrolledWindow()
-        self.release_scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        self.release_scroll.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
         self.release_scroll.set_child(self.release_list_box)
         self.release_page.append(self.release_scroll)
         self.stack.add_named(self.release_page, "releases")

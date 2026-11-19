@@ -49,6 +49,7 @@ Use a disposable test profile or a backup of any library data you care about. Do
 - [ ] At that short height, open the AniList Account, anime details, watch-history, and other scrollable dialogs; confirm they become scrollable floating sheets without clipping or height-overflow warnings.
 - [ ] Confirm the hamburger menu contains only Search Library, About, and Quit, and that every previously listed command is still reachable from the sidebar pages, header + button, Home Quick Actions, or Settings.
 - [ ] In AniList Account, paste a token and connect with valid and invalid values; confirm a visible toast reports success or failure, the account status updates, and Review Sync becomes available after a successful connection.
+- [ ] Resize the window to about half the screen width: confirm Home, My List, Browse, Calendar, Statistics, and Settings remain usable; any content that cannot fit should scroll horizontally rather than being clipped.
 - [ ] On the Browse page, switch between Season chart and Search catalogue; confirm the season controls hide in search mode, trending catalogue titles load by default, a text query replaces them with real AniList results, and Enter and the Search button both work.
 - [ ] Confirm the hamburger menu has a Settings entry that opens the Settings page, and that at narrow widths a header drawer button shows the navigation sidebar and closes it after a page is chosen.
 - [ ] On Home, confirm recently added/continue-watching cards show their full title, progress, status, and actions without vertical cropping.
