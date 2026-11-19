@@ -1491,11 +1491,7 @@ class AniyoriWindow(Adw.ApplicationWindow):
         if picture is None or caption is None or not isinstance(item, dict):
             return
         title = str(item.get("title") or "Untitled anime")
-        score = item.get("average_score")
-        caption.set_label(
-            f"Trending now: {title}"
-            + (f" · ★ {score}/100" if isinstance(score, (int, float)) else "")
-        )
+        caption.set_label(f"Trending now: {title}")
         picture.update_property([Gtk.AccessibleProperty.LABEL], [f"Cover art for {title}"])
         _load_fixed_thumb_async(picture, item.get("cover_image"), 180, 240)
 
