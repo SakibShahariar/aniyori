@@ -66,7 +66,7 @@ Use a disposable test profile or a backup of any library data you care about. Do
 - [ ] Confirm clicking a day button scrolls to that day's section, the empty state appears only when the displayed week has no airings, and each episode row shows a small cover thumbnail next to the status dot.
 - [ ] Confirm Calendar shows a loading state while fetching schedules and falls back gracefully when AniList is unavailable.
 - [ ] On Home at wide and narrow widths, confirm the hero, two dashboard columns, Quick Actions, statistics, Continue Watching, Recently Added, and Popular This Season sections are readable and do not clip; columns should stack at narrow widths.
-- [ ] Confirm the hero shows the Aniyori brand, tagline, Explore Anime action, and cover artwork from a real library entry (placeholder only when the library is empty), and stacks vertically at narrow widths.
+- [ ] Confirm the hero shows the Aniyori brand, tagline, Explore Anime action, and rotating real trending anime artwork with a "Trending now" caption and score; it should fall back to a library cover offline and stack vertically at narrow widths.
 - [ ] Confirm Popular This Season shows real AniList titles with a loading state and an offline/error state with Retry; do not treat placeholder or sample titles as a passing result.
 - [ ] Open Scan Folders, Recognition Exclusions, Profiles, Webhooks, per-anime Download Preferences, and Season Discovery at narrow widths; confirm their action buttons wrap and remain fully reachable.
 - [ ] Open Download Queue at wide and narrow sizes; confirm the adaptive dialog remains usable and closing it stops its automatic refresh timer.

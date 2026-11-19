@@ -511,6 +511,10 @@ class AniyoriWindow(Adw.ApplicationWindow):
         self._calendar_loading_month = None
         self._calendar_selected_day = date.today().day
         self._calendar_grouped = {}
+        self._hero_trending = None
+        self._hero_loading = False
+        self._hero_index = 0
+        self._hero_timer = None
         self.scan_location_store = ScanLocationStore()
         self.recognition_exclusion_store = RecognitionExclusionStore()
         self.share_template_store = ShareTemplateStore()
@@ -1480,6 +1484,54 @@ class AniyoriWindow(Adw.ApplicationWindow):
         self.back_button.set_visible(False)
         self.sidebar_toggle.set_active(True)
 
+    def _apply_hero_item(self, item):
+        """Show one trending title in the hero artwork area."""
+        picture = getattr(self, "hero_artwork", None)
+        caption = getattr(self, "hero_caption", None)
+        if picture is None or caption is None or not isinstance(item, dict):
+            return
+        title = str(item.get("title") or "Untitled anime")
+        score = item.get("average_score")
+        caption.set_label(
+            f"Trending now: {title}"
+            + (f" · ★ {score}/100" if isinstance(score, (int, float)) else "")
+        )
+        picture.update_property([Gtk.AccessibleProperty.LABEL], [f"Cover art for {title}"])
+        _load_fixed_thumb_async(picture, item.get("cover_image"), 180, 240)
+
+    def _rotate_hero_art(self):
+        if not self._hero_trending:
+            return GLib.SOURCE_CONTINUE
+        if self.page_stack.get_visible_child_name() != "home":
+            return GLib.SOURCE_CONTINUE
+        self._hero_index = (self._hero_index + 1) % len(self._hero_trending)
+        self._apply_hero_item(self._hero_trending[self._hero_index])
+        return GLib.SOURCE_CONTINUE
+
+    def _load_hero_trending(self):
+        if self._hero_trending is not None or self._hero_loading:
+            return
+        self._hero_loading = True
+
+        def worker():
+            try:
+                results = AniListClient().get_trending_anime(per_page=10)
+            except (AniListError, ValueError, OSError):
+                results = []
+            GLib.idle_add(finish, results)
+
+        def finish(results):
+            self._hero_loading = False
+            if results:
+                self._hero_trending = results
+                self._hero_index = 0
+                self._apply_hero_item(results[0])
+                if self._hero_timer is None:
+                    self._hero_timer = GLib.timeout_add_seconds(10, self._rotate_hero_art)
+            return GLib.SOURCE_REMOVE
+
+        threading.Thread(target=worker, daemon=True).start()
+
     def _refresh_home(self):
         if not hasattr(self, "home_page"):
             return
@@ -1534,6 +1586,8 @@ class AniyoriWindow(Adw.ApplicationWindow):
         hero_text.append(explore)
         hero.append(hero_text)
 
+        artwork_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        artwork_box.set_halign(Gtk.Align.CENTER)
         artwork = Gtk.Picture()
         artwork.set_size_request(180, 240)
         artwork.set_can_shrink(True)
@@ -1548,7 +1602,20 @@ class AniyoriWindow(Adw.ApplicationWindow):
         )
         if featured is not None:
             _load_fixed_thumb_async(artwork, featured.cover_image, 180, 240)
-        hero.append(artwork)
+        caption = Gtk.Label(label="", xalign=0, wrap=True)
+        caption.add_css_class("dim-label")
+        caption.add_css_class("caption")
+        artwork_box.append(artwork)
+        artwork_box.append(caption)
+        hero.append(artwork_box)
+        self.hero_artwork = artwork
+        self.hero_caption = caption
+        self._hero_featured = featured
+        self._load_hero_trending()
+        if self._hero_trending:
+            self._apply_hero_item(
+                self._hero_trending[self._hero_index % len(self._hero_trending)]
+            )
         self.home_page.append(hero)
 
         columns = Gtk.FlowBox()
